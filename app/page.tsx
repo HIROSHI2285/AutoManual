@@ -77,6 +77,12 @@ export default function Home() {
         setManual(null);
         setError(null);
         setIsLoading(false);
+        // FORCE RESET: Clear all persistence
+        localStorage.removeItem('am_current_manual');
+        localStorage.removeItem('am_manual_data');
+        localStorage.removeItem('am_editor_color_v2');
+        localStorage.removeItem('am_editor_stroke_v2');
+        localStorage.removeItem('am_editor_fontSize_v2');
     }, [videoPreviewUrl]);
 
     const handleGenerate = async () => {
