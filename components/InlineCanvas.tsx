@@ -112,19 +112,47 @@ export default function InlineCanvas({
                 let containerWidth = containerRef.current?.getBoundingClientRect().width || 800;
                 if (containerWidth === 0) containerWidth = 800;
 
-                const scale = (img.width ? containerWidth / img.width : 1);
-                img.scale(scale);
+                // HIGH-RES STRATEGY:
+                // 1. Canvas Dimensions = Original Image Dimensions (1:1 matches output)
+                // 2. CSS Dimensions = Container Dimensions (Fit to screen)
 
-                const targetWidth = Math.round((img.width || 0) * scale);
-                const targetHeight = Math.round((img.height || 0) * scale);
+                const originalWidth = img.width || 800;
+                const originalHeight = img.height || 600;
 
-                // Set dimensions exactly to container size to avoid CSS stretching
+                // Set Logical Size (Full Resolution)
                 canvas.setDimensions({
-                    width: targetWidth,
-                    height: targetHeight
+                    width: originalWidth,
+                    height: originalHeight
                 }, { cssOnly: false });
 
-                img.set({ originX: 'left', originY: 'top', left: 0, top: 0 });
+                // Calculate CSS Size
+                let containerWidth = containerRef.current?.getBoundingClientRect().width || 800;
+                if (containerWidth === 0) containerWidth = 800;
+
+                const displayScale = containerWidth / originalWidth;
+                const cssWidth = containerWidth;
+                const cssHeight = originalHeight * displayScale;
+
+                // Force CSS sizing on the wrapper (canvas-container)
+                const wrapper = canvas.getElement().parentElement;
+                if (wrapper) {
+                    wrapper.style.width = `${cssWidth}px`;
+                    wrapper.style.height = `${cssHeight}px`;
+                }
+
+                // Also force style on canvas element
+                canvas.getElement().style.width = `${cssWidth}px`;
+                canvas.getElement().style.height = `${cssHeight}px`;
+
+                // Background Image: No scaling, align top-left
+                img.set({
+                    originX: 'left',
+                    originY: 'top',
+                    left: 0,
+                    top: 0,
+                    scaleX: 1,
+                    scaleY: 1
+                });
                 canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
 
                 initialLoadDone.current = true;
