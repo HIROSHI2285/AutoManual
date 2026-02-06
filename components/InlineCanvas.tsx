@@ -126,8 +126,7 @@ export default function InlineCanvas({
                 }, { cssOnly: false });
 
                 // Calculate CSS Size
-                let containerWidth = containerRef.current?.getBoundingClientRect().width || 800;
-                if (containerWidth === 0) containerWidth = 800;
+                // containerWidth is already defined above at line 112
 
                 const displayScale = containerWidth / originalWidth;
                 const cssWidth = containerWidth;
