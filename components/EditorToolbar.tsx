@@ -135,7 +135,7 @@ export default function EditorToolbar({
                         value={strokeWidth}
                         onChange={onStrokeWidthChange}
                         min={1}
-                        max={20}
+                        max={100}
                         step={1}
                     />
                 </div>
@@ -146,8 +146,8 @@ export default function EditorToolbar({
                     <QuantityStepper
                         value={fontSize}
                         onChange={onFontSizeChange}
-                        min={12}
-                        max={120}
+                        min={24}
+                        max={500}
                         step={2}
                     />
                 </div>

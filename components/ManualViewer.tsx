@@ -19,8 +19,8 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     const [isEditMode, setIsEditMode] = useState(false);
     const [activeTool, setActiveTool] = useState<ToolType>('select');
     const [currentColor, setCurrentColor] = useState('#9333ea'); // Explicit Purple
-    const [strokeWidth, setStrokeWidth] = useState(8); // Bolder by default
-    const [fontSize, setFontSize] = useState(42); // Much larger for visibility
+    const [strokeWidth, setStrokeWidth] = useState(12); // Higher default for high-res images
+    const [fontSize, setFontSize] = useState(64); // Larger default font
     const [stampCount, setStampCount] = useState(1);
 
     // Backup for cancellation

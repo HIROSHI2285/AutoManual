@@ -340,7 +340,7 @@ export default function InlineCanvas({
                 break;
             case 'stamp':
                 const circle = new fabric.Circle({ radius: 16, fill: currentColor, originX: 'center', originY: 'center', strokeWidth: 0, left: 0, top: 0 });
-                const num = new fabric.Text(stampCount.toString(), { fontSize: 20, fill: '#ffffff', originX: 'center', originY: 'center', fontFamily: 'var(--font-jakarta), sans-serif', fontWeight: 'bold', strokeWidth: 0, left: 0, top: 1 });
+                const num = new fabric.Text(stampCount.toString(), { fontSize: 20, fill: '#ffffff', originX: 'center', originY: 'center', fontFamily: 'Arial, sans-serif', fontWeight: 'bold', strokeWidth: 0, left: 0, top: 0 });
                 obj = new fabric.Group([circle, num], { ...commonProps, originX: 'center', originY: 'center' });
                 onStampUsed();
                 break;
