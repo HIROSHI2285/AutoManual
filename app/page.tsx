@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import VideoUploader from '@/components/VideoUploader';
 import ManualViewer from '@/components/ManualViewer';
 import { extractFrameAtTimestamp } from '@/utils/videoProcessor';
@@ -31,6 +31,26 @@ export default function Home() {
     const [loadingStage, setLoadingStage] = useState<string>('動画を分析中...');
     const [manual, setManual] = useState<ManualData | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Persistence: Load from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('am_current_manual');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setManual(parsed);
+            } catch (e) {
+                console.error('Failed to load manual from localStorage');
+            }
+        }
+    }, []);
+
+    // Persistence: Save to localStorage whenever manual changes
+    useEffect(() => {
+        if (manual) {
+            localStorage.setItem('am_current_manual', JSON.stringify(manual));
+        }
+    }, [manual]);
 
     const handleVideoSelect = useCallback((file: File) => {
         setVideoFile(file);
@@ -134,7 +154,7 @@ export default function Home() {
                 {/* Header */}
                 <header className="header">
                     <div className="header__brand" onClick={handleReset}>
-                        <div className="header__icon">
+                        <div className="header__icon text-purple-600">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polygon points="12 2 2 7 12 12 22 7 12 2" />
                                 <polyline points="2 17 12 22 22 17" />
@@ -142,31 +162,46 @@ export default function Home() {
                             </svg>
                         </div>
                         <h1 className="header__title">
-                            AutoManual <span className="header__title-sub">Studio</span>
+                            AutoManual <span className="header__title-sub text-purple-600 font-black">Studio</span>
                         </h1>
                     </div>
-                    <span className="header__version">v1.0</span>
+                    <div className="flex items-center gap-4">
+                        {manual && (
+                            <button
+                                onClick={() => {
+                                    localStorage.removeItem('am_current_manual');
+                                    handleReset();
+                                }}
+                                className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
+                            >
+                                データをクリア
+                            </button>
+                        )}
+                        <span className="header__version bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold text-[10px]">v4.1 PRO</span>
+                    </div>
                 </header>
 
                 {/* Hero */}
                 <section className="hero">
                     <h2 className="hero__title">
-                        <span className="hero__title-gradient">動画を手順書に。</span>
+                        <span className="hero__title-gradient">手順書を、自動で美しく。</span>
                     </h2>
-                    <p className="hero__subtitle">AIマニュアル生成ツール</p>
-                    <p className="hero__description">
-                        動画をアップロードするだけで、AIが自動的に手順書を生成。<br />
-                        クリエイティブな作業をもっと楽しく、もっと自由に。
+                    <p className="hero__subtitle">AI動画マニュアル作成アシスタント</p>
+                    <p className="hero__description font-noto">
+                        動画をアップロードするだけで、AIが手順を自動構成。<br />
+                        「モダン・パープル」なインターフェースで、誰でもプロ級の手順書が完成します。
                     </p>
                 </section>
 
-                {/* Upload Section */}
-                <VideoUploader
-                    onVideoSelect={handleVideoSelect}
-                    videoFile={videoFile}
-                    videoPreviewUrl={videoPreviewUrl}
-                    onRemoveVideo={handleRemoveVideo}
-                />
+                {/* Upload Section (Only show if no manual or explicitly requested) */}
+                {(!manual || videoFile) && (
+                    <VideoUploader
+                        onVideoSelect={handleVideoSelect}
+                        videoFile={videoFile}
+                        videoPreviewUrl={videoPreviewUrl}
+                        onRemoveVideo={handleRemoveVideo}
+                    />
+                )}
 
                 {/* Generate Button */}
                 {videoFile && !isLoading && !manual && (
@@ -197,10 +232,10 @@ export default function Home() {
                 )}
 
                 {/* Manual Result */}
-                {manual && videoFile && (
+                {manual && (
                     <ManualViewer
                         manual={manual}
-                        videoFile={videoFile}
+                        videoFile={videoFile || undefined}
                         onUpdateManual={setManual}
                     />
                 )}

@@ -1,36 +1,44 @@
 /* Standard system fonts - no import needed */
 
-/* ===== CSS Variables - Purple Theme with Handwritten Style ===== */
+/* ===== CSS Variables - Modern Japanese Purple Theme ===== */
 :root {
-  --bg-gradient: linear-gradient(180deg, #faf5ff 0%, #f3e8ff 50%, #ede4ff 100%);
+  /* Elite High-Contrast Japanese Palette */
+  --bg-gradient: linear-gradient(180deg, #ffffff 0%, #f9faff 100%);
   --bg-card: #ffffff;
-  --bg-upload: #faf8ff;
-  --border-color: #e9e0f5;
-  --border-hover: #d4c4f0;
+  --bg-upload: #ffffff;
+  --border-color: #e2e8f0;
+  --border-active: #a855f7;
+  /* Purple-500 */
 
-  --text-primary: #2d1a4e;
-  --text-secondary: #5a4a7a;
-  --text-muted: #9a8aaa;
+  --text-primary: #1e1b4b;
+  /* Deep Indigo-950/Purple black */
+  --text-secondary: #4338ca;
+  /* Keeping some contrast */
+  --text-muted: #94a3b8;
 
-  --gradient-title: linear-gradient(135deg, #9333ea 0%, #a855f7 50%, #c084fc 100%);
-  --accent-primary: #9333ea;
-  --accent-secondary: #a855f7;
-  --accent-light: rgba(147, 51, 234, 0.08);
+  --accent-primary: #7c3aed;
+  /* Violet-600 */
+  --accent-secondary: #6d28d9;
+  /* Violet-700 */
+  --accent-soft: rgba(124, 58, 237, 0.05);
+  --accent-glow: 0 0 20px rgba(124, 58, 237, 0.15);
 
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
 
-  --shadow-sm: 0 2px 8px rgba(147, 51, 234, 0.08);
-  --shadow-md: 0 4px 20px rgba(147, 51, 234, 0.12);
-  --shadow-lg: 0 8px 40px rgba(147, 51, 234, 0.16);
+  /* Premium Depth */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 8px 16px -4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 20px 25px -5px rgba(124, 58, 237, 0.05);
+  --shadow-premium: 0 30px 60px -12px rgba(124, 58, 237, 0.12), 0 18px 36px -18px rgba(0, 0, 0, 0.1);
 
-  --font-main: "Meiryo UI", "メイリオ UI", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  --font-main: var(--font-noto), var(--font-jakarta), sans-serif;
 }
 
 /* ===== Reset & Base ===== */
@@ -92,9 +100,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gradient-title);
+  background: #9333ea;
   border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.25);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
 }
 
 .header__icon svg {
@@ -183,6 +191,52 @@ body {
 .upload-zone:hover {
   border-color: var(--accent-primary);
   box-shadow: var(--shadow-lg);
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 30 27 75;
+    /* text-primary */
+    --primary: 124 58 237;
+    /* accent-primary */
+  }
+
+  body {
+    @apply bg-white text-slate-900 antialiased;
+    font-family: var(--font-noto), var(--font-jakarta), sans-serif;
+
+    /* Japanese Minimalist Mesh */
+    background-image:
+      radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.02) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.02) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-jakarta), var(--font-noto), sans-serif;
+}
+
+/* Custom Scrollbar for modern feel */
+@layer utilities {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 .upload-zone--active {
@@ -777,4 +831,20 @@ body {
 
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

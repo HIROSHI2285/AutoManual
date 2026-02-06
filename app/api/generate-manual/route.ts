@@ -6,36 +6,40 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 // Stage 1: Analyze video for timestamps and actions (no coordinates)
 const STAGE1_PROMPT = `
-あなたは動画分析の専門家です。この操作動画を分析し、各操作ステップのタイムスタンプと内容を抽出してください。
+あなたは動画分析の専門家です。この動画（PC操作、料理、機器の組み立て、作業手順など）を分析し、各主要なステップのタイムスタンプと内容を抽出してください。
 
-**重要**: 座標は不要です。タイムスタンプと操作内容のみを出力してください。
+**重要**:
+1. 座標は不要です。
+2. **出力する全てのテキスト（タイトル、概要、アクション、詳細）は必ず「日本語」で記述してください。**
 
 出力形式（JSON）:
 {
-  "title": "手順書タイトル",
-  "overview": "概要",
+  "title": "マニュアルのタイトル（日本語）",
+  "overview": "作業の概要（日本語）",
   "steps": [
     {
       "stepNumber": 1,
-      "action": "操作内容",
-      "detail": "詳細説明",
+      "action": "アクションの要約（日本語。例: 「野菜を切る」「ボタンをクリック」）",
+      "detail": "詳細な説明（日本語）",
       "timestamp": "0:15"
     }
   ],
-  "notes": ["注意事項"]
+  "notes": ["安全上の注意やコツ（日本語）"]
 }
 `;
 
 // Stage 2: Analyze static image for precise coordinates
 const STAGE2_PROMPT = `
-この画像内で、ユーザーが操作した箇所（クリックした場所、入力フィールドなど）を検出してください。
+この画像内で、アクションの焦点となっている箇所を検出してください。
+- PC操作の場合：クリックした場所、入力欄、選択したメニュー
+- 実作業の場合：手が触れている場所、道具を使っている場所、注目すべき物体
 
 **The box_2d should be [ymin, xmin, ymax, xmax] normalized to 0-1000.**
 
 出力形式（JSON）:
 {
   "box_2d": [ymin, xmin, ymax, xmax],
-  "label": "UI要素名（例: ボタン、リンク、入力フィールド）"
+  "label": "対象物（日本語で。例: OKボタン、包丁、ネジ、ハンドル）"
 }
 `;
 

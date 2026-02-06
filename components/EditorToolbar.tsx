@@ -1,0 +1,341 @@
+'use client';
+
+import React from 'react';
+import { ToolType, EDITOR_COLORS } from './EditorTypes';
+
+interface EditorToolbarProps {
+    activeTool: ToolType;
+    onToolChange: (tool: ToolType) => void;
+    currentColor: string;
+    onColorChange: (color: string) => void;
+    strokeWidth: number;
+    onStrokeWidthChange: (width: number) => void;
+    fontSize: number;
+    onFontSizeChange: (size: number) => void;
+    stampCount: number;
+}
+
+export default function EditorToolbar({
+    activeTool,
+    onToolChange,
+    currentColor,
+    onColorChange,
+    strokeWidth,
+    onStrokeWidthChange,
+    fontSize,
+    onFontSizeChange,
+    stampCount
+}: EditorToolbarProps) {
+
+    return (
+        <div
+            className="fixed left-0 top-0 bottom-0 w-[72px] bg-white/80 backdrop-blur-xl flex flex-col items-center py-6 gap-2 z-[100] border-r border-slate-200/60 shadow-[20px_0_40px_-15px_rgba(0,0,0,0.03)] animate-slide-in-left overflow-y-auto hide-scrollbar sm:flex hidden"
+        >
+            {/* Logo area with premium feel */}
+            <div className="mb-8 w-full flex justify-center">
+                <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30 ring-1 ring-white/20">
+                    <span className="text-white font-black text-lg">A</span>
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-1 w-full px-2">
+                <ToolButton
+                    active={activeTool === 'select'}
+                    onClick={() => onToolChange('select')}
+                    icon={<CursorIcon />}
+                    title="Select"
+                    hotkey="V"
+                />
+
+                <Separator />
+
+                <ToolButton
+                    active={activeTool === 'rect'}
+                    onClick={() => onToolChange('rect')}
+                    icon={<RectIcon />}
+                    title="Rectangle"
+                    hotkey="R"
+                />
+                <ToolButton
+                    active={activeTool === 'ellipse'}
+                    onClick={() => onToolChange('ellipse')}
+                    icon={<CircleIcon />}
+                    title="Ellipse"
+                    hotkey="O"
+                />
+                <ToolButton
+                    active={activeTool === 'arrow'}
+                    onClick={() => onToolChange('arrow')}
+                    icon={<ArrowIcon />}
+                    title="Arrow"
+                    hotkey="A"
+                />
+
+                <Separator />
+
+                <ToolButton
+                    active={activeTool === 'text'}
+                    onClick={() => onToolChange('text')}
+                    icon={<TextIcon />}
+                    title="Text"
+                    hotkey="T"
+                />
+                <ToolButton
+                    active={activeTool === 'stamp'}
+                    onClick={() => onToolChange('stamp')}
+                    icon={<StampIcon number={stampCount} />}
+                    title="Stamp"
+                    hotkey="S"
+                />
+
+                <Separator />
+
+                <ToolButton
+                    active={activeTool === 'highlight'}
+                    onClick={() => { onToolChange('highlight'); if (currentColor === '#ef4444') onColorChange('#f59e0b'); }}
+                    icon={<HighlighterIcon />}
+                    title="Highlight"
+                    hotkey="H"
+                />
+                <ToolButton
+                    active={activeTool === 'blur'}
+                    onClick={() => onToolChange('blur')}
+                    icon={<BlurIcon />}
+                    title="Blur"
+                    hotkey="B"
+                />
+
+                <Separator />
+
+                {/* Immediate Actions */}
+                <button
+                    onClick={() => {
+                        // This uses the existing keyboard listener logic by triggering a CustomEvent or similar
+                        // But simpler: just use window.dispatchEvent if needed, or better, pass a callback.
+                        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete' }));
+                    }}
+                    className="w-14 h-14 rounded-xl flex items-center justify-center text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all duration-200 group relative active:scale-95"
+                >
+                    <div className="w-6 h-6 transition-transform duration-300 group-hover:scale-110">
+                        <TrashIcon />
+                    </div>
+                    <div className="absolute left-full ml-4 px-3 py-2 bg-slate-950 text-white text-[11px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all invisible group-hover:visible translate-x-[-8px] group-hover:translate-x-0 whitespace-nowrap z-50 shadow-2xl border border-white/10">
+                        Delete Selected
+                    </div>
+                </button>
+            </div>
+
+            {/* Properties Section - ELITE PRECISION */}
+            <div className="mt-auto mb-2 flex flex-col gap-4 items-center w-full px-2 py-6 bg-slate-950 border-t border-white/10">
+
+                {/* Numeric Width */}
+                <div className="flex flex-col items-center gap-1.5 w-full">
+                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">太さ</span>
+                    <QuantityStepper
+                        value={strokeWidth}
+                        onChange={onStrokeWidthChange}
+                        min={1}
+                        max={20}
+                        step={1}
+                    />
+                </div>
+
+                {/* Numeric Font Size */}
+                <div className="flex flex-col items-center gap-1.5 w-full">
+                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">サイズ</span>
+                    <QuantityStepper
+                        value={fontSize}
+                        onChange={onFontSizeChange}
+                        min={12}
+                        max={120}
+                        step={2}
+                    />
+                </div>
+
+                {/* Color Spectrum */}
+                <div className="grid grid-cols-2 gap-2 p-2 bg-slate-900 rounded-xl border border-slate-800 shadow-inner">
+                    {EDITOR_COLORS.map((c) => (
+                        <button
+                            key={c.value}
+                            onClick={() => onColorChange(c.value)}
+                            className={`w-4 h-4 rounded-full transition-all duration-300 ${currentColor === c.value
+                                ? 'ring-2 ring-offset-2 ring-purple-500 ring-offset-slate-950 scale-125 shadow-lg'
+                                : 'hover:scale-110 opacity-70 hover:opacity-100'
+                                }`}
+                            style={{ backgroundColor: c.value }}
+                            title={c.label}
+                        />
+                    ))}
+                </div>
+
+                {/* Apply Visual Only Feedback */}
+                <button
+                    onClick={() => {
+                        const target = document.getElementById('save-settings-btn');
+                        if (target) {
+                            const original = target.innerHTML;
+                            target.innerHTML = 'OK';
+                            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Apply' }));
+                        }
+                    }}
+                    id="save-settings-btn"
+                    className="w-full h-8 mt-2 bg-purple-600 text-[10px] text-white font-black uppercase tracking-widest rounded-lg shadow-2xl hover:bg-purple-500 active:scale-95 transition-all border border-white/10"
+                >
+                    適用
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// --- Internal Helper Components ---
+
+function Separator() {
+    return <div className="h-px bg-slate-100/60 my-1.5 mx-3" />;
+}
+
+interface ToolBtnProps {
+    active: boolean;
+    onClick: () => void;
+    icon: React.ReactNode;
+    title: string;
+    hotkey?: string;
+}
+
+function ToolButton({ active, onClick, icon, title, hotkey }: ToolBtnProps) {
+    return (
+        <button
+            className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-300 group relative ${active
+                ? 'bg-purple-600 text-white shadow-2xl scale-105 border border-white/20'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-purple-600'
+                }`}
+            onClick={onClick}
+        >
+            <div className={`w-6 h-6 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+                {icon}
+            </div>
+
+            {/* Premium Tooltip - ELITE STYLE */}
+            <div className="absolute left-full ml-4 px-3 py-2 bg-slate-950 text-white text-[11px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all invisible group-hover:visible translate-x-[-8px] group-hover:translate-x-0 whitespace-nowrap z-50 shadow-2xl border border-white/10 flex items-center gap-3">
+                <span>{title}</span>
+                {hotkey && <span className="opacity-50 font-mono bg-white/20 px-1.5 rounded text-[10px]">{hotkey}</span>}
+            </div>
+        </button>
+    );
+}
+
+// --- Premium Custom Icons (Fine-tuned SVG Paths) ---
+
+const CursorIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+        <path d="M13 13l6 6" />
+    </svg>
+);
+
+const RectIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="16" height="12" x="4" y="6" rx="2" />
+    </svg>
+);
+
+const CircleIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="8" />
+    </svg>
+);
+
+const ArrowIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 12h16M14 6l6 6-6 6" />
+    </svg>
+);
+
+const TextIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 7V4h16v3M9 20h6M12 4v16" />
+    </svg>
+);
+
+const StampIcon = ({ number }: { number: number }) => (
+    <div className="relative w-full h-full flex items-center justify-center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="absolute inset-0 opacity-40">
+            <path d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
+        </svg>
+        <span className="text-[10px] font-black leading-none">{number}</span>
+    </div>
+);
+
+const HighlighterIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 11l-6 6v3h9l3-3" />
+        <path d="M22 12l-4.6 4.6a2 2 0 01-2.8 0l-5.2-5.2a2 2 0 010-2.8L14 4" />
+    </svg>
+);
+
+const BlurIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 13.5l18-3M4 17l16-5M7 7l10 10M11 4l2 16" opacity="0.6" />
+    </svg>
+);
+
+const TrashIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        <line x1="10" y1="11" x2="10" y2="17" />
+        <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+);
+
+// --- Quantity Stepper Component (Refined UX) ---
+
+interface QuantityStepperProps {
+    value: number;
+    onChange: (val: number) => void;
+    min: number;
+    max: number;
+    step?: number;
+}
+
+function QuantityStepper({ value, onChange, min, max, step = 1 }: QuantityStepperProps) {
+    const handleDecrease = () => {
+        if (value > min) onChange(value - step);
+    };
+
+    const handleIncrease = () => {
+        if (value < max) onChange(value + step);
+    };
+
+    return (
+        <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-inner w-[60px]">
+            <button
+                onClick={handleDecrease}
+                disabled={value <= min}
+                className="w-4 h-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:bg-purple-600/30"
+            >
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M20 12H4" /></svg>
+            </button>
+            <div className="flex-1 h-9 flex items-center justify-center text-xs font-black text-white relative">
+                <input
+                    type="number"
+                    value={value}
+                    min={min}
+                    max={max}
+                    onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) onChange(Math.max(min, Math.min(max, val)));
+                    }}
+                    className="w-full h-full bg-transparent text-center outline-none appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+            </div>
+            <button
+                onClick={handleIncrease}
+                disabled={value >= max}
+                className="w-4 h-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:bg-purple-600/30"
+            >
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+            </button>
+        </div>
+    );
+}
