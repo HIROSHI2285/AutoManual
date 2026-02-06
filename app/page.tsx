@@ -190,12 +190,12 @@ export default function Home() {
                 {/* Hero */}
                 <section className="hero">
                     <h2 className="hero__title">
-                        <span className="hero__title-gradient">手順書を、自動で美しく。</span>
+                        <span className="hero__title-gradient">あなたの動画が、美しい手順書に。</span>
                     </h2>
                     <p className="hero__subtitle">AI動画マニュアル作成アシスタント</p>
                     <p className="hero__description font-noto">
                         動画をアップロードするだけで、AIが手順を自動構成。<br />
-                        「モダン・パープル」なインターフェースで、誰でもプロ級の手順書が完成します。
+                        直感的な操作で、誰でも美しいマニュアルデザインが完成します。
                     </p>
                 </section>
 
