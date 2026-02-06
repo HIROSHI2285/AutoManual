@@ -1,0 +1,216 @@
+/**
+ * Video processing utilities for extracting frames and generating annotated screenshots
+ * Text is NOT burned into images - only red bounding boxes are drawn
+ * This allows text to remain editable when copied to Word
+ */
+
+export interface VideoFrame {
+    timestamp: string;
+    imageData: string; // base64
+}
+
+/**
+ * Extract frame from video at specific timestamp
+ */
+export async function extractFrameAtTimestamp(
+    videoFile: File,
+    timestampStr: string
+): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            reject(new Error('Canvas context not available'));
+            return;
+        }
+
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+
+        const url = URL.createObjectURL(videoFile);
+        video.src = url;
+
+        // Parse timestamp (format: "0:05" or "1:23" or "00:01:23")
+        const parseTimestamp = (ts: string): number => {
+            const parts = ts.split(':').map(Number);
+            if (parts.length === 2) {
+                return parts[0] * 60 + parts[1];
+            } else if (parts.length === 3) {
+                return parts[0] * 3600 + parts[1] * 60 + parts[2];
+            }
+            return 0;
+        };
+
+        const targetTime = parseTimestamp(timestampStr);
+
+        video.addEventListener('loadedmetadata', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            video.currentTime = Math.min(targetTime, video.duration - 0.1);
+        });
+
+        video.addEventListener('seeked', () => {
+            try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = canvas.toDataURL('image/jpeg', 0.9);
+                URL.revokeObjectURL(url);
+                resolve(imageData);
+            } catch (error) {
+                URL.revokeObjectURL(url);
+                reject(error);
+            }
+        });
+
+        video.addEventListener('error', () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Video loading failed'));
+        });
+    });
+}
+
+/**
+ * Draw ONLY bounding box on image (no text - keeps text editable)
+ */
+export function drawBoundingBox(
+    imageData: string,
+    boundingBox: number[] // [ymin, xmin, ymax, xmax] in 0-1000 scale
+): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            reject(new Error('Canvas context not available'));
+            return;
+        }
+
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            // Draw original image
+            ctx.drawImage(img, 0, 0);
+
+            // Format: [ymin, xmin, ymax, xmax] in 0-1000 scale (Gemini native)
+            const [ymin, xmin, ymax, xmax] = boundingBox;
+
+            // Debug: Log coordinates for troubleshooting
+            console.log('=== BOUNDING BOX DEBUG ===');
+            console.log('Image dimensions:', img.width, 'x', img.height);
+            console.log('Raw boundingBox (0-1000):', boundingBox);
+
+            // Convert from 0-1000 scale to pixels
+            const rawBoxX = (xmin / 1000) * img.width;
+            const rawBoxY = (ymin / 1000) * img.height;
+            const rawBoxW = ((xmax - xmin) / 1000) * img.width;
+            const rawBoxH = ((ymax - ymin) / 1000) * img.height;
+
+            // Add padding (e.g. 10px) to make the box slightly larger than the element
+            const padding = 10;
+            const boxX = Math.max(0, rawBoxX - padding);
+            const boxY = Math.max(0, rawBoxY - padding);
+            const boxW = Math.min(img.width - boxX, rawBoxW + (padding * 2));
+            const boxH = Math.min(img.height - boxY, rawBoxH + (padding * 2));
+
+            console.log('Calculated pixels (with padding):', { boxX: Math.round(boxX), boxY: Math.round(boxY), boxW: Math.round(boxW), boxH: Math.round(boxH) });
+            console.log('=== END DEBUG ===');
+
+            // Draw thin red bounding box
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = Math.max(3, img.width / 400); // Slightly thicker line for visibility
+            ctx.setLineDash([]);
+            ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+            // Transparent center (removed fillRect)
+
+            // Minimal corner markers (optional, kept them smaller or removed)
+            // Removed corner markers for a cleaner look as requested 
+
+
+            resolve(canvas.toDataURL('image/jpeg', 0.9));
+        };
+
+        img.onerror = () => {
+            reject(new Error('Image loading failed'));
+        };
+
+        img.src = imageData;
+    });
+}
+
+/**
+ * Stage 2: Detect coordinates from a static image using Gemini API
+ * Sends the image to Gemini and gets precise box_2d coordinates
+ * @param imageDataUrl - Base64 data URL of the image
+ * @param action - Optional action description to help Gemini find the correct element
+ */
+export async function detectCoordinatesFromImage(
+    imageDataUrl: string,
+    action?: string
+): Promise<{ box_2d: number[]; label: string } | null> {
+    try {
+        // Extract base64 data from data URL
+        const base64Data = imageDataUrl.split(',')[1];
+
+        const response = await fetch('/api/detect-coordinates', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ imageData: base64Data, action }),
+        });
+
+        if (!response.ok) {
+            console.error('Failed to detect coordinates:', response.statusText);
+            return null;
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Error detecting coordinates:', error);
+        return null;
+    }
+}
+
+/**
+ * Process all steps: extract frames and draw bounding boxes only
+ * Text labels are kept as HTML for editability
+ */
+export async function processVideoSteps(
+    videoFile: File,
+    steps: Array<{
+        stepNumber: number;
+        action: string;
+        timestamp?: string;
+        box_2d?: number[]; // [y_min, x_min, y_max, x_max] in 0-1000 (Gemini native)
+    }>
+): Promise<Map<number, string>> {
+    const screenshots = new Map<number, string>();
+
+    for (const step of steps) {
+        if (!step.timestamp) continue;
+
+        try {
+            // Extract frame at timestamp
+            const frameData = await extractFrameAtTimestamp(videoFile, step.timestamp);
+
+            // Draw bounding box only (no text burned in)
+            if (step.box_2d) {
+                const annotatedImage = await drawBoundingBox(frameData, step.box_2d);
+                screenshots.set(step.stepNumber, annotatedImage);
+            } else {
+                // Just use the frame without annotation
+                screenshots.set(step.stepNumber, frameData);
+            }
+        } catch (error) {
+            console.error(`Failed to process step ${step.stepNumber}:`, error);
+        }
+    }
+
+    return screenshots;
+}
