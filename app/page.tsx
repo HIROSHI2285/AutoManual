@@ -188,15 +188,23 @@ export default function Home() {
                 </header>
 
                 {/* Hero */}
-                <section className="hero">
-                    <h2 className="hero__title">
-                        <span className="hero__title-gradient">あなたの動画が、美しい手順書に。</span>
+                <section className="hero py-20 text-center">
+                    <div className="inline-flex items-center gap-2 mb-8 px-4 py-1.5 rounded-full bg-purple-50 border border-purple-100 shadow-sm animate-fade-in-up">
+                        <span className="flex h-2 w-2 rounded-full bg-purple-600"></span>
+                        <span className="text-sm font-bold text-purple-700 tracking-wide">AutoManual V4.3</span>
+                    </div>
+
+                    <h2 className="hero__title leading-tight mb-8">
+                        <span className="block text-4xl md:text-7xl font-black text-slate-900 mb-2 tracking-tight">あなたの動画が、</span>
+                        <span className="block text-5xl md:text-8xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 drop-shadow-sm pb-2">
+                            美しい手順書に。
+                        </span>
                     </h2>
-                    <p className="hero__subtitle">Creative Manual Design Studio</p>
-                    <p className="hero__description font-noto">
-                        デザインの知識は必要ありません。<br />
-                        動画を選ぶだけで、AIがレイアウトまで美しくスタイリング。<br />
-                        直感的なエディタで、あなたのアイデアを自由にカタチにできます。
+
+                    <p className="hero__description font-noto text-lg md:text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed font-medium">
+                        デザインの知識は必要ありません。<br className="hidden md:block" />
+                        動画を選ぶだけで、AIがレイアウトまで美しくスタイリング。<br className="hidden md:block" />
+                        <span className="text-slate-800 font-bold">「直感的な操作」</span>で、あなたのアイデアを自由にカタチに。
                     </p>
                 </section>
 
