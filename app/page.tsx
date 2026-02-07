@@ -192,10 +192,11 @@ export default function Home() {
                     <h2 className="hero__title">
                         <span className="hero__title-gradient">あなたの動画が、美しい手順書に。</span>
                     </h2>
-                    <p className="hero__subtitle">AI動画マニュアル作成アシスタント</p>
+                    <p className="hero__subtitle">Creative Manual Design Studio</p>
                     <p className="hero__description font-noto">
-                        動画をアップロードするだけで、AIが手順を自動構成。<br />
-                        直感的な操作で、誰でも美しいマニュアルデザインが完成します。
+                        デザインの知識は必要ありません。<br />
+                        動画を選ぶだけで、AIがレイアウトまで美しくスタイリング。<br />
+                        直感的なエディタで、あなたのアイデアを自由にカタチにできます。
                     </p>
                 </section>
 
