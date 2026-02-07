@@ -234,10 +234,4 @@ export async function POST(request: NextRequest) {
 }
 
 // Increase body size limit for video uploads
-export const config = {
-    api: {
-        bodyParser: {
-            sizeLimit: '50mb',
-        },
-    },
-};
+

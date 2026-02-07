@@ -205,6 +205,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             }`}>
                             {isEditMode ? (
                                 <InlineCanvas
+                                    canvasId={`step-${step.stepNumber}-${index}`} // Unique ID
                                     imageUrl={step.screenshot || ''}
                                     activeTool={activeTool}
                                     currentColor={currentColor}
