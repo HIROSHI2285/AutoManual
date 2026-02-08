@@ -75,10 +75,8 @@ export default function VideoUploader({
         }
 
         if (file.size > 20 * 1024 * 1024) {
-            const proceed = confirm(
-                `ファイルサイズが${formatFileSize(file.size)}です。20MB以上のファイルは処理に時間がかかる場合があります。続行しますか？`
-            );
-            if (!proceed) return;
+            alert(`ファイルサイズが大きすぎます（${formatFileSize(file.size)}）。\n20MB以下の動画ファイルを選択してください。`);
+            return;
         }
 
         onVideoSelect(file);
@@ -134,9 +132,11 @@ export default function VideoUploader({
                 <p className="upload-zone__text">
                     動画を選択またはドロップ
                 </p>
-                <p className="upload-zone__hint">
-                    MP4, MOV, AVI, WebM, 3GPに対応しています。<br />
-                    ※動画データはサーバーに送信され、AI分析に使用されます。
+                <p className="upload-zone__hint text-xs text-slate-400 mt-2">
+                    MP4, MOV, AVI, WebM, 3GPに対応。<br />
+                    推奨：1〜2分程度（20MB以内）<br />
+                    ※現在は1つの動画ファイルのみ対応しています。<br />
+                    複数ファイルに分かれている場合は、個別にマニュアルを作成してください。
                 </p>
             </div>
 

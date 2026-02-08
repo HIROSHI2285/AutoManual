@@ -83,6 +83,13 @@ export default function Home() {
         localStorage.removeItem('am_editor_color_v2');
         localStorage.removeItem('am_editor_stroke_v2');
         localStorage.removeItem('am_editor_fontSize_v2');
+
+        // Clear all canvas states
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('am_canvas_state_')) {
+                localStorage.removeItem(key);
+            }
+        });
     }, [videoPreviewUrl]);
 
     const handleGenerate = async () => {

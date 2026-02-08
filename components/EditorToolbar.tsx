@@ -15,6 +15,8 @@ interface EditorToolbarProps {
     stampCount: number;
 }
 
+const FONT_SIZE_STEPS = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 54, 60, 66, 72, 80, 88, 96, 104, 112, 120, 144, 200, 300, 400, 500];
+
 export default function EditorToolbar({
     activeTool,
     onToolChange,
@@ -110,9 +112,35 @@ export default function EditorToolbar({
                 {/* Immediate Actions */}
                 <button
                     onClick={() => {
-                        // This uses the existing keyboard listener logic by triggering a CustomEvent or similar
-                        // But simpler: just use window.dispatchEvent if needed, or better, pass a callback.
-                        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete' }));
+                        window.dispatchEvent(new Event('am:undo'));
+                    }}
+                    className="w-14 h-14 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 group relative active:scale-95 mb-1"
+                >
+                    <div className="w-6 h-6 transition-transform duration-300 group-hover:-rotate-45">
+                        <UndoIcon />
+                    </div>
+                    <div className="absolute left-full ml-4 px-3 py-2 bg-slate-950 text-white text-[11px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all invisible group-hover:visible translate-x-[-8px] group-hover:translate-x-0 whitespace-nowrap z-50 shadow-2xl border border-white/10">
+                        Undo (Ctrl+Z)
+                    </div>
+                </button>
+
+                <button
+                    onClick={() => {
+                        window.dispatchEvent(new Event('am:redo'));
+                    }}
+                    className="w-14 h-14 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 group relative active:scale-95 mb-1"
+                >
+                    <div className="w-6 h-6 transition-transform duration-300 group-hover:rotate-45">
+                        <RedoIcon />
+                    </div>
+                    <div className="absolute left-full ml-4 px-3 py-2 bg-slate-950 text-white text-[11px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all invisible group-hover:visible translate-x-[-8px] group-hover:translate-x-0 whitespace-nowrap z-50 shadow-2xl border border-white/10">
+                        Redo (Ctrl+Y)
+                    </div>
+                </button>
+
+                <button
+                    onClick={() => {
+                        window.dispatchEvent(new Event('am:delete'));
                     }}
                     className="w-14 h-14 rounded-xl flex items-center justify-center text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all duration-200 group relative active:scale-95"
                 >
@@ -146,9 +174,9 @@ export default function EditorToolbar({
                     <QuantityStepper
                         value={fontSize}
                         onChange={onFontSizeChange}
-                        min={24}
+                        min={8}
                         max={500}
-                        step={2}
+                        steps={FONT_SIZE_STEPS}
                     />
                 </div>
 
@@ -251,6 +279,20 @@ const ArrowIcon = () => (
     </svg>
 );
 
+const UndoIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 7v6h6" />
+        <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
+    </svg>
+);
+
+const RedoIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 7v6h-6" />
+        <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l6 5.7" />
+    </svg>
+);
+
 const TextIcon = () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 7V4h16v3M9 20h6M12 4v16" />
@@ -298,25 +340,37 @@ interface QuantityStepperProps {
     step?: number;
 }
 
-function QuantityStepper({ value, onChange, min, max, step = 1 }: QuantityStepperProps) {
+function QuantityStepper({ value, onChange, min, max, step = 1, steps }: QuantityStepperProps & { steps?: number[] }) {
     const handleDecrease = () => {
-        if (value > min) onChange(value - step);
+        if (steps) {
+            const currentIdx = steps.findIndex(s => s >= value);
+            const nextVal = currentIdx > 0 ? steps[currentIdx - 1] : steps[0];
+            onChange(nextVal);
+        } else {
+            if (value > min) onChange(value - step);
+        }
     };
 
     const handleIncrease = () => {
-        if (value < max) onChange(value + step);
+        if (steps) {
+            const currentIdx = steps.findIndex(s => s > value);
+            const nextVal = currentIdx !== -1 ? steps[currentIdx] : steps[steps.length - 1];
+            onChange(nextVal);
+        } else {
+            if (value < max) onChange(value + step);
+        }
     };
 
     return (
-        <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-inner w-[60px]">
+        <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-inner w-[68px]">
             <button
                 onClick={handleDecrease}
                 disabled={value <= min}
-                className="w-4 h-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:bg-purple-600/30"
+                className="w-5 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:bg-purple-600/30"
             >
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M20 12H4" /></svg>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M20 12H4" /></svg>
             </button>
-            <div className="flex-1 h-9 flex items-center justify-center text-xs font-black text-white relative">
+            <div className="flex-1 h-10 flex items-center justify-center text-xs font-black text-white relative">
                 <input
                     type="number"
                     value={value}
@@ -326,15 +380,15 @@ function QuantityStepper({ value, onChange, min, max, step = 1 }: QuantitySteppe
                         const val = parseInt(e.target.value);
                         if (!isNaN(val)) onChange(Math.max(min, Math.min(max, val)));
                     }}
-                    className="w-full h-full bg-transparent text-center outline-none appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="w-full h-full bg-transparent text-center outline-none appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none font-jakarta"
                 />
             </div>
             <button
                 onClick={handleIncrease}
                 disabled={value >= max}
-                className="w-4 h-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:bg-purple-600/30"
+                className="w-5 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:bg-purple-600/30"
             >
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
             </button>
         </div>
     );

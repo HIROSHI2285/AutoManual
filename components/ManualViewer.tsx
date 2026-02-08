@@ -18,13 +18,14 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     // Editor State (Initialized from localStorage if available)
     const [isEditMode, setIsEditMode] = useState(false);
     const [activeTool, setActiveTool] = useState<ToolType>('select');
-    const [currentColor, setCurrentColor] = useState('#9333ea'); // Explicit Purple
-    const [strokeWidth, setStrokeWidth] = useState(12); // Higher default for high-res images
+    const [currentColor, setCurrentColor] = useState('#ef4444'); // Default Red
+    const [strokeWidth, setStrokeWidth] = useState(1); // Default thin line
     const [fontSize, setFontSize] = useState(64); // Larger default font
     const [stampCount, setStampCount] = useState(1);
 
-    // Backup for cancellation
+    // Backup for cancellation & Original reference for InlineCanvas
     const [backupManual, setBackupManual] = useState<ManualData | null>(null);
+    const originalScreenshots = useRef<{ [key: string]: string }>({});
 
     // Initialize from localStorage
     useEffect(() => {
@@ -48,6 +49,15 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
 
     const handleEnterEditMode = () => {
         setBackupManual(JSON.parse(JSON.stringify(manual))); // Deep clone
+
+        // Store original screenshots to avoid loading "baked" images into InlineCanvas later
+        manual.steps.forEach((step, index) => {
+            const id = `step-${step.stepNumber}-${index}`;
+            if (!originalScreenshots.current[id]) {
+                originalScreenshots.current[id] = step.screenshot || '';
+            }
+        });
+
         setIsEditMode(true);
         setStampCount(1); // Reset stamp count on entry
     };
@@ -206,14 +216,18 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             {isEditMode ? (
                                 <InlineCanvas
                                     canvasId={`step-${step.stepNumber}-${index}`} // Unique ID
-                                    imageUrl={step.screenshot || ''}
+                                    imageUrl={originalScreenshots.current[`step-${step.stepNumber}-${index}`] || step.screenshot || ''}
                                     activeTool={activeTool}
                                     currentColor={currentColor}
+                                    onColorChange={setCurrentColor}
                                     strokeWidth={strokeWidth}
+                                    onStrokeWidthChange={setStrokeWidth}
                                     fontSize={fontSize}
+                                    onFontSizeChange={setFontSize}
                                     stampCount={stampCount}
                                     onUpdate={(newUrl) => handleCanvasUpdate(index, newUrl)}
                                     onStampUsed={() => setStampCount(prev => prev + 1)}
+                                    onToolReset={() => setActiveTool('select')}
                                 />
                             ) : (
                                 <img

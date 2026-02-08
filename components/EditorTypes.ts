@@ -9,7 +9,7 @@ export interface EditorState {
 }
 
 export const EDITOR_DEFAULTS = {
-    strokeWidth: 3,
+    strokeWidth: 1,
     fontSize: 24,
     color: '#ef4444'
 };
