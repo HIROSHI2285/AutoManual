@@ -15,9 +15,10 @@ interface InlineCanvasProps {
     fontSize: number;
     onFontSizeChange: (size: number) => void;
     stampCount: number;
-    onUpdate: (newImageUrl: string) => void;
+    onUpdate: (newImageUrl: string, newData?: any) => void;
     onStampUsed: () => void;
     onToolReset: () => void; // Callback to switch back to select mode
+    initialData?: any; // Fabric.js JSON data
 }
 
 export default function InlineCanvas({
@@ -33,7 +34,8 @@ export default function InlineCanvas({
     stampCount,
     onUpdate,
     onStampUsed,
-    onToolReset
+    onToolReset,
+    initialData
 }: InlineCanvasProps) {
     // ... existing refs ...
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -259,7 +261,7 @@ export default function InlineCanvas({
                         fontSize: adaptiveFontSize,
                         fontFamily: 'var(--font-jakarta), sans-serif',
                         width: 250,
-                        splitByGrapheme: true
+                        objectCaching: false // CRITICAL: Disable caching to prevent editing glitches
                     });
                     break;
                 case 'stamp':
@@ -297,11 +299,8 @@ export default function InlineCanvas({
         };
 
         const handleMouseDown = (opt: fabric.IEvent) => {
-            // CRITICAL FIX: Force blur on any inputs when interacting with canvas
-            // This ensures "Delete" key works (otherwise input keeps focus and traps the key)
-            if (document.activeElement instanceof HTMLElement) {
-                document.activeElement.blur();
-            }
+            // FIXED: Removed aggressive blur logic that was interfering with Text Editing focus.
+            // We rely on handleKeyDown to distinguish between Toolbar Input and Canvas actions.
 
             const currentActiveTool = activeToolRef.current;
             if (currentActiveTool === 'select') return;
@@ -327,10 +326,11 @@ export default function InlineCanvas({
                 history.current.push(json);
                 redoStack.current = []; // Clear redo stack on new action
 
-                exportToParent(); // Export!
-
                 // Persist to local storage
                 localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+
+                // DEFER EXPORT: Prevent UI lag on modification drag end
+                setTimeout(() => exportToParent(), 10);
             }
         });
         newCanvas.on('mouse:down', handleMouseDown);
@@ -339,20 +339,42 @@ export default function InlineCanvas({
 
         const handleCustomDelete = () => {
             const activeObjects = newCanvas.getActiveObjects();
+
             if (activeObjects.length) {
                 newCanvas.discardActiveObject();
                 activeObjects.forEach((obj) => {
                     newCanvas.remove(obj);
                 });
-                newCanvas.requestRenderAll();
+                newCanvas.renderAll(); // Immediate visual update
 
                 if (!isRedoing.current) {
                     const json = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']));
                     history.current.push(json);
                     redoStack.current = [];
                     localStorage.setItem(`am_canvas_state_${canvasId}`, json);
-                    exportToParent(); // Export!
+
+                    // DEFER EXPORT: Allow browser to paint the deletion first
+                    setTimeout(() => exportToParent(), 10);
                 }
+            } else {
+                // Fallback: Sometimes getActiveObjects returns empty but getActiveObject returns one?
+                const activeObj = newCanvas.getActiveObject();
+                if (activeObj) {
+                    newCanvas.remove(activeObj);
+                    newCanvas.discardActiveObject();
+                    newCanvas.renderAll(); // Immediate visual update
+
+                    if (!isRedoing.current) {
+                        const json = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']));
+                        history.current.push(json);
+                        redoStack.current = [];
+                        localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+
+                        // DEFER EXPORT: Allow browser to paint the deletion first
+                        setTimeout(() => exportToParent(), 10);
+                    }
+                }
+                // Silenced "No active objects" warning to prevent console spam from other canvas instances
             }
         };
 
@@ -360,16 +382,28 @@ export default function InlineCanvas({
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 const activeObj = newCanvas.getActiveObject();
                 // If editing text (typing inside), let default behavior happen (delete character)
-                if (activeObj && (activeObj as any).isEditing) return;
+                // FORCE FOCUS to hidden textarea and STOP propagation
+                const isSelectionValid = activeObj && typeof (activeObj as any).input?.selectionStart === 'number';
+
+                if (activeObj && ((activeObj as any).isEditing || isSelectionValid)) {
+                    console.log('[InlineCanvas] Text is editing, ignoring delete key prevention. HiddenTextarea:', !!(activeObj as any).hiddenTextarea);
+
+                    // CRITICAL FIX: Ensure focus is on the textarea so Backspace works
+                    if ((activeObj as any).hiddenTextarea) {
+                        (activeObj as any).hiddenTextarea.focus();
+                    }
+                    // e.stopPropagation(); // REMOVED: Might block Fabric's internal handling
+                    return;
+                }
 
                 const activeElement = document.activeElement;
+
                 // Only block if the user is typing in a real INPUT field (Toolbar)
-                // Fabric.js uses a hidden TEXTAREA for handling keyboard events.
-                // If we block all TEXTAREAs, we block Fabric's key handling when it has focus (even if not editing).
-                // But valid deletion should work if we are not editing.
                 const isRealInput = activeElement instanceof HTMLInputElement;
 
+                // EXTRA SAFETY: If active element is the body or the canvas wrapper, allow delete
                 if (!isRealInput) {
+                    e.preventDefault(); // Prevent browser back
                     handleCustomDelete();
                 }
             }
@@ -486,50 +520,92 @@ export default function InlineCanvas({
                 });
 
                 newCanvas.setBackgroundImage(img, () => {
-                    const savedState = localStorage.getItem(`am_canvas_state_${canvasId}`);
-                    // Only restore state if it exists
-                    if (savedState && savedState !== 'undefined' && savedState !== 'null' && savedState !== '{}') {
-                        try {
-                            const json = JSON.parse(savedState);
-                            if (json.objects) {
-                                fabric.util.enlivenObjects(json.objects, (enlivened: fabric.Object[]) => {
-                                    enlivened.forEach((obj) => {
-                                        newCanvas.add(obj);
-                                        // Re-apply custom properties
-                                        obj.set({
-                                            transparentCorners: false,
-                                            cornerColor: '#ffffff',
-                                            cornerStrokeColor: '#9333ea',
-                                            cornerStyle: 'circle',
-                                            borderColor: '#9333ea',
-                                            borderScaleFactor: 2 / zoomLevel,
-                                            cornerSize: 12 / zoomLevel,
-                                            padding: 8 / zoomLevel
-                                        });
-                                        if (obj.type === 'textbox') obj.set({ lockScalingY: false, hasControls: true });
-                                        obj.setCoords();
-                                    });
-                                    newCanvas.renderAll();
-                                    // Initial history push
-                                    const initialState = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id']));
-                                    history.current = [initialState];
-                                    initialLoadDone.current = true;
-                                    lastSavedUrl.current = imageUrl;
-                                }, 'fabric');
-                            }
-                        } catch (e) {
-                            console.error('Failed to restore', e);
+                    // PRIORITIZE PROPS DATA (Re-Editing)
+                    if (initialData && typeof initialData === 'object') {
+                        console.log('[InlineCanvas] Loading persisted JSON data...', initialData);
+
+                        // Sanitize background from JSON to prevent double-bg
+                        if (initialData.backgroundImage) delete initialData.backgroundImage;
+
+                        newCanvas.loadFromJSON(initialData, () => {
+                            newCanvas.getObjects().forEach(obj => {
+                                // Re-apply critical properties that might be lost or need defaults
+                                obj.set({
+                                    transparentCorners: false,
+                                    cornerColor: '#ffffff',
+                                    cornerStrokeColor: '#9333ea',
+                                    cornerStyle: 'circle',
+                                    borderColor: '#9333ea',
+                                    borderScaleFactor: 2 / zoomLevel,
+                                    cornerSize: 12 / zoomLevel,
+                                    padding: 8 / zoomLevel,
+                                    hasControls: true,
+                                    selectable: true,
+                                    evented: true
+                                });
+                                if (obj.type === 'textbox') {
+                                    obj.set({
+                                        lockScalingY: false,
+                                        editable: true,
+                                        objectCaching: false // Fix "Only append" issue by forcing re-render
+                                    } as any);
+                                }
+                                obj.setCoords();
+                            });
+                            newCanvas.renderAll();
+
+                            // Reset History
+                            const initialState = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id']));
+                            history.current = [initialState];
                             initialLoadDone.current = true;
-                        }
+                            lastSavedUrl.current = imageUrl;
+                        });
                     } else {
-                        // No saved state, just init history
-                        const initialState = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id']));
-                        history.current = [initialState];
-                        initialLoadDone.current = true;
-                        lastSavedUrl.current = imageUrl;
+                        // FALLBACK: LocalStorage (Auto-Recovery)
+                        const savedState = localStorage.getItem(`am_canvas_state_${canvasId}`);
+                        if (savedState && savedState !== 'undefined' && savedState !== 'null' && savedState !== '{}') {
+                            try {
+                                const json = JSON.parse(savedState);
+                                if (json.objects) {
+                                    fabric.util.enlivenObjects(json.objects, (enlivened: fabric.Object[]) => {
+                                        enlivened.forEach((obj) => {
+                                            newCanvas.add(obj);
+                                            // Re-apply custom properties
+                                            obj.set({
+                                                transparentCorners: false,
+                                                cornerColor: '#ffffff',
+                                                cornerStrokeColor: '#9333ea',
+                                                cornerStyle: 'circle',
+                                                borderColor: '#9333ea',
+                                                borderScaleFactor: 2 / zoomLevel,
+                                                cornerSize: 12 / zoomLevel,
+                                                padding: 8 / zoomLevel
+                                            });
+                                            if (obj.type === 'textbox') obj.set({ lockScalingY: false, hasControls: true });
+                                            obj.setCoords();
+                                        });
+                                        newCanvas.renderAll();
+                                        // Initial history push
+                                        const initialState = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id']));
+                                        history.current = [initialState];
+                                        initialLoadDone.current = true;
+                                        lastSavedUrl.current = imageUrl;
+                                    }, 'fabric');
+                                }
+                            } catch (e) {
+                                console.error('Failed to restore', e);
+                                initialLoadDone.current = true;
+                            }
+                        } else {
+                            // No saved state, just init history
+                            const initialState = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id']));
+                            history.current = [initialState];
+                            initialLoadDone.current = true;
+                            lastSavedUrl.current = imageUrl;
+                        }
                     }
-                });
-            }, { crossOrigin: 'anonymous' });
+                }, { crossOrigin: 'anonymous' });
+            });
         };
 
         loadContent();
@@ -634,49 +710,43 @@ export default function InlineCanvas({
                         changed = true;
                     }
 
-                    // --- ROBUST FONT SIZE SCALING (PowerPoint Style) ---
-                    // UNCONDITIONAL UPDATE: If this code runs, it means the user updated the toolbar.
-                    // We enforce this value to ensure Visual Size == Prop Size.
+                    // --- DIRECT FONT SIZE UPDATE (PowerPoint Style) ---
+                    // We adjust width to maintain visual width so text doesn't suddenly wrap tighter.
+                    const currentFontSize = textObj.fontSize || 1;
 
-                    const currentScaleY = textObj.scaleY || 1;
-                    const visualFontSize = (textObj.fontSize || 0) * currentScaleY;
+                    // Avoid division by zero or weirdness
+                    if (currentFontSize > 0 && fontSize > 0) {
+                        const scaleRatio = fontSize / currentFontSize;
+                        const newWidth = textObj.width! * scaleRatio;
 
-                    // Calculate Ratio (New / Old) to scale width proportionally
-                    // This ensures the "Text Box" grows with the text, preventing aggressive wrapping.
-                    const scaleFactor = visualFontSize > 0 ? (fontSize / visualFontSize) : 1;
+                        console.log(`[InlineCanvas] Font Size Update. Target: ${fontSize} (Ratio: ${scaleRatio.toFixed(2)}, New Width: ${newWidth})`);
 
-                    const currentScaleX = textObj.scaleX || 1;
-                    const currentWidth = textObj.width || 0;
-                    const visualWidth = currentWidth * currentScaleX;
+                        if (textObj.fontSize !== fontSize || textObj.scaleX !== 1) {
+                            textObj.set({
+                                fontSize: fontSize,
+                                scaleX: 1,
+                                scaleY: 1,
+                                width: newWidth // Scale width to maintain aspect ratio
+                            });
 
-                    // New width should be scaled proportionally
-                    const newWidth = visualWidth * scaleFactor;
+                            // Force selection update if needed
+                            if (textObj.text) {
+                                textObj.setSelectionStyles({ fontSize: fontSize });
+                                textObj.styles = {}; // Clear individual styles to enforce global size
+                            }
 
-                    // 1. Bake the Scale (Reset to 1, apply NEW scaled dimensions)
-                    textObj.set({
-                        fontSize: fontSize, // Apply target font size
-                        scaleX: 1,
-                        scaleY: 1,
-                        width: newWidth,    // Apply scaled width
-                        styles: {}          // Wipe character styles
-                    });
+                            // Force Update
+                            if (textObj instanceof fabric.Textbox) {
+                                textObj.initDimensions(); // Recalculate wrapping
+                            }
+                            textObj.setCoords();
+                            textObj.dirty = true;
+                            changed = true;
 
-                    // 2. Clear Internal Caches
-                    if (textObj instanceof fabric.Textbox) {
-                        textObj.cleanStyle('fontSize');
-                        if (typeof (textObj as any).initDimensions === 'function') {
-                            (textObj as any).initDimensions();
+                            // AGGRESSIVE RENDER
+                            fabricCanvas.renderAll();
                         }
                     }
-
-                    // 3. Force Update
-                    textObj.setCoords();
-                    textObj.dirty = true;
-                    changed = true;
-
-                    requestAnimationFrame(() => {
-                        fabricCanvas.requestRenderAll();
-                    });
                 }
 
                 if ('strokeWidth' in activeObj && (activeObj as any).strokeWidth !== strokeWidthRef.current) {
@@ -687,7 +757,7 @@ export default function InlineCanvas({
             });
 
             if (changed) {
-                fabricCanvas.requestRenderAll();
+                fabricCanvas.renderAll();
                 setTimeout(() => {
                     fabricCanvas.fire('object:modified');
                 }, 50);

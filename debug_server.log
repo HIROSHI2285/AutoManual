@@ -1,0 +1,94 @@
+[2026-02-08T13:34:27.536Z] POST /api/analyze-video started
+[2026-02-08T13:34:27.890Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-08T13:34:27.975Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770557667951_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-08T13:34:27.996Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-08T13:34:28.036Z] Uploading to Gemini via REST API...
+[2026-02-08T13:34:28.110Z] Unexpected error in API logic: Cannot convert argument to a ByteString because the character at index 0 has a value of 26032 which is greater than 255.
+Stack: TypeError: Cannot convert argument to a ByteString because the character at index 0 has a value of 26032 which is greater than 255.
+    at webidl.converters.ByteString (node:internal/deps/undici/undici:4393:17)
+    at Object.record<ByteString, ByteString> (node:internal/deps/undici/undici:4287:32)
+    at webidl.converters.HeadersInit (node:internal/deps/undici/undici:9597:67)
+    at new Headers (node:internal/deps/undici/undici:9441:36)
+    at C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:48992
+    at C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\trace\tracer.js:140:36
+    at NoopContextManager.with (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\@opentelemetry\api\index.js:1:518)
+    at NoopTracer.startActiveSpan (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\@opentelemetry\api\index.js:1:18093)
+    at ProxyTracer.startActiveSpan (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\@opentelemetry\api\index.js:1:18854)
+    at C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\trace\tracer.js:122:103
+    at NoopContextManager.with (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\@opentelemetry\api\index.js:1:7062)
+    at ContextAPI.with (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\@opentelemetry\api\index.js:1:518)
+    at NextTracerImpl.trace (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\trace\tracer.js:122:28)
+    at n (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:46940)
+    at POST (webpack-internal:///(rsc)/./app/api/analyze-video/route.ts:94:42)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:53446
+    at async e_.execute (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:44747)
+    at async e_.handle (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:54700)
+    at async doRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1377:42)
+    at async cacheEntry.responseCache.get.routeKind (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1599:28)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1507:28)
+    at async DevServer.renderPageComponent (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1962:32)
+    at async DevServer.pipeImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:816:17)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:174:21)
+    at async handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:353:24)
+    at async requestHandlerImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:377:13)
+    at async Server.requestListener (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\start-server.js:141:13)
+[2026-02-08T13:36:40.138Z] POST /api/analyze-video started
+[2026-02-08T13:36:40.351Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-08T13:36:40.688Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770557800503_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-08T13:36:40.791Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-08T13:36:40.823Z] Uploading to Gemini via REST API...
+[2026-02-08T13:36:47.039Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/viqqsunwz325 (files/viqqsunwz325)
+[2026-02-08T13:36:47.042Z] Processing video...
+[2026-02-08T13:36:49.391Z] Processing video...
+[2026-02-08T13:36:51.754Z] Video Ready. Generating content...
+[2026-02-08T13:37:01.468Z] Response received: [
+  {
+    "timestamp": "00:08",
+    "action": "click",
+    "box_2d": [
+      627,
+      636,
+      7...
+[2026-02-08T13:37:03.930Z] POST /api/analyze-video completed successfully
+[2026-02-08T13:40:08.716Z] POST /api/analyze-video started
+[2026-02-08T13:40:08.845Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-08T13:40:08.994Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770558008909_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-08T13:40:09.063Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-08T13:40:09.150Z] Uploading to Gemini via REST API...
+[2026-02-08T13:40:15.542Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/93puoc4919hd (files/93puoc4919hd)
+[2026-02-08T13:40:15.552Z] Processing video...
+[2026-02-08T13:40:17.839Z] Processing video...
+[2026-02-08T13:40:20.074Z] Video Ready. Generating content...
+[2026-02-08T13:40:27.076Z] Response received: [
+  {
+    "timestamp": "00:00",
+    "action": "テキスト入力",
+    "box_2d": [
+      80,
+      108,
+      1...
+[2026-02-08T13:40:29.536Z] POST /api/analyze-video completed successfully
+[2026-02-08T13:43:46.097Z] POST /api/analyze-video started
+[2026-02-08T13:43:46.483Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-08T13:43:46.864Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770558226570_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-08T13:43:46.881Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-08T13:43:46.886Z] Uploading to Gemini via REST API...
+[2026-02-08T13:43:54.729Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/ci7f8x2zgz3q (files/ci7f8x2zgz3q)
+[2026-02-08T13:43:54.735Z] Processing video...
+[2026-02-08T13:43:57.083Z] Processing video...
+[2026-02-08T13:43:59.447Z] Video Ready. Generating content...
+[2026-02-08T13:44:07.833Z] Response received: [
+  {
+    "timestamp": "00:07",
+    "action": "「Yahoo! JAPAN」を検索します",
+    "box_2d": [
+      83,
+    ...
+[2026-02-08T13:44:10.699Z] POST /api/analyze-video completed successfully

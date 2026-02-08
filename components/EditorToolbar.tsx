@@ -171,13 +171,23 @@ export default function EditorToolbar({
                 {/* Numeric Font Size */}
                 <div className="flex flex-col items-center gap-1.5 w-full">
                     <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">サイズ</span>
-                    <QuantityStepper
-                        value={fontSize}
-                        onChange={onFontSizeChange}
-                        min={8}
-                        max={500}
-                        steps={FONT_SIZE_STEPS}
-                    />
+                    <div className="relative w-full group">
+                        <select
+                            value={fontSize}
+                            onChange={(e) => onFontSizeChange(Number(e.target.value))}
+                            className="w-full h-8 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg border border-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none text-center cursor-pointer hover:bg-slate-800 transition-all"
+                            style={{ textAlignLast: 'center' }}
+                        >
+                            {FONT_SIZE_STEPS.map((size) => (
+                                <option key={size} value={size}>
+                                    {size}px
+                                </option>
+                            ))}
+                        </select>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Color Spectrum */}

@@ -50,13 +50,23 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     const handleEnterEditMode = () => {
         setBackupManual(JSON.parse(JSON.stringify(manual))); // Deep clone
 
-        // Store original screenshots to avoid loading "baked" images into InlineCanvas later
-        manual.steps.forEach((step, index) => {
-            const id = `step-${step.stepNumber}-${index}`;
-            if (!originalScreenshots.current[id]) {
-                originalScreenshots.current[id] = step.screenshot || '';
+        // MIGRATION: Ensure all steps have an originalUrl for clean editing
+        // This prevents the "Ghosting" issue where text gets burnt into the image
+        let migrationNeeded = false;
+        const migratedSteps = manual.steps.map(step => {
+            if (!step.originalUrl && step.screenshot) {
+                migrationNeeded = true;
+                return { ...step, originalUrl: step.screenshot };
             }
+            return step;
         });
+
+        if (migrationNeeded && onUpdateManual) {
+            console.log('[ManualViewer] Migrating steps to include originalUrl');
+            onUpdateManual({ ...manual, steps: migratedSteps });
+            // Update local backup too to match
+            setBackupManual(JSON.parse(JSON.stringify({ ...manual, steps: migratedSteps })));
+        }
 
         setIsEditMode(true);
         setStampCount(1); // Reset stamp count on entry
@@ -92,12 +102,17 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         }
     };
 
-    const handleCanvasUpdate = (index: number, newImageUrl: string) => {
+    const handleCanvasUpdate = (index: number, newImageUrl: string, newData?: any) => {
         if (!onUpdateManual) return;
 
         const updatedSteps = manual.steps.map((step, i) => {
             if (i === index) {
-                return { ...step, screenshot: newImageUrl };
+                // Keep originalUrl if it exists, update screenshot, AND save canvasData for re-editing
+                return {
+                    ...step,
+                    screenshot: newImageUrl,
+                    canvasData: newData || step.canvasData
+                };
             }
             return step;
         });
@@ -216,7 +231,9 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             {isEditMode ? (
                                 <InlineCanvas
                                     canvasId={`step-${step.stepNumber}-${index}`} // Unique ID
-                                    imageUrl={originalScreenshots.current[`step-${step.stepNumber}-${index}`] || step.screenshot || ''}
+                                    // CRITICAL FIX: Use originalUrl (Clean) if available, otherwise screenshot (might be burnt)
+                                    // This ensures we don't see 'Ghost' text when editing
+                                    imageUrl={step.originalUrl || step.screenshot || ''}
                                     activeTool={activeTool}
                                     currentColor={currentColor}
                                     onColorChange={setCurrentColor}
@@ -225,9 +242,10 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                     fontSize={fontSize}
                                     onFontSizeChange={setFontSize}
                                     stampCount={stampCount}
-                                    onUpdate={(newUrl) => handleCanvasUpdate(index, newUrl)}
+                                    onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
                                     onStampUsed={() => setStampCount(prev => prev + 1)}
                                     onToolReset={() => setActiveTool('select')}
+                                    initialData={step.canvasData}
                                 />
                             ) : (
                                 <img

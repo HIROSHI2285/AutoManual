@@ -13,6 +13,8 @@ export interface ManualStep {
     box_2d?: number[]; // [y_min, x_min, y_max, x_max] in 0-1000 scale (Gemini native)
     label?: string; // UI element label
     screenshot?: string; // base64 image data
+    originalUrl?: string; // Original screenshot without annotations (for clean editing)
+    canvasData?: any; // Fabric.js JSON data - For re-editability
 }
 
 export interface ManualData {
@@ -97,65 +99,80 @@ export default function Home() {
 
         setIsLoading(true);
         setError(null);
-        setLoadingStage('Stage 1: 動画からタイムスタンプ抽出中...');
+        setLoadingStage('Stage 1: AIが動画全体を解析中... (これには少し時間がかかります)');
 
         try {
             const formData = new FormData();
             formData.append('video', videoFile);
 
-            // STAGE 1: Get timestamps and actions from video
-            const response = await fetch('/api/generate-manual', {
+            // STAGE 1: Agentic Analysis (Send video to Gemini)
+            const response = await fetch('/api/analyze-video', {
                 method: 'POST',
                 body: formData,
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || 'マニュアル生成に失敗しました');
+                console.error('Server Error Details:', errorData); // Log full error object
+                throw new Error(errorData.error || '動画の解析に失敗しました。ファイルサイズが大きすぎる可能性があります。');
             }
 
-            const data: ManualData = await response.json();
-            console.log('✅ Stage 1 complete:', data.steps.length, 'steps found');
+            const data = await response.json();
+            const aiSteps = data.steps;
 
-            // STAGE 2: Extract frames only (No auto-detection)
-            setLoadingStage(`Stage 2: スクリーンショット生成中 (0/${data.steps.length})`);
+            console.log('✅ AI Analysis complete:', aiSteps.length, 'key steps found');
 
-            const finalSteps = [];
+            // STAGE 2: Extract High-Res Frames at identified timestamps
+            setLoadingStage(`Stage 2: 重要な瞬間を高画質で切り出し中 (0/${aiSteps.length})`);
 
-            for (let i = 0; i < data.steps.length; i++) {
-                const step = data.steps[i];
+            const finalSteps: ManualStep[] = [];
+
+            for (let i = 0; i < aiSteps.length; i++) {
+                const step = aiSteps[i];
 
                 if (!step.timestamp) {
-                    finalSteps.push(step);
                     continue;
                 }
 
                 try {
-                    // Extract frame at timestamp
+                    // Extract frame at precise timestamp identified by AI
                     const frameData = await extractFrameAtTimestamp(videoFile, step.timestamp);
 
                     finalSteps.push({
-                        ...step,
-                        screenshot: frameData
+                        stepNumber: i + 1,
+                        action: step.action,
+                        detail: step.reason || step.action,
+                        timestamp: step.timestamp,
+                        box_2d: step.box_2d, // AI detected box
+                        label: step.label,
+                        screenshot: frameData,
+                        originalUrl: frameData
                     });
 
                     // Update progress
-                    setLoadingStage(`Stage 2: スクリーンショット生成中 (${i + 1}/${data.steps.length})`);
+                    setLoadingStage(`Stage 2: 重要な瞬間を高画質で切り出し中 (${i + 1}/${aiSteps.length})`);
 
                 } catch (error) {
-                    console.error(`Error processing step ${step.stepNumber}:`, error);
-                    finalSteps.push(step);
+                    console.error(`Error processing step ${i + 1}:`, error);
+                    // Skip if frame extraction fails
                 }
             }
 
             console.log('✅ Stage 2 complete');
 
-            setManual({
-                ...data,
+            // Initialize Manual Data
+            const newManual: ManualData = {
+                title: videoFile.name.replace(/\.[^/.]+$/, "") + " マニュアル",
+                overview: "AIが動画から自動生成したマニュアルです。",
                 steps: finalSteps,
-            });
+                notes: []
+            };
+
+            setManual(newManual);
+
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'エラーが発生しました');
+            console.error(err);
+            setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
         } finally {
             setIsLoading(false);
         }
