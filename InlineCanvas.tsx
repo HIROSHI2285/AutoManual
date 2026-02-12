@@ -84,7 +84,10 @@ export default function InlineCanvas({
         onFontSizeChangeRef.current = onFontSizeChange;
     }, [activeTool, currentColor, strokeWidth, fontSize, stampCount, onUpdate, onColorChange, onStrokeWidthChange, onFontSizeChange]);
 
-
+    // NOTE: am:fontsize イベントは EditorToolbar から直接発火されるため、
+    // ここでの二重発火は不要。prevFontSizeRef は syncToolbarFromSelection との
+    // フィードバックループ防止のためのみ使用する。
+    const prevFontSizeRef = useRef(fontSize);
 
     // Callback for syncing toolbar from selection
     const syncToolbarFromSelection = useCallback((obj: fabric.Object) => {
@@ -625,13 +628,13 @@ export default function InlineCanvas({
                 const wasEditing = (textObj as any).isEditing;
                 if (wasEditing && typeof (textObj as any).exitEditing === 'function') {
                     (textObj as any).exitEditing();
-                    currentCanvas.setActiveObject(textObj); // RESTORE SELECTION to keep visual feedback
                 }
+                // exitEditing() は内部で選択状態を破棄するため、直後に再選択して参照を保持する
+                currentCanvas.setActiveObject(textObj);
 
-                // 2. AGGRESSIVE STYLE CLEARING
+                // 2. スタイル・スケールをリセットしてフォントサイズを適用
+                // ※ set('text', ...) は Fabric が古いfontSizeでレイアウトを再計算するため使用禁止
                 (textObj as any).styles = {};
-
-                // 3. Set Properties
                 textObj.set({
                     fontSize: newFontSize,
                     scaleX: 1,
@@ -641,26 +644,18 @@ export default function InlineCanvas({
                     objectCaching: false
                 });
 
-
-
-                // 5. Force Dimension Recalculation
-                if (typeof (textObj as any).initDimensions === 'function') {
-                    (textObj as any).initDimensions();
-                }
-
-                // 6. Clear Cache
-                if (typeof (textObj as any)._clearCache === 'function') {
-                    (textObj as any)._clearCache();
-                }
-
+                // 3. Fabric 内部の寸法を強制再計算
+                // ※ これを呼ばないと枠だけ変わってテキストは変わらないまま
+                (textObj as any).initDimensions?.();
+                (textObj as any)._clearCache?.();
                 textObj.setCoords();
 
-                // 7. Restore Editing Mode (Delayed)
-                if (wasEditing && typeof (textObj as any).enterEditing === 'function') {
+                // 4. 編集モードを復帰（requestAnimationFrame でFabric安定後に実行）
+                if (wasEditing) {
                     requestAnimationFrame(() => {
                         if (!isMounted.current) return;
                         currentCanvas.setActiveObject(textObj);
-                        (textObj as any).enterEditing();
+                        (textObj as any).enterEditing?.();
                         currentCanvas.renderAll();
                     });
                 }
@@ -943,7 +938,8 @@ export default function InlineCanvas({
                         changed = true;
                     }
 
-
+                    // フォントサイズ変更は handleFontSizeEvent (am:fontsize) に一本化済み
+                    // ここでは処理しない（二重適用・フィードバックループを防止）
                 }
 
                 if ('strokeWidth' in activeObj && (activeObj as any).strokeWidth !== strokeWidthRef.current) {
