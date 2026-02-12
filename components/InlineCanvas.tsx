@@ -84,7 +84,7 @@ export default function InlineCanvas({
         onFontSizeChangeRef.current = onFontSizeChange;
     }, [activeTool, currentColor, strokeWidth, fontSize, stampCount, onUpdate, onColorChange, onStrokeWidthChange, onFontSizeChange]);
 
-
+    // FIX 1: REMOVED REDUNDANT BRIDGE USE EFFECT (Lines 87-97 in original)
 
     // Callback for syncing toolbar from selection
     const syncToolbarFromSelection = useCallback((obj: fabric.Object) => {
@@ -641,7 +641,7 @@ export default function InlineCanvas({
                     objectCaching: false
                 });
 
-
+                // REMOVED SET TEXT HERE
 
                 // 5. Force Dimension Recalculation
                 if (typeof (textObj as any).initDimensions === 'function') {
@@ -890,6 +890,7 @@ export default function InlineCanvas({
                     lockRotation: shouldLock,
                     lockScalingX: shouldLock,
                     lockScalingY: shouldLock,
+                    lockScalingY: shouldLock,
 
                     transparentCorners: false,
                     borderColor: '#9333ea',
@@ -943,6 +944,7 @@ export default function InlineCanvas({
                         changed = true;
                     }
 
+                    // REMOVED REDUNDANT FONT SIZE LOGIC HERE
 
                 }
 
