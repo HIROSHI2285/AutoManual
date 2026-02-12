@@ -26,6 +26,7 @@ export default function ImageEditor({ imageUrl, onSave, onCancel }: ImageEditorP
     const [fabricCanvas, setFabricCanvas] = useState<fabric.Canvas | null>(null);
     const [activeTool, setActiveTool] = useState<ToolType>('select');
     const [currentColor, setCurrentColor] = useState<string>('#ef4444');
+    const [fontSize, setFontSize] = useState<number>(24);
     const [stampCount, setStampCount] = useState<number>(1);
     const isMounted = useRef(true);
 
@@ -171,7 +172,7 @@ export default function ImageEditor({ imageUrl, onSave, onCancel }: ImageEditorP
                     ...commonProps,
                     stroke: undefined, // Text usually doesn't need stroke
                     fill: currentColor,
-                    fontSize: 24,
+                    fontSize: fontSize,
                     fontFamily: 'Meiryo UI, sans-serif',
                 });
                 break;
@@ -395,8 +396,8 @@ export default function ImageEditor({ imageUrl, onSave, onCancel }: ImageEditorP
                                             key={c.value}
                                             onClick={() => setCurrentColor(c.value)}
                                             className={`w-6 h-6 rounded flex items-center justify-center border transition-all ${currentColor === c.value
-                                                    ? 'border-white scale-110'
-                                                    : 'border-transparent hover:border-gray-400'
+                                                ? 'border-white scale-110'
+                                                : 'border-transparent hover:border-gray-400'
                                                 }`}
                                             title={c.label}
                                         >
@@ -438,8 +439,8 @@ function ToolButton({ active, onClick, icon, title }: ToolBtnProps) {
         <button
             onClick={onClick}
             className={`w-8 h-8 rounded flex items-center justify-center transition-all duration-100 ${active
-                    ? 'bg-[#333] text-white shadow-inner border border-[#222]'
-                    : 'text-gray-400 hover:bg-[#444] hover:text-white'
+                ? 'bg-[#333] text-white shadow-inner border border-[#222]'
+                : 'text-gray-400 hover:bg-[#444] hover:text-white'
                 }`}
             title={title}
         >

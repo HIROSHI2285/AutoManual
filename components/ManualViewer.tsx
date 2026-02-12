@@ -20,7 +20,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     const [activeTool, setActiveTool] = useState<ToolType>('select');
     const [currentColor, setCurrentColor] = useState('#ef4444'); // Default Red
     const [strokeWidth, setStrokeWidth] = useState(1); // Default thin line
-    const [fontSize, setFontSize] = useState(64); // Larger default font
+    const [fontSize, setFontSize] = useState(24); // Default font size (must be in FONT_SIZE_STEPS)
     const [stampCount, setStampCount] = useState(1);
 
     // Backup for cancellation & Original reference for InlineCanvas
@@ -47,7 +47,17 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         }
     }, [currentColor, strokeWidth, fontSize, isEditMode]);
 
-    const handleEnterEditMode = () => {
+    const enterEditMode = () => {
+        // Generate stable UIDs for any step that doesn't have one
+        const stepsWithUids = manual.steps.map(step => ({
+            ...step,
+            uid: step.uid || Math.random().toString(36).substr(2, 9)
+        }));
+        const needsUpdate = stepsWithUids.some((s, i) => s.uid !== manual.steps[i].uid);
+        if (needsUpdate && onUpdateManual) {
+            onUpdateManual({ ...manual, steps: stepsWithUids });
+        }
+
         setBackupManual(JSON.parse(JSON.stringify(manual))); // Deep clone
 
         // MIGRATION: Ensure all steps have an originalUrl for clean editing
@@ -107,7 +117,6 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
 
         const updatedSteps = manual.steps.map((step, i) => {
             if (i === index) {
-                // Keep originalUrl if it exists, update screenshot, AND save canvasData for re-editing
                 return {
                     ...step,
                     screenshot: newImageUrl,
@@ -120,6 +129,46 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         onUpdateManual({
             ...manual,
             steps: updatedSteps
+        });
+    };
+
+    const handleDeleteStep = (index: number) => {
+        if (!onUpdateManual) return;
+        if (manual.steps.length <= 1) {
+            alert('最後のステップは削除できません。');
+            return;
+        }
+
+        const stepLabel = `ステップ ${manual.steps[index].stepNumber}: ${manual.steps[index].action}`;
+        if (!confirm(`「${stepLabel}」を削除しますか？\nこの操作は取り消せません。`)) {
+            return;
+        }
+
+        // Force all canvases to save their current state BEFORE we trigger a re-render
+        window.dispatchEvent(new CustomEvent('am:force-save'));
+
+        // Clean up localStorage canvas state for deleted step
+        const deletedStep = manual.steps[index];
+        if (deletedStep.uid) {
+            localStorage.removeItem(`am_canvas_state_step-${deletedStep.uid}`);
+        }
+        // Also try old-style key
+        localStorage.removeItem(`am_canvas_state_step-${deletedStep.stepNumber}-${index}`);
+
+        // Remove the step and renumber
+        const newSteps = manual.steps
+            .filter((_, i) => i !== index)
+            .map((step, i) => ({
+                ...step,
+                stepNumber: i + 1
+            }));
+
+        // Reset stamp count
+        setStampCount(1);
+
+        onUpdateManual({
+            ...manual,
+            steps: newSteps
         });
     };
 
@@ -168,7 +217,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             <>
                                 {onUpdateManual && (
                                     <button
-                                        onClick={handleEnterEditMode}
+                                        onClick={enterEditMode}
                                         className="h-12 px-8 bg-slate-950 text-white rounded-lg font-black text-sm shadow-2xl hover:bg-slate-800 transition-all transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-2 border border-white/10"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
@@ -211,8 +260,21 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                 {manual.steps.map((step, index) => (
                     <section key={index} className="manual__step animate-slide-up">
                         <div className={`flex items-start gap-8 mb-10 group ${isEditMode ? 'opacity-50 hover:opacity-100 transition-opacity' : ''}`}>
-                            <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
-                                {step.stepNumber}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
+                                    {step.stepNumber}
+                                </div>
+                                {isEditMode && (
+                                    <button
+                                        onClick={() => handleDeleteStep(index)}
+                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-90 border border-transparent hover:border-rose-200"
+                                        title={`ステップ ${step.stepNumber} を削除`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                )}
                             </div>
                             <div className="flex flex-col gap-3 py-1">
                                 <h3 className="manual__step-title text-3xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
@@ -230,10 +292,9 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             }`}>
                             {isEditMode ? (
                                 <InlineCanvas
-                                    canvasId={`step-${step.stepNumber}-${index}`} // Unique ID
-                                    // CRITICAL FIX: Use originalUrl (Clean) if available, otherwise screenshot (might be burnt)
-                                    // This ensures we don't see 'Ghost' text when editing
-                                    imageUrl={step.originalUrl || step.screenshot || ''}
+                                    canvasId={`step-${step.uid || index}`} // Stable ID using uid
+                                    // CRITICAL FIX: Avoid expired Blob URLs from localStorage. Prefer Base64 screenshot if originalUrl is blob.
+                                    imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
                                     activeTool={activeTool}
                                     currentColor={currentColor}
                                     onColorChange={setCurrentColor}

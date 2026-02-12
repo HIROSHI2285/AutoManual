@@ -44,6 +44,7 @@ export default function InlineCanvas({
     const isMounted = useRef(true);
     const initialLoadDone = useRef(false);
     const lastSavedUrl = useRef<string | null>(null);
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [internalId, setInternalId] = useState(0); // Renamed to avoid confusion
 
     // Prop Refs for Async Access
@@ -56,6 +57,9 @@ export default function InlineCanvas({
     const onColorChangeRef = useRef(onColorChange);
     const onStrokeWidthChangeRef = useRef(onStrokeWidthChange);
     const onFontSizeChangeRef = useRef(onFontSizeChange);
+
+    // GUARD: Prevent feedback loops when updating canvas from props
+    const isApplyingPropRef = useRef(false);
 
     // Undo History
     const history = useRef<string[]>([]);
@@ -89,24 +93,32 @@ export default function InlineCanvas({
 
         if (obj.type === 'textbox' || obj instanceof fabric.Textbox || obj.type === 'text' || obj.type === 'i-text') {
             color = obj.fill as string;
-            // PowerPoint-like: Sync VISUAL font size (fontSize * scale)
-            // This is critical because our update logic resets scale to 1.
-            // If we don't sync this, "40px * 2 (Visual 80)" shows as "40".
-            // User changing 40 -> 80 would do nothing (80 * 1 = Visual 80).
-            const scale = (obj as fabric.Textbox).scaleY || 1;
-            fs = ((obj as fabric.Textbox).fontSize || 0) * scale;
+            // Report raw fontSize only (scaleX/Y are always reset to 1 after any change).
+            // Do NOT multiply by scale — that causes a feedback loop where
+            // sync reports a different value → useEffect fires → sets again → sync...
+            fs = (obj as fabric.Textbox).fontSize || 0;
         } else {
             color = obj.stroke as string;
             sw = obj.strokeWidth || 0;
         }
 
         if (color && color !== currentColorRef.current) onColorChangeRef.current(color);
-        if (fs && fs !== fontSizeRef.current) onFontSizeChangeRef.current(Math.round(fs));
+
+        // GUARD: Only notify parent if we are NOT currently applying a prop update
+        if (!isApplyingPropRef.current) {
+            if (fs && Math.abs(fs - fontSizeRef.current) > 0.5) {
+                console.log(`[InlineCanvas] SyncToolbar: Reporting fontSize ${Math.round(fs)} (was ${fontSizeRef.current})`);
+                onFontSizeChangeRef.current(Math.round(fs));
+            }
+        } else {
+            console.log(`[InlineCanvas] SyncToolbar: Skipped reporting fontSize ${Math.round(fs)} (Applying Props)`);
+        }
+
         if (sw && sw !== strokeWidthRef.current) onStrokeWidthChangeRef.current(Math.round(sw));
 
         setTimeout(() => {
             isUpdatingFromCanvas.current = false;
-        }, 100);
+        }, 50);
     }, []); // No dependencies as it uses refs for props
 
     // Initialize Canvas
@@ -136,18 +148,26 @@ export default function InlineCanvas({
         // Helper to export canvas and notify parent (Defined early for usage in handlers)
         const exportToParent = () => {
             if (!newCanvas) return;
-            // Use multiplier to match original resolution
-            const zoom = newCanvas.getZoom();
-            const multiplier = 1 / zoom;
+            try {
+                // Use multiplier to match original resolution
+                const zoom = newCanvas.getZoom();
+                const multiplier = 1 / zoom;
 
-            const dataUrl = newCanvas.toDataURL({
-                format: 'png',
-                quality: 1,
-                multiplier: multiplier
-            });
+                const dataUrl = newCanvas.toDataURL({
+                    format: 'png',
+                    quality: 1,
+                    multiplier: multiplier
+                });
 
-            lastSavedUrl.current = dataUrl;
-            if (onUpdateRef.current) onUpdateRef.current(dataUrl);
+                // FIXED: Export JSON data to prevent objects from disappearing on save/reload
+                const json = newCanvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']);
+
+                lastSavedUrl.current = dataUrl;
+                if (onUpdateRef.current) onUpdateRef.current(dataUrl, json);
+            } catch (e) {
+                // Tainted canvas (cross-origin image) — export silently skipped
+                console.warn('[InlineCanvas] Export skipped (tainted canvas):', (e as Error).message);
+            }
         };
 
         const handleSelection = (e: any) => {
@@ -290,6 +310,15 @@ export default function InlineCanvas({
                 }
                 newCanvas.requestRenderAll();
 
+                // CRITICAL FIX: Save state immediately after adding object
+                // Without this, objects added but never moved/scaled would be lost
+                // because object:modified only fires on user interaction
+                const json = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']));
+                history.current.push(json);
+                redoStack.current = [];
+                localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+                setTimeout(() => exportToParent(), 10);
+
                 // Auto-switch to select
                 if (activeToolRef.current !== 'select') {
                     console.log('[InlineCanvas] Auto-switching to select mode');
@@ -318,6 +347,10 @@ export default function InlineCanvas({
         newCanvas.on('selection:created', handleSelection);
         newCanvas.on('selection:updated', handleSelection);
         newCanvas.on('object:scaling', handleScaling);
+        newCanvas.on('text:changed', () => {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = setTimeout(() => exportToParent(), 500);
+        });
         newCanvas.on('object:modified', () => {
             newCanvas.getObjects().forEach(o => o.setCoords());
             // Save state on modification
@@ -339,6 +372,7 @@ export default function InlineCanvas({
 
         const handleCustomDelete = () => {
             const activeObjects = newCanvas.getActiveObjects();
+            console.log(`[InlineCanvas] handleCustomDelete called. ActiveObjects: ${activeObjects.length}`);
 
             if (activeObjects.length) {
                 newCanvas.discardActiveObject();
@@ -379,31 +413,44 @@ export default function InlineCanvas({
         };
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                const activeObj = newCanvas.getActiveObject();
-                // If editing text (typing inside), let default behavior happen (delete character)
-                // FORCE FOCUS to hidden textarea and STOP propagation
-                const isSelectionValid = activeObj && typeof (activeObj as any).input?.selectionStart === 'number';
+            const activeObj = newCanvas.getActiveObject();
 
-                if (activeObj && ((activeObj as any).isEditing || isSelectionValid)) {
-                    console.log('[InlineCanvas] Text is editing, ignoring delete key prevention. HiddenTextarea:', !!(activeObj as any).hiddenTextarea);
-
-                    // CRITICAL FIX: Ensure focus is on the textarea so Backspace works
-                    if ((activeObj as any).hiddenTextarea) {
-                        (activeObj as any).hiddenTextarea.focus();
-                    }
-                    // e.stopPropagation(); // REMOVED: Might block Fabric's internal handling
-                    return;
+            // If a textbox is in editing mode, let ALL keys through to Fabric.js
+            // so the user can freely type, delete, and use arrow keys.
+            if (activeObj && (activeObj as any).isEditing) {
+                // Only ensure focus stays on Fabric's hidden textarea
+                if ((activeObj as any).hiddenTextarea) {
+                    (activeObj as any).hiddenTextarea.focus();
                 }
+                return; // Let Fabric handle all keyboard input
+            }
 
+            if (e.key === 'Delete' || e.key === 'Backspace') {
                 const activeElement = document.activeElement;
+                const activeObj = newCanvas.getActiveObject();
 
-                // Only block if the user is typing in a real INPUT field (Toolbar)
-                const isRealInput = activeElement instanceof HTMLInputElement;
+                // Allow delete if:
+                // 1. No active element (body focused)
+                // 2. Active element is 'BODY'
+                // 3. Active element is the canvas wrapper
+                // 4. Active element is NOT an INPUT or TEXTAREA (unless it's Fabric's hidden textarea)
 
-                // EXTRA SAFETY: If active element is the body or the canvas wrapper, allow delete
-                if (!isRealInput) {
-                    e.preventDefault(); // Prevent browser back
+                const tagName = activeElement?.tagName || 'BODY';
+                // CRITICAL FIX: Only block delete if user is typing in a REAL input/textarea OUTSIDE the canvas wrapper
+                // Fabric.js uses hidden textarea inside the wrapper to handle input. We want to allow delete there.
+
+                const isInsideCanvas = containerRef.current && activeElement && containerRef.current.contains(activeElement);
+
+                // Logic: 
+                // Block IF (Target is INPUT or TEXTAREA) AND (Target is NOT inside our canvas wrapper)
+                // This correctly blocks sidebar inputs but allows Fabric's hidden input
+                const isRealExternalInput = (tagName === 'INPUT' || tagName === 'TEXTAREA') && !isInsideCanvas;
+
+                console.log(`[InlineCanvas] KeyDown Delete. ActiveElem: ${tagName}, InsideCanvas: ${isInsideCanvas}, Blocked: ${isRealExternalInput}`);
+
+                if (!isRealExternalInput) {
+                    e.preventDefault();
+                    console.log('[InlineCanvas] Triggering Custom Delete');
                     handleCustomDelete();
                 }
             }
@@ -476,10 +523,92 @@ export default function InlineCanvas({
             }
         };
 
+        // DEFINITIVE FONT SIZE HANDLER — Directly operates on canvas (no React pipeline)
+        const handleFontSizeEvent = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (!detail || !detail.fontSize) return;
+            const newFontSize = detail.fontSize;
+
+            const activeObj = newCanvas.getActiveObject();
+            if (!activeObj) {
+                console.log(`[InlineCanvas] am:fontsize — No active object`);
+                return;
+            }
+
+            if (activeObj.type !== 'textbox' && activeObj.type !== 'i-text' && activeObj.type !== 'text') {
+                console.log(`[InlineCanvas] am:fontsize — Active object is not text: ${activeObj.type}`);
+                return;
+            }
+
+            const textObj = activeObj as fabric.Textbox;
+            const oldFS = textObj.fontSize || 0;
+
+            if (Math.abs(oldFS - newFontSize) < 0.5) {
+                console.log(`[InlineCanvas] am:fontsize — Already at ${newFontSize}px`);
+                return;
+            }
+
+            console.log(`[InlineCanvas] am:fontsize — APPLYING: ${oldFS} → ${newFontSize}`);
+
+            // Guard against sync feedback
+            isApplyingPropRef.current = true;
+
+            // 1. スケールを1にリセット（これをしないと計算が狂う）
+            const currentScaleX = textObj.scaleX || 1;
+            const currentWidth = textObj.width || 250;
+
+            console.log(`[InlineCanvas] am:fontsize — Resetting scale (was ${currentScaleX}) and applying fontSize ${newFontSize}`);
+
+            textObj.set({
+                fontSize: newFontSize,
+                scaleX: 1,
+                scaleY: 1,
+                // 2. 重要：文字ごとのスタイル（styles）を完全にクリアする
+                styles: {},
+                dirty: true,
+                objectCaching: false
+            });
+
+            // 3. 重要：Textboxの内部サイズを再計算させる
+            if (typeof (textObj as any).initDimensions === 'function') {
+                (textObj as any).initDimensions();
+            }
+
+            // 4. キャッシュクリアと再描画
+            if (typeof (textObj as any)._clearCache === 'function') {
+                (textObj as any)._clearCache();
+            }
+
+            textObj.setCoords();
+
+            // 3. Render
+            newCanvas.renderAll();
+
+            // 4. Save to history
+            const json = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']));
+            history.current.push(json);
+            redoStack.current = [];
+            localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+            setTimeout(() => exportToParent(), 10);
+
+            console.log(`[InlineCanvas] am:fontsize — DONE. Rendered at ${textObj.fontSize}px, width=${textObj.width}`);
+
+            // Release guard
+            setTimeout(() => { isApplyingPropRef.current = false; }, 150);
+        };
+
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('am:delete', handleCustomDelete);
         window.addEventListener('am:undo', handleUndoCtx);
         window.addEventListener('am:redo', handleRedoCtx);
+        window.addEventListener('am:fontsize', handleFontSizeEvent);
+
+        // Force-save handler: called before delete to ensure all canvases export their state
+        const handleForceSave = () => {
+            console.log(`[InlineCanvas] am:force-save — exporting ${canvasId}`);
+            exportToParent();
+        };
+        window.addEventListener('am:force-save', handleForceSave);
 
 
         // 4. Load Initial Content
@@ -617,6 +746,8 @@ export default function InlineCanvas({
             window.removeEventListener('am:delete', handleCustomDelete);
             window.removeEventListener('am:undo', handleUndoCtx);
             window.removeEventListener('am:redo', handleRedoCtx);
+            window.removeEventListener('am:fontsize', handleFontSizeEvent);
+            window.removeEventListener('am:force-save', handleForceSave);
             newCanvas.dispose();
         };
     }, [canvasId, imageUrl]); // Re-init if ID or base Image changes
@@ -639,50 +770,53 @@ export default function InlineCanvas({
             fabricCanvas.discardActiveObject();
         }
 
-        // GUARD: If we are currently syncing FROM the canvas, don't push back to it
-        if (isUpdatingFromCanvas.current) return;
+        // GUARD: If we are currently syncing FROM the canvas, skip bulk object updates
+        // but ALWAYS allow font size updates on the active object (PowerPoint behavior)
+        const skipBulkUpdates = isUpdatingFromCanvas.current;
 
-        // 3. Update Properties of ALL objects
+        // 3. Update Properties of ALL objects (skipped during canvas-initiated sync)
         const objects = fabricCanvas.getObjects();
         const currentZoom = fabricCanvas.getZoom();
         const screenCornerSize = 12 / currentZoom;
         const screenPadding = 8 / currentZoom;
         const adaptiveStroke = strokeWidth / currentZoom;
 
-        objects.forEach((obj) => {
-            const shouldLock = !isSelectMode;
+        if (!skipBulkUpdates) {
+            objects.forEach((obj) => {
+                const shouldLock = !isSelectMode;
 
-            // Textbox specific controls (8-point)
-            if (obj.type === 'textbox') {
+                // Textbox specific controls (8-point)
+                if (obj.type === 'textbox') {
+                    obj.set({
+                        lockScalingY: false, // Allow vertical stretch for Powerpoint feel
+                        hasControls: true
+                    });
+                }
+
                 obj.set({
-                    lockScalingY: false, // Allow vertical stretch for Powerpoint feel
-                    hasControls: true
+                    selectable: isSelectMode,
+                    evented: isSelectMode,
+                    lockMovementX: shouldLock,
+                    lockMovementY: shouldLock,
+                    lockRotation: shouldLock,
+                    lockScalingX: shouldLock,
+                    lockScalingY: shouldLock,
+
+                    transparentCorners: false,
+                    borderColor: '#9333ea',
+                    borderScaleFactor: 2 / currentZoom,
+                    cornerSize: screenCornerSize,
+                    padding: screenPadding,
+                    cornerStyle: 'circle',
+                    cornerColor: '#ffffff', // PPT style: white circle with border
+                    cornerStrokeColor: '#9333ea'
                 });
-            }
+                // Hit area expansion (if supported by version, else fallback)
+                (obj as any).touchCornerSize = 36 / currentZoom;
 
-            obj.set({
-                selectable: isSelectMode,
-                evented: isSelectMode,
-                lockMovementX: shouldLock,
-                lockMovementY: shouldLock,
-                lockRotation: shouldLock,
-                lockScalingX: shouldLock,
-                lockScalingY: shouldLock,
-
-                transparentCorners: false,
-                borderColor: '#9333ea',
-                borderScaleFactor: 2 / currentZoom,
-                cornerSize: screenCornerSize,
-                padding: screenPadding,
-                cornerStyle: 'circle',
-                cornerColor: '#ffffff', // PPT style: white circle with border
-                cornerStrokeColor: '#9333ea'
+                obj.setCoords();
             });
-            // Hit area expansion (if supported by version, else fallback)
-            (obj as any).touchCornerSize = 36 / currentZoom;
-
-            obj.setCoords();
-        });
+        }
 
         // 4. Update Properties of ACTIVE objects (e.g. style changes)
         // Only if we stay in select mode and just changed a property like color
@@ -710,42 +844,40 @@ export default function InlineCanvas({
                         changed = true;
                     }
 
-                    // --- DIRECT FONT SIZE UPDATE (PowerPoint Style) ---
-                    // We adjust width to maintain visual width so text doesn't suddenly wrap tighter.
-                    const currentFontSize = textObj.fontSize || 1;
+                    // Apply font size changes to selected text
+                    // CRITICAL: Must reset scaleX/Y to 1 — Fabric.js uses scale for drag-resize,
+                    // so without resetting, only the bounding box changes, not the actual text size
+                    if (textObj.fontSize !== fontSize) {
+                        console.log(`[InlineCanvas] useEffect: Applying fontSize ${textObj.fontSize} → ${fontSize}, scaleX=${textObj.scaleX}, scaleY=${textObj.scaleY}`);
+                        // 1. スケールを1にリセット（これをしないと計算が狂う）
+                        // const currentScaleX = textObj.scaleX || 1;
+                        // const currentWidth = textObj.width || 250;
 
-                    // Avoid division by zero or weirdness
-                    if (currentFontSize > 0 && fontSize > 0) {
-                        const scaleRatio = fontSize / currentFontSize;
-                        const newWidth = textObj.width! * scaleRatio;
+                        textObj.set({
+                            fontSize: fontSize,
+                            scaleX: 1,
+                            scaleY: 1,
+                            // 2. 重要：文字ごとのスタイル（styles）を完全にクリアする
+                            // これがないと、一度編集したテキストのサイズが固定されてしまいます
+                            styles: {},
+                            dirty: true,
+                            objectCaching: false
+                        });
 
-                        console.log(`[InlineCanvas] Font Size Update. Target: ${fontSize} (Ratio: ${scaleRatio.toFixed(2)}, New Width: ${newWidth})`);
-
-                        if (textObj.fontSize !== fontSize || textObj.scaleX !== 1) {
-                            textObj.set({
-                                fontSize: fontSize,
-                                scaleX: 1,
-                                scaleY: 1,
-                                width: newWidth // Scale width to maintain aspect ratio
-                            });
-
-                            // Force selection update if needed
-                            if (textObj.text) {
-                                textObj.setSelectionStyles({ fontSize: fontSize });
-                                textObj.styles = {}; // Clear individual styles to enforce global size
-                            }
-
-                            // Force Update
-                            if (textObj instanceof fabric.Textbox) {
-                                textObj.initDimensions(); // Recalculate wrapping
-                            }
-                            textObj.setCoords();
-                            textObj.dirty = true;
-                            changed = true;
-
-                            // AGGRESSIVE RENDER
-                            fabricCanvas.renderAll();
+                        // 3. 重要：Textboxの内部サイズを再計算させる
+                        if (typeof (textObj as any).initDimensions === 'function') {
+                            (textObj as any).initDimensions();
                         }
+
+                        // 4. キャッシュクリアと再描画
+                        if (typeof (textObj as any)._clearCache === 'function') {
+                            (textObj as any)._clearCache();
+                        }
+
+                        textObj.setCoords();
+                        changed = true;
+                    } else {
+                        console.log(`[InlineCanvas] useEffect: fontSize already matches (${fontSize}), skipping`);
                     }
                 }
 
@@ -758,9 +890,9 @@ export default function InlineCanvas({
 
             if (changed) {
                 fabricCanvas.renderAll();
-                setTimeout(() => {
-                    fabricCanvas.fire('object:modified');
-                }, 50);
+                // Fire modified synchronously to ensure history is updated immediately 
+                // and avoid async race conditions with syncToolbar
+                fabricCanvas.fire('object:modified');
             }
         }
 
