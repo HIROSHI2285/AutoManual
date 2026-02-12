@@ -369,6 +369,7 @@ function QuantityStepper({ value, onChange, min, max, step = 1, steps }: Quantit
         <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-inner w-[68px]">
             <button
                 onClick={handleDecrease}
+                onMouseDown={(e) => e.preventDefault()} // Keep focus on canvas
                 disabled={value <= min}
                 className="w-5 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:bg-purple-600/30"
             >
@@ -389,6 +390,7 @@ function QuantityStepper({ value, onChange, min, max, step = 1, steps }: Quantit
             </div>
             <button
                 onClick={handleIncrease}
+                onMouseDown={(e) => e.preventDefault()} // Keep focus on canvas
                 disabled={value >= max}
                 className="w-5 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:bg-purple-600/30"
             >

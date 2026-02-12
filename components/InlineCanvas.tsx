@@ -58,6 +58,9 @@ export default function InlineCanvas({
     const onStrokeWidthChangeRef = useRef(onStrokeWidthChange);
     const onFontSizeChangeRef = useRef(onFontSizeChange);
 
+    // FIX: Track Last Selected Text Object to handle focus loss (e.g. typing in toolbar input)
+    const lastSelectedTextRef = useRef<fabric.Textbox | null>(null);
+
     // GUARD: Prevent feedback loops when updating canvas from props
     const isApplyingPropRef = useRef(false);
 
@@ -80,6 +83,18 @@ export default function InlineCanvas({
         onStrokeWidthChangeRef.current = onStrokeWidthChange;
         onFontSizeChangeRef.current = onFontSizeChange;
     }, [activeTool, currentColor, strokeWidth, fontSize, stampCount, onUpdate, onColorChange, onStrokeWidthChange, onFontSizeChange]);
+
+    // FIX 1: FONT SIZE DIRECT BRIDGE
+    // Watches normal React prop changes and bridges them to the robust event handler
+    const prevFontSizeRef = useRef(fontSize);
+    useEffect(() => {
+        if (prevFontSizeRef.current !== fontSize) {
+            prevFontSizeRef.current = fontSize;
+            window.dispatchEvent(new CustomEvent('am:fontsize', {
+                detail: { fontSize }
+            }));
+        }
+    }, [fontSize]);
 
     // Callback for syncing toolbar from selection
     const syncToolbarFromSelection = useCallback((obj: fabric.Object) => {
@@ -172,7 +187,13 @@ export default function InlineCanvas({
 
         const handleSelection = (e: any) => {
             const selected = e.selected?.[0] || e.target;
-            if (selected) syncToolbarFromSelection(selected);
+            if (selected) {
+                // Update Last Selected Text Ref for fail-safe operations
+                if (selected.type === 'textbox' || selected instanceof fabric.Textbox || selected.type === 'i-text' || (selected.type && selected.type.toLowerCase() === 'textbox')) {
+                    lastSelectedTextRef.current = selected as fabric.Textbox;
+                }
+                syncToolbarFromSelection(selected);
+            }
         };
 
         const handleScaling = (e: any) => {
@@ -201,24 +222,46 @@ export default function InlineCanvas({
                         const newFontSize = textObj.fontSize! * maxScale;
                         const newWidth = textObj.width! * maxScale;
 
+                        // ★ 追加：編集状態を考慮
+                        const wasEditing = (textObj as any).isEditing;
+                        if (wasEditing && typeof (textObj as any).exitEditing === 'function') {
+                            (textObj as any).exitEditing();
+                        }
+
                         textObj.set({
                             width: newWidth,
                             fontSize: newFontSize,
                             scaleX: 1,
                             scaleY: 1,
-                            styles: {}
+                            styles: {},
+                            dirty: true,
+                            objectCaching: false, // ★ 超重要
                         });
+
+                        // ★ これが無いと文字は絶対に大きくならない
+                        if (typeof (textObj as any).initDimensions === 'function') {
+                            (textObj as any).initDimensions();
+                        }
+
+                        // Force cache clear
+                        if (typeof (textObj as any)._clearCache === 'function') {
+                            (textObj as any)._clearCache();
+                        }
+
+                        if (wasEditing && typeof (textObj as any).enterEditing === 'function') {
+                            (textObj as any).enterEditing();
+                        }
                     }
                     textObj.setCoords();
                     syncToolbarFromSelection(textObj);
                 }
+                // Auto-switch to select
+                if (activeToolRef.current !== 'select') {
+                    console.log('[InlineCanvas] Auto-switching to select mode');
+                    onToolReset();
+                }
             }
-            // Auto-switch to select
-            if (activeToolRef.current !== 'select') {
-                console.log('[InlineCanvas] Auto-switching to select mode');
-                onToolReset();
-            }
-        }
+        };
 
         const handleAddObject = (tool: ToolType, x: number, y: number) => {
             console.log(`[InlineCanvas] Adding Object: ${tool} at ${x},${y}`);
@@ -524,76 +567,134 @@ export default function InlineCanvas({
         };
 
         // DEFINITIVE FONT SIZE HANDLER — Directly operates on canvas (no React pipeline)
+        // DEFINITIVE FONT SIZE HANDLER — Directly operates on canvas (no React pipeline)
+        // DEFINITIVE FONT SIZE HANDLER — Directly operates on canvas (no React pipeline)
         const handleFontSizeEvent = (e: Event) => {
             const detail = (e as CustomEvent).detail;
             if (!detail || !detail.fontSize) return;
             const newFontSize = detail.fontSize;
 
-            const activeObj = newCanvas.getActiveObject();
+            // USE REF TO ENSURE FRESH CANVAS INSTANCE
+            const currentCanvas = fabricCanvasRef.current || newCanvas;
+            if (!currentCanvas) return;
+
+            let activeObj = currentCanvas.getActiveObject();
+
+            // FALLBACK 1: Search manually for the object being edited.
             if (!activeObj) {
-                console.log(`[InlineCanvas] am:fontsize — No active object`);
+                const allObjs = currentCanvas.getObjects();
+                activeObj = allObjs.find(o => (o as any).isEditing) || null;
+                if (activeObj) console.log(`[InlineCanvas] am:fontsize — Found editing object via search`);
+            }
+
+            // FALLBACK 2: Last Selected Text Object (Focus Loss mitigation)
+            if (!activeObj && lastSelectedTextRef.current) {
+                const exists = currentCanvas.getObjects().includes(lastSelectedTextRef.current);
+                if (exists) {
+                    console.log(`[InlineCanvas] am:fontsize — Using Last Selected Object Fallback`);
+                    activeObj = lastSelectedTextRef.current;
+                }
+            }
+
+            if (!activeObj) {
+                console.log(`[InlineCanvas] am:fontsize — No active object found`);
                 return;
             }
 
-            if (activeObj.type !== 'textbox' && activeObj.type !== 'i-text' && activeObj.type !== 'text') {
-                console.log(`[InlineCanvas] am:fontsize — Active object is not text: ${activeObj.type}`);
+            // COLLECT TARGETS: Handle Single Selection, Active Selection, or Fallback
+            const targets: fabric.Textbox[] = [];
+
+            if (activeObj.type === 'activeSelection' && (activeObj as any)._objects) {
+                (activeObj as any)._objects.forEach((obj: fabric.Object) => {
+                    if (obj.type === 'textbox' || obj.type === 'i-text' || obj.type === 'text' ||
+                        (obj.type && obj.type.toLowerCase() === 'textbox') ||
+                        obj instanceof fabric.Textbox) {
+                        targets.push(obj as fabric.Textbox);
+                    }
+                });
+            } else {
+                const isEditing = (activeObj as any).isEditing;
+                const isText = isEditing ||
+                    activeObj.type === 'textbox' || activeObj.type === 'i-text' || activeObj.type === 'text' ||
+                    (activeObj.type && activeObj.type.toLowerCase() === 'textbox') ||
+                    activeObj instanceof fabric.Textbox || activeObj instanceof fabric.IText;
+                if (isText) targets.push(activeObj as fabric.Textbox);
+            }
+
+            if (targets.length === 0) {
+                console.log(`[InlineCanvas] am:fontsize — No text targets found in selection`);
                 return;
             }
 
-            const textObj = activeObj as fabric.Textbox;
-            const oldFS = textObj.fontSize || 0;
+            console.log(`[InlineCanvas] am:fontsize — APPLYING ${newFontSize} to ${targets.length} targets`);
 
-            if (Math.abs(oldFS - newFontSize) < 0.5) {
-                console.log(`[InlineCanvas] am:fontsize — Already at ${newFontSize}px`);
-                return;
-            }
-
-            console.log(`[InlineCanvas] am:fontsize — APPLYING: ${oldFS} → ${newFontSize}`);
-
-            // Guard against sync feedback
             isApplyingPropRef.current = true;
 
-            // 1. スケールを1にリセット（これをしないと計算が狂う）
-            const currentScaleX = textObj.scaleX || 1;
-            const currentWidth = textObj.width || 250;
+            targets.forEach(textObj => {
+                // 1. Exit Editing Mode safely
+                const wasEditing = (textObj as any).isEditing;
+                if (wasEditing && typeof (textObj as any).exitEditing === 'function') {
+                    (textObj as any).exitEditing();
+                }
 
-            console.log(`[InlineCanvas] am:fontsize — Resetting scale (was ${currentScaleX}) and applying fontSize ${newFontSize}`);
+                // 2. AGGRESSIVE STYLE CLEARING
+                (textObj as any).styles = {};
 
-            textObj.set({
-                fontSize: newFontSize,
-                scaleX: 1,
-                scaleY: 1,
-                // 2. 重要：文字ごとのスタイル（styles）を完全にクリアする
-                styles: {},
-                dirty: true,
-                objectCaching: false
+                // 3. Set Properties
+                textObj.set({
+                    fontSize: newFontSize,
+                    scaleX: 1,
+                    scaleY: 1,
+                    styles: {},
+                    dirty: true,
+                    objectCaching: false
+                });
+
+                // 4. Force Text Layout Update (Re-assigning text sometimes helps trigger reflow)
+                if (textObj.text) {
+                    textObj.set('text', textObj.text);
+                }
+
+                // 5. Force Dimension Recalculation
+                if (typeof (textObj as any).initDimensions === 'function') {
+                    (textObj as any).initDimensions();
+                }
+
+                // 6. Clear Cache
+                if (typeof (textObj as any)._clearCache === 'function') {
+                    (textObj as any)._clearCache();
+                }
+
+                textObj.setCoords();
+
+                // 7. Restore Editing Mode (Delayed)
+                if (wasEditing && typeof (textObj as any).enterEditing === 'function') {
+                    requestAnimationFrame(() => {
+                        if (!isMounted.current) return;
+                        currentCanvas.setActiveObject(textObj);
+                        (textObj as any).enterEditing();
+                        currentCanvas.renderAll();
+                    });
+                }
             });
 
-            // 3. 重要：Textboxの内部サイズを再計算させる
-            if (typeof (textObj as any).initDimensions === 'function') {
-                (textObj as any).initDimensions();
+            // 8. ALWAYS Restore Selection (PowerPoint behavior) via activeObj
+            if (activeObj) {
+                currentCanvas.setActiveObject(activeObj);
             }
 
-            // 4. キャッシュクリアと再描画
-            if (typeof (textObj as any)._clearCache === 'function') {
-                (textObj as any)._clearCache();
-            }
+            // 9. Render Immediate
+            currentCanvas.renderAll();
 
-            textObj.setCoords();
-
-            // 3. Render
-            newCanvas.renderAll();
-
-            // 4. Save to history
-            const json = JSON.stringify(newCanvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']));
+            // 10. Save State
+            const json = JSON.stringify(currentCanvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']));
             history.current.push(json);
             redoStack.current = [];
             localStorage.setItem(`am_canvas_state_${canvasId}`, json);
             setTimeout(() => exportToParent(), 10);
 
-            console.log(`[InlineCanvas] am:fontsize — DONE. Rendered at ${textObj.fontSize}px, width=${textObj.width}`);
+            console.log(`[InlineCanvas] am:fontsize — DONE.`);
 
-            // Release guard
             setTimeout(() => { isApplyingPropRef.current = false; }, 150);
         };
 
@@ -821,7 +922,17 @@ export default function InlineCanvas({
         // 4. Update Properties of ACTIVE objects (e.g. style changes)
         // Only if we stay in select mode and just changed a property like color
         if (isSelectMode) {
-            const activeObjs = fabricCanvas.getActiveObjects();
+            // getActiveObjects()だけでなく、編集中のオブジェクトも取得する
+            let activeObjs = fabricCanvas.getActiveObjects();
+
+            // ★ 修正: 編集モード中のオブジェクトを fallback で取得
+            if (activeObjs.length === 0) {
+                const editingObj = fabricCanvas.getActiveObject();
+                if (editingObj && (editingObj as any).isEditing) {
+                    activeObjs = [editingObj];
+                }
+            }
+
             let changed = false;
 
             activeObjs.forEach(activeObj => {
@@ -848,36 +959,41 @@ export default function InlineCanvas({
                     // CRITICAL: Must reset scaleX/Y to 1 — Fabric.js uses scale for drag-resize,
                     // so without resetting, only the bounding box changes, not the actual text size
                     if (textObj.fontSize !== fontSize) {
-                        console.log(`[InlineCanvas] useEffect: Applying fontSize ${textObj.fontSize} → ${fontSize}, scaleX=${textObj.scaleX}, scaleY=${textObj.scaleY}`);
-                        // 1. スケールを1にリセット（これをしないと計算が狂う）
-                        // const currentScaleX = textObj.scaleX || 1;
-                        // const currentWidth = textObj.width || 250;
+                        isApplyingPropRef.current = true; // ★ ガードをここでも設定
+
+                        const wasEditing = (textObj as any).isEditing;
+                        if (wasEditing) (textObj as any).exitEditing?.();
 
                         textObj.set({
                             fontSize: fontSize,
                             scaleX: 1,
                             scaleY: 1,
-                            // 2. 重要：文字ごとのスタイル（styles）を完全にクリアする
-                            // これがないと、一度編集したテキストのサイズが固定されてしまいます
                             styles: {},
                             dirty: true,
                             objectCaching: false
                         });
 
-                        // 3. 重要：Textboxの内部サイズを再計算させる
                         if (typeof (textObj as any).initDimensions === 'function') {
                             (textObj as any).initDimensions();
                         }
-
-                        // 4. キャッシュクリアと再描画
                         if (typeof (textObj as any)._clearCache === 'function') {
                             (textObj as any)._clearCache();
                         }
 
                         textObj.setCoords();
+
+                        // ★ 修正: enterEditing を少し遅らせて Fabric の内部状態が安定するのを待つ
+                        if (wasEditing) {
+                            setTimeout(() => {
+                                if ((textObj as any).canvas) {
+                                    (textObj as any).enterEditing?.();
+                                    fabricCanvas.renderAll();
+                                }
+                            }, 20);
+                        }
+
+                        setTimeout(() => { isApplyingPropRef.current = false; }, 150);
                         changed = true;
-                    } else {
-                        console.log(`[InlineCanvas] useEffect: fontSize already matches (${fontSize}), skipping`);
                     }
                 }
 

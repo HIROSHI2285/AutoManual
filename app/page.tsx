@@ -15,6 +15,7 @@ export interface ManualStep {
     screenshot?: string; // base64 image data
     originalUrl?: string; // Original screenshot without annotations (for clean editing)
     canvasData?: any; // Fabric.js JSON data - For re-editability
+    uid?: string; // Stable unique ID - survives deletion/renumbering
 }
 
 export interface ManualData {
