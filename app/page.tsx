@@ -51,7 +51,11 @@ export default function Home() {
     // Persistence: Save to localStorage whenever manual changes
     useEffect(() => {
         if (manual) {
-            localStorage.setItem('am_current_manual', JSON.stringify(manual));
+            try {
+                localStorage.setItem('am_current_manual', JSON.stringify(manual));
+            } catch (e) {
+                console.warn('Failed to save manual to localStorage (Quota Exceeded):', e);
+            }
         }
     }, [manual]);
 

@@ -518,3 +518,246 @@ Stack: TypeError: Cannot convert argument to a ByteString because the character 
       81,
 ...
 [2026-02-12T21:42:38.460Z] POST /api/analyze-video completed successfully
+[2026-02-12T21:51:49.738Z] POST /api/analyze-video started
+[2026-02-12T21:51:50.029Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-12T21:51:50.473Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770933110400_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-12T21:51:50.541Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-12T21:51:50.616Z] Uploading to Gemini via REST API...
+[2026-02-12T21:51:59.724Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/u519amf1xrc6 (files/u519amf1xrc6)
+[2026-02-12T21:51:59.730Z] Processing video...
+[2026-02-12T21:52:02.183Z] Processing video...
+[2026-02-12T21:52:04.530Z] Video Ready. Generating content...
+[2026-02-12T21:52:10.969Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      82,
+...
+[2026-02-12T21:52:13.140Z] POST /api/analyze-video completed successfully
+[2026-02-13T11:17:25.020Z] POST /api/analyze-video started
+[2026-02-13T11:17:25.247Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T11:17:25.631Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770981445471_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T11:17:25.638Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T11:17:25.648Z] Uploading to Gemini via REST API...
+[2026-02-13T11:17:34.063Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/jprpytygw5k1 (files/jprpytygw5k1)
+[2026-02-13T11:17:34.069Z] Processing video...
+[2026-02-13T11:17:36.363Z] Processing video...
+[2026-02-13T11:17:38.612Z] Video Ready. Generating content...
+[2026-02-13T11:17:45.074Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      82...
+[2026-02-13T11:17:47.205Z] POST /api/analyze-video completed successfully
+[2026-02-13T11:25:28.352Z] POST /api/analyze-video started
+[2026-02-13T11:25:28.741Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T11:25:28.785Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770981928759_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T11:25:28.787Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T11:25:28.790Z] Uploading to Gemini via REST API...
+[2026-02-13T11:25:37.468Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/03h73u1kc176 (files/03h73u1kc176)
+[2026-02-13T11:25:37.476Z] Processing video...
+[2026-02-13T11:25:39.714Z] Processing video...
+[2026-02-13T11:25:41.920Z] Video Ready. Generating content...
+[2026-02-13T11:25:47.947Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      82,
+...
+[2026-02-13T11:25:50.300Z] POST /api/analyze-video completed successfully
+[2026-02-13T11:34:58.448Z] POST /api/analyze-video started
+[2026-02-13T11:34:58.745Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T11:34:58.831Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770982498760_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T11:34:58.875Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T11:34:58.926Z] Uploading to Gemini via REST API...
+[2026-02-13T11:35:07.427Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/we6rcfdbbwry (files/we6rcfdbbwry)
+[2026-02-13T11:35:07.431Z] Processing video...
+[2026-02-13T11:35:09.713Z] Video Ready. Generating content...
+[2026-02-13T11:35:16.579Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      80,
+...
+[2026-02-13T11:35:19.340Z] POST /api/analyze-video completed successfully
+[2026-02-13T12:20:14.957Z] POST /api/analyze-video started
+[2026-02-13T12:20:15.287Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T12:20:15.322Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770985215303_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T12:20:15.329Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T12:20:15.332Z] Uploading to Gemini via REST API...
+[2026-02-13T12:20:25.187Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/zldd2298imyz (files/zldd2298imyz)
+[2026-02-13T12:20:25.199Z] Processing video...
+[2026-02-13T12:20:27.513Z] Video Ready. Generating content...
+[2026-02-13T12:20:33.780Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      81...
+[2026-02-13T12:20:36.597Z] POST /api/analyze-video completed successfully
+[2026-02-13T12:23:02.511Z] POST /api/analyze-video started
+[2026-02-13T12:23:02.741Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T12:23:02.828Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770985382756_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T12:23:02.841Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T12:23:02.877Z] Uploading to Gemini via REST API...
+[2026-02-13T12:23:12.143Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/sbzwcaasb3ji (files/sbzwcaasb3ji)
+[2026-02-13T12:23:12.151Z] Processing video...
+[2026-02-13T12:23:14.438Z] Processing video...
+[2026-02-13T12:23:16.714Z] Video Ready. Generating content...
+[2026-02-13T12:23:24.121Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      81...
+[2026-02-13T12:23:26.274Z] POST /api/analyze-video completed successfully
+[2026-02-13T12:26:58.433Z] POST /api/analyze-video started
+[2026-02-13T12:26:58.723Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T12:26:58.755Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770985618738_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T12:26:58.757Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T12:26:58.758Z] Uploading to Gemini via REST API...
+[2026-02-13T12:27:07.503Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/4ahsnebibr5w (files/4ahsnebibr5w)
+[2026-02-13T12:27:07.510Z] Processing video...
+[2026-02-13T12:27:09.697Z] Processing video...
+[2026-02-13T12:27:11.970Z] Video Ready. Generating content...
+[2026-02-13T12:27:18.082Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      81,
+...
+[2026-02-13T12:27:20.230Z] POST /api/analyze-video completed successfully
+[2026-02-13T12:39:37.305Z] POST /api/analyze-video started
+[2026-02-13T12:39:37.519Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T12:39:37.593Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770986377533_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T12:39:37.637Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T12:39:37.687Z] Uploading to Gemini via REST API...
+[2026-02-13T12:39:46.347Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/rckc8ty2fvkl (files/rckc8ty2fvkl)
+[2026-02-13T12:39:46.358Z] Processing video...
+[2026-02-13T12:39:48.657Z] Processing video...
+[2026-02-13T12:39:50.938Z] Video Ready. Generating content...
+[2026-02-13T12:39:57.707Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      82,
+...
+[2026-02-13T12:40:00.045Z] POST /api/analyze-video completed successfully
+[2026-02-13T13:00:42.848Z] POST /api/analyze-video started
+[2026-02-13T13:00:43.246Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T13:00:43.407Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770987643342_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T13:00:43.410Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T13:00:43.413Z] Uploading to Gemini via REST API...
+[2026-02-13T13:00:50.925Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/6bn6cyvkcmbd (files/6bn6cyvkcmbd)
+[2026-02-13T13:00:50.937Z] Processing video...
+[2026-02-13T13:00:53.226Z] Video Ready. Generating content...
+[2026-02-13T13:00:59.420Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      81,
+...
+[2026-02-13T13:01:03.186Z] POST /api/analyze-video completed successfully
+[2026-02-13T13:07:21.428Z] POST /api/analyze-video started
+[2026-02-13T13:07:21.694Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T13:07:21.766Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770988041710_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T13:07:21.812Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T13:07:21.858Z] Uploading to Gemini via REST API...
+[2026-02-13T13:07:30.444Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/gpnxvv5htu66 (files/gpnxvv5htu66)
+[2026-02-13T13:07:30.452Z] Processing video...
+[2026-02-13T13:07:32.738Z] Video Ready. Generating content...
+[2026-02-13T13:07:40.623Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      82,
+...
+[2026-02-13T13:07:42.991Z] POST /api/analyze-video completed successfully
+[2026-02-13T13:14:55.484Z] POST /api/analyze-video started
+[2026-02-13T13:14:55.788Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T13:14:55.832Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770988495807_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T13:14:55.840Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T13:14:55.856Z] Uploading to Gemini via REST API...
+[2026-02-13T13:15:04.951Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/cy5yruhpp3cx (files/cy5yruhpp3cx)
+[2026-02-13T13:15:04.954Z] Processing video...
+[2026-02-13T13:15:07.156Z] Video Ready. Generating content...
+[2026-02-13T13:15:13.212Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      78,
+...
+[2026-02-13T13:15:15.640Z] POST /api/analyze-video completed successfully
+[2026-02-13T13:19:53.541Z] POST /api/analyze-video started
+[2026-02-13T13:19:54.005Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T13:19:54.057Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770988794033_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T13:19:54.066Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T13:19:54.069Z] Uploading to Gemini via REST API...
+[2026-02-13T13:20:02.254Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/g8namt5iq1zk (files/g8namt5iq1zk)
+[2026-02-13T13:20:02.265Z] Processing video...
+[2026-02-13T13:20:04.535Z] Video Ready. Generating content...
+[2026-02-13T13:20:10.013Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      81...
+[2026-02-13T13:20:13.795Z] POST /api/analyze-video completed successfully
+[2026-02-13T13:24:28.762Z] POST /api/analyze-video started
+[2026-02-13T13:24:29.105Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T13:24:29.132Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770989069121_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T13:24:29.134Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T13:24:29.136Z] Uploading to Gemini via REST API...
+[2026-02-13T13:24:38.976Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/klapkhi1gqyi (files/klapkhi1gqyi)
+[2026-02-13T13:24:38.992Z] Processing video...
+[2026-02-13T13:24:41.287Z] Processing video...
+[2026-02-13T13:24:43.536Z] Video Ready. Generating content...
+[2026-02-13T13:24:49.797Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      82,
+...
+[2026-02-13T13:24:51.951Z] POST /api/analyze-video completed successfully
+[2026-02-13T13:29:26.545Z] POST /api/analyze-video started
+[2026-02-13T13:29:26.870Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T13:29:26.908Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770989366887_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T13:29:26.910Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T13:29:26.912Z] Uploading to Gemini via REST API...
+[2026-02-13T13:29:38.026Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/5maf0ta0mjor (files/5maf0ta0mjor)
+[2026-02-13T13:29:38.035Z] Processing video...
+[2026-02-13T13:29:40.287Z] Processing video...
+[2026-02-13T13:29:42.510Z] Video Ready. Generating content...
+[2026-02-13T13:29:55.842Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      81...
+[2026-02-13T13:29:58.758Z] POST /api/analyze-video completed successfully
+[2026-02-13T13:35:11.736Z] POST /api/analyze-video started
+[2026-02-13T13:35:12.046Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T13:35:12.090Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1770989712070_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T13:35:12.092Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T13:35:12.096Z] Uploading to Gemini via REST API...
+[2026-02-13T13:35:19.968Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/046xjp0xbqkn (files/046xjp0xbqkn)
+[2026-02-13T13:35:19.973Z] Processing video...
+[2026-02-13T13:35:22.183Z] Processing video...
+[2026-02-13T13:35:24.435Z] Video Ready. Generating content...
+[2026-02-13T13:35:30.901Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      81...
+[2026-02-13T13:35:33.271Z] POST /api/analyze-video completed successfully
