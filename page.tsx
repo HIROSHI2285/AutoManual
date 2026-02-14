@@ -61,7 +61,7 @@ async function compressVideoForAnalysis(
             const ctx = canvas.getContext('2d')!;
 
             // MediaRecorder でキャプチャストリームを録画
-            const stream = (canvas as any).captureStream(5); // 5fps で十分
+            const stream = (canvas as any).captureStream(10); // 10fps（0.1秒以下の操作も捕捉）
             const chunks: Blob[] = [];
 
             // 対応コーデックを選定
