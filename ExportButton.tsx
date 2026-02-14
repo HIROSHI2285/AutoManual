@@ -165,33 +165,6 @@ export default function ExportButton({ manual }: ExportButtonProps) {
     );
 }
 
-// FIX: Generate SVG for perfect centering (html2canvas safe)
-function createStepNumberSvg(number: number): string {
-    const size = 28;
-    const radius = size / 2;
-    const fontSize = 15;
-    const color = '#6366f1';
-
-    // SVG with simple circle and centered text using dominant-baseline and text-anchor
-    const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <circle cx="${radius}" cy="${radius}" r="${radius}" fill="${color}" />
-        <text 
-            x="50%" 
-            y="50%" 
-            dy="1" 
-            dominant-baseline="central" 
-            text-anchor="middle" 
-            fill="white" 
-            font-family="Arial, sans-serif" 
-            font-weight="bold" 
-            font-size="${fontSize}px"
-        >${number}</text>
-    </svg>`;
-
-    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
-}
-
 // Update generateHTML signature to accept layout
 function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'single'): string {
     const isTwoCol = layout === 'two-column';
@@ -233,35 +206,35 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
         border-radius: 8px;
     }
 
-    /* FIX: HTML2Canvas table layout for header (User Request) */
     .step-header { 
-        display: table;
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px; 
+        gap: 10px;
     }
     
-    .step-number-cell {
+    /* html2pdf/html2canvas 対応：inline-flexを避けてtable-cellで確実に中央揃え */
+    .step-number { 
         display: table-cell;
-        width: 38px; /* 28px icon + 10px margin equivalent */
         vertical-align: middle;
+        text-align: center;
+        background: #6366f1; 
+        color: white; 
+        width: 28px; 
+        height: 28px; 
+        min-width: 28px;
+        min-height: 28px;
+        border-radius: 50%; 
+        font-weight: bold; 
+        font-size: 14px;
+        font-family: Arial, sans-serif; 
+        box-sizing: border-box;
+        line-height: 28px;
         padding: 0;
     }
-
-    .step-number-img {
-        width: 28px;
-        height: 28px;
-        display: block;
-    }
     
-    .step-action-cell {
-        display: table-cell;
-        vertical-align: middle;
-        font-weight: bold; 
-        font-size: 16px;
-    }
-
-    .step-detail { margin-left: 38px; font-size: 13px; color: #555; margin-bottom: 10px; }
+    .step-action { font-weight: bold; font-size: 16px; line-height: 1.3; }
+    .step-detail { margin-left: 38px; font-size: 13px; color: #555; margin-bottom: 10px; line-height: 1.6; }
     .step-image { margin-left: 38px; }
     .step-image img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; display: block; }
     
@@ -278,14 +251,10 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
 `;
 
     manual.steps.forEach((step) => {
-        const iconSrc = createStepNumberSvg(step.stepNumber);
-
         html += `    <div class="step">
       <div class="step-header">
-        <div class="step-number-cell">
-           <img src="${iconSrc}" class="step-number-img" alt="${step.stepNumber}" />
-        </div>
-        <div class="step-action-cell">${step.action}</div>
+        <span class="step-number">${step.stepNumber}</span>
+        <span class="step-action">${step.action}</span>
       </div>
       <p class="step-detail">${step.detail}</p>
 `;

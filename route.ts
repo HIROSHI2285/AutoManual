@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
             while (fileState === 'PROCESSING') {
                 await log('Processing video...');
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 500)); // 500ms間隔でポーリング（元は2000ms）
 
                 const statusResponse = await fetch(`${BASE_URL}/${fileName}?key=${API_KEY}`);
                 if (!statusResponse.ok) throw new Error('Failed to check status');
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
             // 3. Generate Content
             const prompt = `
 このPC画面の収録動画を分析してください。
-ユーザーが意味のある操作（クリック、入力、スクロール停止など）や、重要なシステム反応（処理完了の確認、エラー表示、画面遷移の待ち時間など）を特定してください。
+ユーザーが意味のある操作（クリック、入力、スクロール停止など）を行った重要なステップを特定してください。
 
 以下の形式のJSONリストで返してください：
 [

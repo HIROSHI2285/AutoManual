@@ -27,8 +27,115 @@ export interface ManualData {
 
 
 
+// ============================================================
+// 動画圧縮関数
+// MediaRecorder API を使ってブラウザ上で動画を再エンコードする。
+// 解析用途なので解像度を落とすだけで十分（スクリーンショットは元動画から取得）。
+// ============================================================
+async function compressVideoForAnalysis(
+    file: File,
+    onProgress?: (percent: number) => void
+): Promise<File> {
+    return new Promise((resolve) => {
+        // MediaRecorder が使えない環境では元ファイルをそのまま返す
+        if (typeof MediaRecorder === 'undefined') {
+            console.warn('[compress] MediaRecorder not available, using original file');
+            resolve(file);
+            return;
+        }
 
+        const video = document.createElement('video');
+        const objectUrl = URL.createObjectURL(file);
+        video.src = objectUrl;
+        video.muted = true;
+        video.playsInline = true;
 
+        video.onloadedmetadata = () => {
+            // 目標解像度：幅 854px（SD画質）
+            const targetWidth = 854;
+            const targetHeight = Math.round(video.videoHeight * (targetWidth / video.videoWidth));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d')!;
+
+            // MediaRecorder でキャプチャストリームを録画
+            const stream = (canvas as any).captureStream(5); // 5fps で十分
+            const chunks: Blob[] = [];
+
+            // 対応コーデックを選定
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                ? 'video/webm;codecs=vp9'
+                : MediaRecorder.isTypeSupported('video/webm')
+                    ? 'video/webm'
+                    : '';
+
+            if (!mimeType) {
+                console.warn('[compress] No supported codec, using original file');
+                URL.revokeObjectURL(objectUrl);
+                resolve(file);
+                return;
+            }
+
+            const recorder = new MediaRecorder(stream, {
+                mimeType,
+                videoBitsPerSecond: 500_000, // 500kbps（解析用なので低ビットレートで十分）
+            });
+
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) chunks.push(e.data);
+            };
+
+            recorder.onstop = () => {
+                URL.revokeObjectURL(objectUrl);
+                const blob = new Blob(chunks, { type: mimeType });
+
+                // 圧縮後が元より大きい場合は元ファイルを使う（ごく短い動画など）
+                if (blob.size >= file.size) {
+                    console.log(`[compress] Compressed(${blob.size}) >= Original(${file.size}), using original`);
+                    resolve(file);
+                    return;
+                }
+
+                console.log(`[compress] ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(blob.size / 1024 / 1024).toFixed(1)}MB (${Math.round(blob.size / file.size * 100)}%)`);
+                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, '.webm'), { type: mimeType }));
+            };
+
+            // 動画を再生しながらキャンバスに描画して録画
+            recorder.start(100); // 100ms ごとにチャンクを生成
+
+            const duration = video.duration;
+            let lastProgress = 0;
+
+            const drawFrame = () => {
+                if (video.ended || video.paused) {
+                    recorder.stop();
+                    return;
+                }
+                ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+                // 進捗を通知
+                const progress = Math.round((video.currentTime / duration) * 100);
+                if (progress !== lastProgress) {
+                    lastProgress = progress;
+                    onProgress?.(progress);
+                }
+
+                requestAnimationFrame(drawFrame);
+            };
+
+            video.onended = () => recorder.stop();
+            video.play().then(() => requestAnimationFrame(drawFrame));
+        };
+
+        video.onerror = () => {
+            console.warn('[compress] Video load error, using original file');
+            URL.revokeObjectURL(objectUrl);
+            resolve(file);
+        };
+    });
+}
 
 export default function Home() {
     const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -38,7 +145,6 @@ export default function Home() {
     const [manual, setManual] = useState<ManualData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // ... existing persistence code ...
     // Persistence: Load from localStorage on mount
     useEffect(() => {
         const saved = localStorage.getItem('am_current_manual');
@@ -62,7 +168,6 @@ export default function Home() {
             }
         }
     }, [manual]);
-    // ... end persistence ...
 
     const handleVideoSelect = useCallback((file: File) => {
         setVideoFile(file);
@@ -109,11 +214,22 @@ export default function Home() {
 
         setIsLoading(true);
         setError(null);
-        setLoadingStage('Stage 1: AIが動画全体を解析中... (これには少し時間がかかります)');
+        setLoadingStage('準備中: 動画を圧縮しています...');
 
         try {
+            // ── 圧縮処理 ──────────────────────────────────────────
+            // 解析用に動画を圧縮する（解像度を落としてファイルサイズを削減）
+            // スクリーンショットは元動画から取得するため画質は影響しない
+            const compressedFile = await compressVideoForAnalysis(videoFile, (progress) => {
+                setLoadingStage(`準備中: 動画を圧縮しています... ${progress}%`);
+            });
+            // ──────────────────────────────────────────────────────
+
+            setLoadingStage('Stage 1: AIが動画全体を解析中... (これには少し時間がかかります)');
+
             const formData = new FormData();
-            formData.append('video', videoFile);
+            // 圧縮に成功した場合は圧縮版を、失敗した場合は元ファイルを送る
+            formData.append('video', compressedFile);
 
             // STAGE 1: Agentic Analysis (Send video to Gemini)
             const response = await fetch('/api/analyze-video', {

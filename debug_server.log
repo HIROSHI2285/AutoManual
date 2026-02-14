@@ -761,3 +761,99 @@ Stack: TypeError: Cannot convert argument to a ByteString because the character 
     "box_2d": [
       81...
 [2026-02-13T13:35:33.271Z] POST /api/analyze-video completed successfully
+[2026-02-13T23:30:18.214Z] POST /api/analyze-video started
+[2026-02-13T23:30:18.462Z] Received file: 新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 13656302
+[2026-02-13T23:30:18.582Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771025418532_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-13T23:30:18.589Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-13T23:30:18.594Z] Uploading to Gemini via REST API...
+[2026-02-13T23:30:56.372Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/nrhxnqcahwpd (files/nrhxnqcahwpd)
+[2026-02-13T23:30:56.388Z] Processing video...
+[2026-02-13T23:30:58.856Z] Processing video...
+[2026-02-13T23:31:01.164Z] Video Ready. Generating content...
+[2026-02-13T23:31:07.007Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      81...
+[2026-02-13T23:31:09.955Z] POST /api/analyze-video completed successfully
+[2026-02-13T23:55:03.003Z] POST /api/analyze-video started
+[2026-02-13T23:55:06.821Z] Received file: IMG_0030.MOV, size: 211376663
+[2026-02-13T23:55:07.379Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771026907085_IMG_0030.MOV
+[2026-02-13T23:55:07.382Z] Normalized MIME type: video/quicktime -> video/mov
+[2026-02-13T23:55:07.384Z] Uploading to Gemini via REST API...
+[2026-02-13T23:59:51.550Z] POST /api/analyze-video started
+[2026-02-13T23:59:53.082Z] Server Error (outer catch): aborted
+Stack: Error: aborted
+    at abortIncoming (node:_http_server:825:17)
+    at socketOnClose (node:_http_server:819:3)
+    at Socket.emit (node:events:520:35)
+    at TCP.<anonymous> (node:net:346:12)
+[2026-02-14T00:00:05.725Z] POST /api/analyze-video started
+[2026-02-14T00:00:10.910Z] Received file: IMG_0030.MOV, size: 211376663
+[2026-02-14T00:00:11.693Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771027211306_IMG_0030.MOV
+[2026-02-14T00:00:11.703Z] Normalized MIME type: video/quicktime -> video/mov
+[2026-02-14T00:00:11.706Z] Uploading to Gemini via REST API...
+[2026-02-14T00:05:20.190Z] Unexpected error in API logic: fetch failed
+Stack: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15422:13
+    at async POST (webpack-internal:///(rsc)/./app/api/analyze-video/route.ts:96:36)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:53446
+    at async e_.execute (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:44747)
+    at async e_.handle (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:54700)
+    at async doRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1377:42)
+    at async cacheEntry.responseCache.get.routeKind (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1599:28)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1507:28)
+    at async DevServer.renderPageComponent (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1962:32)
+    at async DevServer.pipeImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:816:17)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:174:21)
+    at async handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:353:24)
+    at async requestHandlerImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:377:13)
+    at async Server.requestListener (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\start-server.js:141:13)
+[2026-02-14T03:48:10.287Z] POST /api/analyze-video started
+[2026-02-14T03:48:10.317Z] Received file: compressed_video.webm, size: 1120028
+[2026-02-14T03:48:10.327Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771040890323_compressed_video.webm
+[2026-02-14T03:48:10.339Z] Normalized MIME type: video/webm -> video/webm
+[2026-02-14T03:48:10.343Z] Uploading to Gemini via REST API...
+[2026-02-14T03:48:13.404Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/ek66hnye26ps (files/ek66hnye26ps)
+[2026-02-14T03:48:13.407Z] Processing video...
+[2026-02-14T03:48:14.226Z] Processing video...
+[2026-02-14T03:48:15.095Z] Processing video...
+[2026-02-14T03:48:15.856Z] Processing video...
+[2026-02-14T03:48:16.657Z] Video Ready. Generating content...
+[2026-02-14T03:48:22.757Z] Response received: [
+  {
+    "timestamp": "01:09:03",
+    "action": "画面をタップします",
+    "box_2d": [
+      942,
+      700,
+...
+[2026-02-14T03:48:25.619Z] POST /api/analyze-video completed successfully
+[2026-02-14T03:53:27.834Z] POST /api/analyze-video started
+[2026-02-14T03:53:28.021Z] Received file: compressed_video.webm, size: 11695514
+[2026-02-14T03:53:28.306Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771041208039_compressed_video.webm
+[2026-02-14T03:53:28.309Z] Normalized MIME type: video/webm -> video/webm
+[2026-02-14T03:53:28.317Z] Uploading to Gemini via REST API...
+[2026-02-14T03:53:32.207Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/a5hh9a81zyxa (files/a5hh9a81zyxa)
+[2026-02-14T03:53:32.217Z] Processing video...
+[2026-02-14T03:53:33.024Z] Processing video...
+[2026-02-14T03:53:33.841Z] Processing video...
+[2026-02-14T03:53:34.569Z] Processing video...
+[2026-02-14T03:53:35.389Z] Processing video...
+[2026-02-14T03:53:36.222Z] Processing video...
+[2026-02-14T03:53:37.020Z] Video Ready. Generating content...
+[2026-02-14T03:53:44.223Z] Response received: [
+  {
+    "timestamp": "00:00",
+    "action": "画面左側のディスプレイを指します",
+    "box_2d": [
+      100,
+      1...
+[2026-02-14T03:53:47.368Z] POST /api/analyze-video completed successfully
