@@ -109,5 +109,7 @@ npm run dev
 
 ブラウザで [http://localhost:3000](http://localhost:3000) を開いてください。
 
+詳細なインストール手順（他のPCでのセットアップ方法など）については、[INSTALLATION.md](./INSTALLATION.md) を参照してください。
+
 ---
 Produced by Antigravity AI
