@@ -1,5 +1,0 @@
-components/InlineCanvas.tsx(632,9): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
-components/InlineCanvas.tsx(637,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
-components/InlineCanvas.tsx(638,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
-components/InlineCanvas.tsx(640,13): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.
-components/InlineCanvas.tsx(641,17): error TS17004: Cannot use JSX unless the '--jsx' flag is provided.

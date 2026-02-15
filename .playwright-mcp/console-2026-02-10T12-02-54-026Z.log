@@ -1,3 +1,0 @@
-[  310157ms] [WARNING] [InlineCanvas] Export skipped (tainted canvas): Failed to execute 'toDataURL' on 'HTMLCanvasElement': Tainted canvases may not be exported. @ webpack-internal:///(app-pages-browser)/./components/InlineCanvas.tsx:120
-[  361009ms] [WARNING] [InlineCanvas] Export skipped (tainted canvas): Failed to execute 'toDataURL' on 'HTMLCanvasElement': Tainted canvases may not be exported. @ webpack-internal:///(app-pages-browser)/./components/InlineCanvas.tsx:120
-[  417600ms] [WARNING] [InlineCanvas] Export skipped (tainted canvas): Failed to execute 'toDataURL' on 'HTMLCanvasElement': Tainted canvases may not be exported. @ webpack-internal:///(app-pages-browser)/./components/InlineCanvas.tsx:120
