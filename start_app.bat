@@ -26,8 +26,8 @@ echo [INFO] Starting the development server...
 echo [INFO] Your browser will open automatically in a few seconds.
 echo.
 
-:: Open browser in a separate process after a short delay to allow server to start
-start "" cmd /c "timeout /t 5 >nul && start http://localhost:3000"
+:: Open browser in a separate process after a short delay (ping 127.0.0.1 used for robust wait)
+start "" cmd /c "ping 127.0.0.1 -n 6 >nul & start http://localhost:3000"
 
 :: Run the dev server
 call npm run dev
