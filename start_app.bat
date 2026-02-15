@@ -26,8 +26,8 @@ echo [INFO] Starting the development server...
 echo [INFO] Your browser will open automatically in a few seconds.
 echo.
 
-:: Open browser using explorer after a short delay (ping 127.0.0.1 used for robust wait)
-start "" cmd /c "ping 127.0.0.1 -n 6 >nul & explorer http://localhost:3000"
+:: Open browser using Node.js (most reliable method handles delay and URL opening)
+start "" node -e "setTimeout(() => { require('child_process').exec('start http://localhost:3000'); }, 5000)"
 
 :: Run the dev server
 call npm run dev
