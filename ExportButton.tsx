@@ -193,35 +193,22 @@ function createStepNumberSvg(number: number): string {
     return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
 
-// FIX: Generate SVG for section header to ensuring perfect vertical centering
+// セクション見出し帯をSVG画像として生成
+// html2canvas は height + line-height による縦中央揃えを正確に再現できないため
+// テキストと帯を丸ごとSVGにして dominant-baseline="central" で確実に中央配置する
 function createSectionHeaderSvg(text: string): string {
-    // Width and height based on the CSS: width 100% (container), height 44px
-    // Since we don't know the exact pixel width of A4/container here easily without DOM, we can make it wide enough or responsive.
-    // However, html2pdf renders images well. Let's assume a standard width or use 100% in img tag.
-    // For the SVG itself, we can set a viewBox. 800px is the max-width of the body.
-    const width = 800;
-    const height = 44;
-    const fontSize = 18;
-    const backgroundColor = '#f4f4f4';
-    const textColor = '#333333';
-    const borderRadius = 4;
-
-    const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-        <rect x="0" y="0" width="${width}" height="${height}" rx="${borderRadius}" ry="${borderRadius}" fill="${backgroundColor}" />
-        <text 
-            x="12" 
-            y="50%" 
-            dy="1" 
-            dominant-baseline="central" 
-            text-anchor="start" 
-            fill="${textColor}" 
-            font-family="Arial, 'Helvetica Neue', Helvetica, sans-serif" 
-            font-weight="bold" 
-            font-size="${fontSize}px"
-        >${text}</text>
-    </svg>`;
-
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="40" viewBox="0 0 760 40">
+  <rect x="0" y="0" width="760" height="40" fill="#f4f4f4" rx="4"/>
+  <text
+    x="12" y="20"
+    text-anchor="start"
+    dominant-baseline="central"
+    font-family="Arial, sans-serif"
+    font-size="18"
+    font-weight="bold"
+    fill="#1e293b"
+  >${text}</text>
+</svg>`;
     return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
 
@@ -248,8 +235,7 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
     }
     h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     .overview { margin-bottom: 30px; font-size: 14px; color: #666; white-space: pre-wrap; }
-    h2 { margin: 30px 0 15px; display: block; border: none; background: none; padding: 0; }
-    .section-header-img { width: 100%; height: 44px; display: block; }
+    h2 { font-size: 0; line-height: 0; margin: 30px 0 15px; padding: 0; border: none; background: none; }
     
     /* Table Layout for 2-Column strict alignment */
     .steps-table {
@@ -377,7 +363,7 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
   <h1>${manual.title}</h1>
   <p class="overview">${manual.overview}</p>
   
-  <h2><img src="${createSectionHeaderSvg('手順')}" class="section-header-img" alt="手順" /></h2>
+  <h2><img src="${createSectionHeaderSvg('手順')}" width="760" height="40" style="display:block;width:100%;height:40px;" alt="手順"></h2>
 `;
 
     if (isTwoCol) {

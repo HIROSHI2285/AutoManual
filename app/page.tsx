@@ -173,7 +173,7 @@ export default function Home() {
             // Initialize Manual Data
             const newManual: ManualData = {
                 title: videoFile.name.replace(/\.[^/.]+$/, "") + " マニュアル",
-                overview: "AIが動画から自動生成したマニュアルです。",
+                overview: '',
                 steps: finalSteps,
                 notes: []
             };

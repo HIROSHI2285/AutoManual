@@ -15,7 +15,7 @@ const STAGE1_PROMPT = `
 出力形式（JSON）:
 {
   "title": "マニュアルのタイトル（日本語）",
-  "overview": "作業の概要（日本語）",
+  "overview": "作業の概要（日本語。詳細な内容のみとし、「AIが自動生成した」等の定型文は含めないでください）",
   "steps": [
     {
       "stepNumber": 1,
