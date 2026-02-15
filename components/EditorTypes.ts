@@ -1,9 +1,11 @@
 export type ToolType = 'select' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'stamp' | 'highlight' | 'blur';
+export type StrokeStyle = 'solid' | 'dashed';
 
 export interface EditorState {
     activeTool: ToolType;
     currentColor: string;
     strokeWidth: number;
+    strokeStyle: StrokeStyle;
     fontSize: number;
     stampCount: number;
 }

@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
 box_2d は 0-1000 の範囲に正規化してください。
 `;
 
-            const generateResponse = await fetch(`${BASE_URL}/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+            const generateResponse = await fetch(`${BASE_URL}/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

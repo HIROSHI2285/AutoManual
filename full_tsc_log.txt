@@ -1,0 +1,8 @@
+components/ImageEditor.tsx(4,10): error TS2305: Module '"fabric"' has no exported member 'fabric'.
+components/ImageEditor.tsx(54,41): error TS7006: Parameter 'img' implicitly has an 'any' type.
+components/ImageEditor.tsx(103,37): error TS7006: Parameter 'obj' implicitly has an 'any' type.
+InlineCanvas.tsx(6,26): error TS2307: Cannot find module './EditorTypes' or its corresponding type declarations.
+InlineCanvas.tsx(123,44): error TS2554: Expected 0 arguments, but got 1.
+InlineCanvas.tsx(257,50): error TS2554: Expected 0 arguments, but got 1.
+InlineCanvas.tsx(394,38): error TS2554: Expected 0 arguments, but got 1.
+InlineCanvas.tsx(489,63): error TS2554: Expected 0 arguments, but got 1.

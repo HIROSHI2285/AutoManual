@@ -1,0 +1,21 @@
+components/InlineCanvas.tsx(47,36): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(51,40): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(73,38): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(92,56): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(98,30): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(157,54): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(166,36): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(217,22): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(267,55): error TS2304: Cannot find name 'fabric'.
+components/InlineCanvas.tsx(279,31): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(369,26): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(375,44): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(380,65): error TS2503: Cannot find namespace 'fabric'.
+components/InlineCanvas.tsx(554,37): error TS7006: Parameter 'obj' implicitly has an 'any' type.
+components/InlineCanvas.tsx(577,47): error TS7006: Parameter 'obj' implicitly has an 'any' type.
+components/InlineCanvas.tsx(582,38): error TS2503: Cannot find namespace 'fabric'.
+InlineCanvas.tsx(6,26): error TS2307: Cannot find module './EditorTypes' or its corresponding type declarations.
+InlineCanvas.tsx(123,44): error TS2554: Expected 0 arguments, but got 1.
+InlineCanvas.tsx(257,50): error TS2554: Expected 0 arguments, but got 1.
+InlineCanvas.tsx(394,38): error TS2554: Expected 0 arguments, but got 1.
+InlineCanvas.tsx(489,63): error TS2554: Expected 0 arguments, but got 1.

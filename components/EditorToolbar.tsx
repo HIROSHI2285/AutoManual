@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ToolType, EDITOR_COLORS } from './EditorTypes';
+import { ToolType, EDITOR_COLORS, StrokeStyle } from './EditorTypes';
 
 interface EditorToolbarProps {
     activeTool: ToolType;
@@ -10,6 +10,8 @@ interface EditorToolbarProps {
     onColorChange: (color: string) => void;
     strokeWidth: number;
     onStrokeWidthChange: (width: number) => void;
+    strokeStyle: StrokeStyle;
+    onStrokeStyleChange: (style: StrokeStyle) => void;
     fontSize: number;
     onFontSizeChange: (size: number) => void;
     stampCount: number;
@@ -24,6 +26,8 @@ export default function EditorToolbar({
     onColorChange,
     strokeWidth,
     onStrokeWidthChange,
+    strokeStyle,
+    onStrokeStyleChange,
     fontSize,
     onFontSizeChange,
     stampCount
@@ -182,6 +186,34 @@ export default function EditorToolbar({
                         max={500}
                         step={2}
                     />
+                </div>
+
+                {/* Stroke Style Toggle */}
+                <div className="flex gap-1 w-full justify-center px-1 py-1">
+                    <button
+                        onClick={() => onStrokeStyleChange('solid')}
+                        className={`flex-1 h-7 rounded-sm flex items-center justify-center transition-all border ${strokeStyle === 'solid'
+                            ? 'bg-purple-600 border-purple-500 text-white shadow-md'
+                            : 'bg-slate-900 border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-white'
+                            }`}
+                        title="Solid Line"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <line x1="4" y1="12" x2="20" y2="12" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={() => onStrokeStyleChange('dashed')}
+                        className={`flex-1 h-7 rounded-sm flex items-center justify-center transition-all border ${strokeStyle === 'dashed'
+                            ? 'bg-purple-600 border-purple-500 text-white shadow-md'
+                            : 'bg-slate-900 border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-white'
+                            }`}
+                        title="Dashed Line"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <line x1="4" y1="12" x2="20" y2="12" strokeDasharray="4 4" />
+                        </svg>
+                    </button>
                 </div>
 
                 {/* Color Spectrum */}

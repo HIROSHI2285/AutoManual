@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { fabric } from 'fabric';
+import * as fabric from 'fabric';
 
 interface ImageEditorProps {
     imageUrl: string;
@@ -51,35 +51,33 @@ export default function ImageEditor({ imageUrl, onSave, onCancel }: ImageEditorP
         setFabricCanvas(newCanvas);
 
         // Load image
-        fabric.Image.fromURL(imageUrl, (img) => {
-            // Safety check: verify component is mounted and canvas exists and has an element
+        fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' }).then((img: any) => {
+            // Safety check
             if (!isMounted.current || !newCanvas || !newCanvas.getElement()) return;
-            if (!img) return;
 
-            try {
-                // Determine dimensions
-                const maxWidth = window.innerWidth * 0.8;
-                const maxHeight = window.innerHeight * 0.8;
+            const maxWidth = window.innerWidth * 0.8;
+            const maxHeight = window.innerHeight * 0.8;
 
-                let scale = 1;
-                if (img.width && img.height) {
-                    const scaleX = maxWidth / img.width;
-                    const scaleY = maxHeight / img.height;
-                    scale = Math.min(scaleX, scaleY, 1); // Fit to screen
+            let scale = 1;
+            if (img.width && img.height) {
+                const scaleX = maxWidth / img.width;
+                const scaleY = maxHeight / img.height;
+                scale = Math.min(scaleX, scaleY, 1); // Fit to screen
 
-                    img.scale(scale);
+                img.scale(scale);
 
-                    const targetWidth = (img.width || 0) * scale;
-                    const targetHeight = (img.height || 0) * scale;
+                const targetWidth = (img.width || 0) * scale;
+                const targetHeight = (img.height || 0) * scale;
 
-                    newCanvas.setWidth(targetWidth);
-                    newCanvas.setHeight(targetHeight);
-                    newCanvas.setBackgroundImage(img, newCanvas.renderAll.bind(newCanvas));
-                }
-            } catch (error) {
-                console.error("Error initializing canvas image:", error);
+                newCanvas.setWidth(targetWidth);
+                newCanvas.setHeight(targetHeight);
+
+                newCanvas.backgroundImage = img;
+                newCanvas.renderAll();
             }
-        }, { crossOrigin: 'anonymous' });
+        }).catch(err => {
+            console.error("Error initializing canvas image:", err);
+        });
 
         return () => {
             isMounted.current = false;
@@ -108,7 +106,8 @@ export default function ImageEditor({ imageUrl, onSave, onCancel }: ImageEditorP
         fabricCanvas.renderAll();
 
         // Bind events
-        const handleMouseDown = (opt: fabric.IEvent) => {
+        // Bind events
+        const handleMouseDown = (opt: any) => { // fabric.TEvent or any
             if (activeTool === 'select') return;
 
             const pointer = fabricCanvas.getPointer(opt.e);

@@ -6,7 +6,7 @@ import CopyButton from './CopyButton';
 import ExportButton from './ExportButton';
 import EditorToolbar from './EditorToolbar';
 import InlineCanvas from './InlineCanvas';
-import { ToolType, EditorState } from './EditorTypes';
+import { ToolType, EditorState, StrokeStyle } from './EditorTypes';
 
 interface ManualViewerProps {
     manual: ManualData;
@@ -22,6 +22,8 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     const [strokeWidth, setStrokeWidth] = useState(1); // Default thin line
     const [fontSize, setFontSize] = useState(24); // Default font size (must be in FONT_SIZE_STEPS)
     const [stampCount, setStampCount] = useState(1);
+    const [isTwoColumn, setIsTwoColumn] = useState(false); // New state for layout mode
+    const [strokeStyle, setStrokeStyle] = useState<StrokeStyle>('solid');
 
     // Backup for cancellation & Original reference for InlineCanvas
     const [backupManual, setBackupManual] = useState<ManualData | null>(null);
@@ -31,10 +33,14 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     useEffect(() => {
         const savedColor = localStorage.getItem('am_editor_color_v2');
         const savedStroke = localStorage.getItem('am_editor_stroke_v2');
+        const savedStrokeStyle = localStorage.getItem('am_editor_strokeStyle_v2');
         const savedFontSize = localStorage.getItem('am_editor_fontSize_v2');
 
         if (savedColor) setCurrentColor(savedColor);
         if (savedStroke) setStrokeWidth(parseInt(savedStroke));
+        if (savedStrokeStyle && (savedStrokeStyle === 'solid' || savedStrokeStyle === 'dashed')) {
+            setStrokeStyle(savedStrokeStyle as StrokeStyle);
+        }
         if (savedFontSize) setFontSize(parseInt(savedFontSize));
     }, []);
 
@@ -43,9 +49,10 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         if (isEditMode) {
             localStorage.setItem('am_editor_color_v2', currentColor);
             localStorage.setItem('am_editor_stroke_v2', strokeWidth.toString());
+            localStorage.setItem('am_editor_strokeStyle_v2', strokeStyle);
             localStorage.setItem('am_editor_fontSize_v2', fontSize.toString());
         }
-    }, [currentColor, strokeWidth, fontSize, isEditMode]);
+    }, [currentColor, strokeWidth, strokeStyle, fontSize, isEditMode]);
 
     const enterEditMode = () => {
         // Generate stable UIDs for any step that doesn't have one
@@ -184,6 +191,8 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     onColorChange={setCurrentColor}
                     strokeWidth={strokeWidth}
                     onStrokeWidthChange={setStrokeWidth}
+                    strokeStyle={strokeStyle}
+                    onStrokeStyleChange={setStrokeStyle}
                     fontSize={fontSize}
                     onFontSizeChange={setFontSize}
                     stampCount={stampCount}
@@ -194,7 +203,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                 ? 'bg-white/90 backdrop-blur-2xl border-purple-100/50 shadow-lg shadow-purple-500/5'
                 : 'bg-white'
                 }`}>
-                <div className="max-w-5xl mx-auto flex items-center justify-between">
+                <div className="max-w-7xl mx-auto flex items-center justify-between">
                     {!isEditMode ? (
                         <div className="flex flex-col gap-2 pr-8">
                             <h2 className="manual__title text-5xl font-black text-slate-950 tracking-tighter leading-tight drop-shadow-sm">{manual.title}</h2>
@@ -215,17 +224,34 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     <div className="manual__actions flex items-center gap-3">
                         {!isEditMode ? (
                             <>
+                                {/* View Toggle */}
+                                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                                    <button
+                                        onClick={() => setIsTwoColumn(false)}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!isTwoColumn ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                                    >
+                                        1列
+                                    </button>
+                                    <button
+                                        onClick={() => setIsTwoColumn(true)}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isTwoColumn ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                                    >
+                                        2列
+                                    </button>
+                                </div>
+                                <div className="h-8 w-px bg-slate-200 mx-2" />
+
                                 {onUpdateManual && (
                                     <button
                                         onClick={enterEditMode}
                                         className="h-12 px-8 bg-slate-950 text-white rounded-lg font-black text-sm shadow-2xl hover:bg-slate-800 transition-all transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-2 border border-white/10"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                        <span>マニュアルを編集</span>
+                                        <span>編集</span>
                                     </button>
                                 )}
                                 <div className="h-8 w-px bg-slate-200 mx-2" />
-                                <CopyButton manual={manual} />
+                                <CopyButton manual={manual} isTwoColumn={isTwoColumn} />
                                 <ExportButton manual={manual} />
                             </>
                         ) : (
@@ -256,40 +282,71 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             </div>
 
             {/* Steps Section - ELITE RECONSTRUCTION */}
-            <div className={`steps max-w-4xl mx-auto px-4 ${isEditMode ? 'py-16' : 'py-12'} space-y-20 pb-32`}>
+            <div className={`mx-auto px-4 ${isEditMode ? 'py-16' : 'py-12'} pb-32 ${isTwoColumn && !isEditMode
+                ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8'
+                : 'steps max-w-4xl space-y-20'
+                }`}>
                 {manual.steps.map((step, index) => (
-                    <section key={index} className="manual__step animate-slide-up">
-                        <div className={`flex items-start gap-8 mb-10 group ${isEditMode ? 'opacity-50 hover:opacity-100 transition-opacity' : ''}`}>
-                            <div className="flex flex-col items-center gap-2">
+                    <section key={index} className={`manual__step animate-slide-up ${isTwoColumn && !isEditMode ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : ''}`}>
+                        <div className={`flex items-start gap-6 group ${isEditMode ? 'opacity-50 hover:opacity-100 transition-opacity mb-6' : (isTwoColumn ? 'flex-grow mb-4' : 'mb-6')}`}>
+                            <div className="flex flex-col items-center gap-3">
                                 <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
                                     {step.stepNumber}
                                 </div>
                                 {isEditMode && (
                                     <button
                                         onClick={() => handleDeleteStep(index)}
-                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-90 border border-transparent hover:border-rose-200"
+                                        className="px-3 py-1 bg-rose-50 text-rose-600 rounded-md text-xs font-bold border border-rose-200 hover:bg-rose-600 hover:text-white hover:border-transparent transition-all active:scale-95 flex items-center justify-center w-full whitespace-nowrap"
                                         title={`ステップ ${step.stepNumber} を削除`}
                                     >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
+                                        削除
                                     </button>
                                 )}
                             </div>
-                            <div className="flex flex-col gap-3 py-1">
-                                <h3 className="manual__step-title text-3xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
-                                    {step.action}
-                                </h3>
-                                <p className="manual__step-desc text-slate-800 font-bold text-lg leading-relaxed max-w-2xl">
-                                    {step.detail}
-                                </p>
+                            <div className="flex flex-col gap-3 py-1 w-full">
+                                {isEditMode ? (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={step.action}
+                                            onChange={(e) => {
+                                                if (!onUpdateManual) return;
+                                                const newSteps = [...manual.steps];
+                                                newSteps[index] = { ...step, action: e.target.value };
+                                                onUpdateManual({ ...manual, steps: newSteps });
+                                            }}
+                                            className="manual__step-title text-3xl font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300"
+                                            placeholder="手順のタイトル"
+                                        />
+                                        <textarea
+                                            value={step.detail}
+                                            onChange={(e) => {
+                                                if (!onUpdateManual) return;
+                                                const newSteps = [...manual.steps];
+                                                newSteps[index] = { ...step, detail: e.target.value };
+                                                onUpdateManual({ ...manual, steps: newSteps });
+                                            }}
+                                            className="manual__step-desc text-slate-800 font-bold text-lg leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors min-h-[100px] resize-y placeholder-slate-300"
+                                            placeholder="手順の詳細説明"
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <h3 className="manual__step-title text-2xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
+                                            {step.action}
+                                        </h3>
+                                        <p className="manual__step-desc text-slate-800 font-bold text-base leading-relaxed">
+                                            {step.detail}
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         </div>
 
-                        <div className={`manual__image-container rounded-[24px] overflow-hidden transition-all duration-500 border-2 ${isEditMode
+                        <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 ${isEditMode
                             ? 'bg-white shadow-floating border-purple-600/10'
-                            : 'bg-slate-50 shadow-2xl border-slate-900/5 hover:border-slate-900/10 hover:shadow-floating transform hover:-translate-y-1'
-                            }`}>
+                            : 'bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1'
+                            } ${isTwoColumn && !isEditMode ? 'aspect-[4/3] flex items-center justify-center bg-slate-100' : ''}`}>
                             {isEditMode ? (
                                 <InlineCanvas
                                     canvasId={`step-${step.uid || index}`} // Stable ID using uid
@@ -300,6 +357,8 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                     onColorChange={setCurrentColor}
                                     strokeWidth={strokeWidth}
                                     onStrokeWidthChange={setStrokeWidth}
+                                    strokeStyle={strokeStyle}
+                                    onStrokeStyleChange={setStrokeStyle}
                                     fontSize={fontSize}
                                     onFontSizeChange={setFontSize}
                                     stampCount={stampCount}
@@ -312,7 +371,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 <img
                                     src={step.screenshot}
                                     alt={`Step ${step.stepNumber}: ${step.action}`}
-                                    className="w-full h-auto object-contain block transition-transform duration-700 group-hover:scale-[1.01]"
+                                    className={`block transition-transform duration-700 group-hover:scale-[1.01] ${isTwoColumn ? 'w-full h-full object-contain' : 'w-full h-auto'}`}
                                     loading="lazy"
                                 />
                             )}

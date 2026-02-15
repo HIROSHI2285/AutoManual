@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-// Fabric 6.x: named imports（fabric 5.x の `import { fabric } from 'fabric'` は使えない）
-import * as fabric from 'fabric';
-import { ToolType } from './EditorTypes';
+import { Canvas, Rect, Ellipse, Path, Textbox, Circle, Group, FabricImage, FabricText } from 'fabric';
+import { ToolType, StrokeStyle } from '@/components/EditorTypes';
 
 interface InlineCanvasProps {
     canvasId: string;
@@ -13,6 +12,8 @@ interface InlineCanvasProps {
     onColorChange: (color: string) => void;
     strokeWidth: number;
     onStrokeWidthChange: (width: number) => void;
+    strokeStyle: StrokeStyle;
+    onStrokeStyleChange: (style: StrokeStyle) => void;
     fontSize: number;
     onFontSizeChange: (size: number) => void;
     stampCount: number;
@@ -30,6 +31,8 @@ export default function InlineCanvas({
     onColorChange,
     strokeWidth,
     onStrokeWidthChange,
+    strokeStyle,
+    onStrokeStyleChange,
     fontSize,
     onFontSizeChange,
     stampCount,
@@ -41,21 +44,23 @@ export default function InlineCanvas({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     // Fabric 6.x: Canvas 型
-    const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+    const fabricCanvasRef = useRef<Canvas | null>(null);
     const isMounted = useRef(true);
     const lastSavedUrl = useRef<string | null>(null);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const lastSelectedTextRef = useRef<fabric.Textbox | null>(null);
+    const lastSelectedTextRef = useRef<Textbox | null>(null);
     const [, setTick] = useState(0);
 
     const activeToolRef = useRef(activeTool);
     const currentColorRef = useRef(currentColor);
     const strokeWidthRef = useRef(strokeWidth);
+    const strokeStyleRef = useRef(strokeStyle);
     const fontSizeRef = useRef(fontSize);
     const stampCountRef = useRef(stampCount);
     const onUpdateRef = useRef(onUpdate);
     const onColorChangeRef = useRef(onColorChange);
     const onStrokeWidthChangeRef = useRef(onStrokeWidthChange);
+    const onStrokeStyleChangeRef = useRef(onStrokeStyleChange);
     const onFontSizeChangeRef = useRef(onFontSizeChange);
     const isApplyingPropRef = useRef(false);
     const isUpdatingFromCanvas = useRef(false);
@@ -64,27 +69,33 @@ export default function InlineCanvas({
     const redoStack = useRef<string[]>([]);
     const isRedoing = useRef(false);
 
+    // Expose internal functions to other effects
+    const saveStateRef = useRef<(c?: Canvas) => void>(() => { });
+    const exportToParentRef = useRef<() => void>(() => { });
+
     // Refs を常に最新に保つ
     useEffect(() => {
         activeToolRef.current = activeTool;
         currentColorRef.current = currentColor;
         strokeWidthRef.current = strokeWidth;
+        strokeStyleRef.current = strokeStyle;
         fontSizeRef.current = fontSize;
         stampCountRef.current = stampCount;
         onUpdateRef.current = onUpdate;
         onColorChangeRef.current = onColorChange;
         onStrokeWidthChangeRef.current = onStrokeWidthChange;
+        onStrokeStyleChangeRef.current = onStrokeStyleChange;
         onFontSizeChangeRef.current = onFontSizeChange;
-    }, [activeTool, currentColor, strokeWidth, fontSize, stampCount, onUpdate, onColorChange, onStrokeWidthChange, onFontSizeChange]);
+    }, [activeTool, currentColor, strokeWidth, strokeStyle, fontSize, stampCount, onUpdate, onColorChange, onStrokeWidthChange, onStrokeStyleChange, onFontSizeChange]);
 
     // ツールバーの状態をキャンバスの選択オブジェクトに同期
-    const syncToolbarFromSelection = useCallback((obj: fabric.FabricObject) => {
+    const syncToolbarFromSelection = useCallback((obj: any) => {
         if (!obj || isUpdatingFromCanvas.current) return;
         isUpdatingFromCanvas.current = true;
 
         const type = obj.type?.toLowerCase();
         if (type === 'textbox' || type === 'i-text' || type === 'text') {
-            const t = obj as fabric.Textbox;
+            const t = obj as Textbox;
             if (t.fill && t.fill !== currentColorRef.current) onColorChangeRef.current(t.fill as string);
             if (!isApplyingPropRef.current && t.fontSize) {
                 const fs = Math.round(t.fontSize);
@@ -93,6 +104,13 @@ export default function InlineCanvas({
         } else {
             if (obj.stroke && obj.stroke !== currentColorRef.current) onColorChangeRef.current(obj.stroke as string);
             if (obj.strokeWidth && obj.strokeWidth !== strokeWidthRef.current) onStrokeWidthChangeRef.current(Math.round(obj.strokeWidth));
+
+            // Sync Stroke Style
+            const dash = obj.strokeDashArray;
+            const currentStyle = (dash && dash.length > 0 && dash[0] !== 0) ? 'dashed' : 'solid';
+            if (currentStyle !== strokeStyleRef.current) {
+                onStrokeStyleChangeRef.current(currentStyle);
+            }
         }
 
         setTimeout(() => { isUpdatingFromCanvas.current = false; }, 50);
@@ -103,8 +121,8 @@ export default function InlineCanvas({
         isMounted.current = true;
         if (!canvasRef.current || !containerRef.current) return;
 
-        // Fabric 6.x: new fabric.Canvas(el, options)
-        const canvas = new fabric.Canvas(canvasRef.current, {
+        // Fabric 6.x: new Canvas(el, options)
+        const canvas = new Canvas(canvasRef.current, {
             selection: activeToolRef.current === 'select',
             preserveObjectStacking: true,
             backgroundColor: '#ffffff',
@@ -120,13 +138,15 @@ export default function InlineCanvas({
                 const zoom = canvas.getZoom();
                 const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / zoom });
                 // Fabric 6.x: toObject → toJSON
-                const json = canvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']);
+                // Ensure all style properties are saved
+                const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
                 lastSavedUrl.current = dataUrl;
                 onUpdateRef.current?.(dataUrl, json);
             } catch (e) {
                 console.warn('[InlineCanvas] Export skipped:', (e as Error).message);
             }
         };
+        exportToParentRef.current = exportToParent;
 
         // 選択ハンドラ
         const handleSelection = (e: any) => {
@@ -134,7 +154,7 @@ export default function InlineCanvas({
             if (!obj) return;
             const type = obj.type?.toLowerCase();
             if (type === 'textbox' || type === 'i-text' || type === 'text') {
-                lastSelectedTextRef.current = obj as fabric.Textbox;
+                lastSelectedTextRef.current = obj as Textbox;
             }
             syncToolbarFromSelection(obj);
         };
@@ -143,7 +163,7 @@ export default function InlineCanvas({
         const handleScaling = (e: any) => {
             const obj = e.target;
             if (!obj || obj.type?.toLowerCase() !== 'textbox') return;
-            const textObj = obj as fabric.Textbox;
+            const textObj = obj as Textbox;
             const scaleX = textObj.scaleX ?? 1;
             const scaleY = textObj.scaleY ?? 1;
             const corner = e.transform?.corner;
@@ -177,6 +197,9 @@ export default function InlineCanvas({
                 left: x, top: y,
                 stroke: currentColorRef.current,
                 strokeWidth: strokeWidthRef.current,
+                strokeDashArray: strokeStyleRef.current === 'dashed'
+                    ? [strokeWidthRef.current * 4, strokeWidthRef.current * 2]
+                    : undefined,
                 strokeUniform: true,
                 fill: 'transparent',
                 cornerColor: '#ffffff',
@@ -191,25 +214,25 @@ export default function InlineCanvas({
                 objectCaching: false,
             };
 
-            let obj: fabric.FabricObject | null = null;
+            let obj: any | null = null;
 
             switch (tool) {
                 case 'rect':
-                    obj = new fabric.Rect({ ...commonProps, width: 100, height: 60 });
+                    obj = new Rect({ ...commonProps, width: 100, height: 60 });
                     break;
                 case 'ellipse':
-                    obj = new fabric.Ellipse({ ...commonProps, rx: 50, ry: 30 });
+                    obj = new Ellipse({ ...commonProps, rx: 50, ry: 30 });
                     break;
                 case 'arrow': {
                     const len = 80, head = 20, w = 10;
-                    obj = new fabric.Path(
+                    obj = new Path(
                         `M 0 0 L ${len} 0 M ${len} 0 L ${len - head} ${-w} M ${len} 0 L ${len - head} ${w}`,
                         { ...commonProps, fill: 'transparent' }
                     );
                     break;
                 }
                 case 'text':
-                    obj = new fabric.Textbox('ここにテキストを入力', {
+                    obj = new Textbox('ここにテキストを入力', {
                         ...commonProps,
                         stroke: undefined,
                         fill: currentColorRef.current,
@@ -220,20 +243,20 @@ export default function InlineCanvas({
                     });
                     break;
                 case 'stamp': {
-                    const circle = new fabric.Circle({ radius: 20, fill: currentColorRef.current, originX: 'center', originY: 'center', strokeWidth: 0 });
-                    const num = new fabric.FabricText(stampCountRef.current.toString(), { fontSize: 24, fill: '#ffffff', originX: 'center', originY: 'center', fontWeight: 'bold', strokeWidth: 0 });
+                    const circle = new Circle({ radius: 20, fill: currentColorRef.current, originX: 'center', originY: 'center', strokeWidth: 0 });
+                    const num = new FabricText(stampCountRef.current.toString(), { fontSize: 24, fill: '#ffffff', originX: 'center', originY: 'center', fontWeight: 'bold', strokeWidth: 0 });
                     // Fabric 6.x: Group
-                    obj = new fabric.Group([circle, num], { ...commonProps, originX: 'center', originY: 'center' });
+                    obj = new Group([circle, num], { ...commonProps, originX: 'center', originY: 'center' });
                     onStampUsed();
                     break;
                 }
                 case 'highlight':
-                    obj = new fabric.Rect({ ...commonProps, width: 200, height: 40, fill: currentColorRef.current, opacity: 0.35, rx: 4, ry: 4, strokeWidth: 0 });
+                    obj = new Rect({ ...commonProps, width: 200, height: 40, fill: currentColorRef.current, opacity: 0.35, rx: 4, ry: 4, strokeWidth: 0 });
                     break;
                 case 'blur': {
-                    const br = new fabric.Rect({ width: 120, height: 40, fill: '#cbd5e1', rx: 2, ry: 2, strokeWidth: 0 });
-                    const label = new fabric.FabricText('ぼかし', { fontSize: 16, fill: '#64748b', originX: 'center', originY: 'center' });
-                    obj = new fabric.Group([br, label], { ...commonProps });
+                    const br = new Rect({ width: 120, height: 40, fill: '#cbd5e1', rx: 2, ry: 2, strokeWidth: 0 });
+                    const label = new FabricText('ぼかし', { fontSize: 16, fill: '#64748b', originX: 'center', originY: 'center' });
+                    obj = new Group([br, label], { ...commonProps });
                     break;
                 }
             }
@@ -241,7 +264,7 @@ export default function InlineCanvas({
             if (obj) {
                 canvas.add(obj);
                 canvas.setActiveObject(obj);
-                if (tool === 'text' && obj instanceof fabric.Textbox) {
+                if (tool === 'text' && obj instanceof Textbox) {
                     (obj as any).enterEditing?.();
                     obj.selectAll();
                 }
@@ -253,12 +276,17 @@ export default function InlineCanvas({
         };
 
         // 状態保存
-        const saveState = (c: fabric.Canvas) => {
-            const json = JSON.stringify(c.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls']));
+        const saveState = (c: Canvas) => {
+            const json = JSON.stringify((c as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']));
             history.current.push(json);
             redoStack.current = [];
-            localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+            try {
+                localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+            } catch (e) {
+                console.warn('[InlineCanvas] Failed to save state to localStorage (Quota Exceeded):', e);
+            }
         };
+        saveStateRef.current = () => saveState(canvas);
 
         // マウスダウン
         const handleMouseDown = (opt: any) => {
@@ -338,18 +366,18 @@ export default function InlineCanvas({
             if (!currentCanvas) return;
 
             // テキストオブジェクトを取得
-            let textObj: fabric.Textbox | null = null;
+            let textObj: Textbox | null = null;
             const activeObj = currentCanvas.getActiveObject();
 
             if (activeObj) {
                 const t = activeObj.type?.toLowerCase();
                 if (t === 'textbox' || t === 'i-text' || t === 'text') {
-                    textObj = activeObj as fabric.Textbox;
+                    textObj = activeObj as Textbox;
                 }
             }
             if (!textObj) {
                 const all = currentCanvas.getObjects();
-                textObj = (all.find((o: any) => o.isEditing) as fabric.Textbox) || null;
+                textObj = (all.find((o: any) => o.isEditing) as Textbox) || null;
             }
             if (!textObj && lastSelectedTextRef.current) {
                 if (currentCanvas.getObjects().includes(lastSelectedTextRef.current)) {
@@ -390,12 +418,17 @@ export default function InlineCanvas({
             console.log(`[InlineCanvas] am:fontsize — DONE: fontSize=${textObj.fontSize}`);
 
             // 履歴保存
+            // 背景画像を含めないようにしてサイズを削減
             const json = JSON.stringify(
-                currentCanvas.toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls'])
+                (currentCanvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform'])
             );
             history.current.push(json);
             redoStack.current = [];
-            localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+            try {
+                localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+            } catch (e) {
+                console.warn('[InlineCanvas] Failed to save state (FontSize) to localStorage:', e);
+            }
             setTimeout(() => exportToParent(), 10);
             setTimeout(() => { isApplyingPropRef.current = false; }, 150);
         };
@@ -442,7 +475,9 @@ export default function InlineCanvas({
 
             canvas.clear();
             // Fabric 6.x: FabricImage.fromURL
-            const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
+            canvas.clear();
+            // Fabric 6.x: FabricImage.fromURL
+            const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
             if (!isMounted.current) return;
 
             const originalWidth = img.width ?? 800;
@@ -486,7 +521,7 @@ export default function InlineCanvas({
             canvas.renderAll();
 
             canvas.renderAll();
-            const initialState = JSON.stringify(canvas.toJSON(['selectable', 'evented', 'id']));
+            const initialState = JSON.stringify((canvas as any).toJSON(['selectable', 'evented', 'id', 'strokeDashArray']));
             history.current = [initialState];
             lastSavedUrl.current = imageUrl;
         };
@@ -536,23 +571,63 @@ export default function InlineCanvas({
             obj.setCoords();
         });
 
-        // カラー・strokeWidth を選択中オブジェクトに適用
-        if (isSelectMode) {
-            canvas.getActiveObjects().forEach(obj => {
+        // カラー・strokeWidth・strokeStyle を選択中オブジェクトに適用
+        if (isSelectMode && !isUpdatingFromCanvas.current) {
+            let changed = false;
+            canvas.getActiveObjects().forEach((obj: any) => {
                 const type = obj.type?.toLowerCase();
-                if (type === 'textbox' || type === 'i-text' || type === 'text') {
-                    const t = obj as fabric.Textbox;
-                    if (t.fill !== currentColor) t.set({ fill: currentColor, styles: {} });
-                } else {
-                    if (obj.stroke !== currentColor) obj.set({ stroke: currentColor });
-                    if (obj.strokeWidth !== strokeWidth) obj.set({ strokeWidth });
-                }
-                obj.setCoords();
-            });
-        }
+                let objChanged = false;
 
-        canvas.requestRenderAll();
-    }, [activeTool, currentColor, strokeWidth, fontSize, stampCount]);
+                if (type === 'textbox' || type === 'i-text' || type === 'text') {
+                    const t = obj as Textbox;
+                    if (t.fill !== currentColor) {
+                        t.set({ fill: currentColor, styles: {} });
+                        objChanged = true;
+                    }
+                } else {
+                    if (obj.stroke !== currentColor) {
+                        obj.set({ stroke: currentColor });
+                        objChanged = true;
+                    }
+                    if (obj.strokeWidth !== strokeWidth) {
+                        obj.set({ strokeWidth });
+                        objChanged = true;
+                    }
+
+                    // Apply Stroke Style
+                    const dashArray = strokeStyle === 'dashed' ? [strokeWidth * 4, strokeWidth * 2] : undefined;
+                    // Check if changed (simple check)
+                    const currentDash = obj.strokeDashArray;
+                    const isDashed = currentDash && currentDash.length > 0;
+                    const shouldBeDashed = strokeStyle === 'dashed';
+
+                    if (isDashed !== shouldBeDashed) {
+                        obj.set({ strokeDashArray: dashArray });
+                        objChanged = true;
+                    } else if (shouldBeDashed) {
+                        // If dashed, check if pattern matches (re-apply to be safe if width changed)
+                        obj.set({ strokeDashArray: dashArray });
+                        // Mark as changed to force save
+                        objChanged = true;
+                    }
+                }
+
+                if (objChanged) {
+                    obj.setCoords();
+                    changed = true;
+                }
+            });
+
+            if (changed) {
+                canvas.requestRenderAll();
+                saveStateRef.current(canvas);
+                if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = setTimeout(() => exportToParentRef.current(), 500);
+            }
+        } else {
+            canvas.requestRenderAll();
+        }
+    }, [activeTool, currentColor, strokeWidth, strokeStyle, fontSize, stampCount]);
 
     return (
         <div

@@ -73,11 +73,12 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                     document.body.appendChild(container);
 
                     const opt: any = {
-                        margin: 10,
+                        margin: [10, 10, 15, 10],
                         filename: `${safeTitle}.pdf`,
                         image: { type: 'jpeg', quality: 0.98 },
                         html2canvas: { scale: 2, useCORS: true },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                        pagebreak: { mode: ['css', 'legacy'] }
                     };
 
                     // Correct chaining for html2pdf
@@ -205,7 +206,7 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
-        font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; /* Standard font for PDF stability */
+        font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
         max-width: 800px; 
         margin: 0 auto; 
         padding: 40px; 
@@ -214,26 +215,56 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
         background: #fff; 
     }
     h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    .overview { margin-bottom: 30px; font-size: 14px; color: #666; }
+    .overview { margin-bottom: 30px; font-size: 14px; color: #666; white-space: pre-wrap; }
     h2 { font-size: 18px; margin: 30px 0 15px; background: #f4f4f4; padding: 8px 12px; border-radius: 4px; }
     
-    /* Layout Container */
-    .steps-container {
-        display: ${isTwoCol ? 'grid' : 'block'};
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
+    /* Table Layout for 2-Column strict alignment */
+    .steps-table {
+        width: 100%;
+        border-collapse: separate; 
+        border-spacing: 0 15px; /* Reduced vertical spacing */
+        table-layout: fixed;
     }
-    
-    .step { 
-        margin-bottom: ${isTwoCol ? '0' : '30px'}; 
-        page-break-inside: avoid; /* Important for PDF */
-        break-inside: avoid;
-        border: 1px solid #eee;
-        padding: 15px;
-        border-radius: 8px;
+    tbody {
+        page-break-inside: avoid; /* Prevent breaking inside a step pair */
+    }
+    .step-cell {
+        width: 48%;
+        padding: 15px 15px 5px 15px; /* Reduced bottom padding */
+        background: #fff;
+        border-left: 1px solid #eee;
+        border-right: 1px solid #eee;
+        vertical-align: top;
+    }
+    .text-cell {
+        border-top: 1px solid #eee;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        height: auto; 
+    }
+    .image-cell {
+        border-bottom: 1px solid #eee;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding-top: 0; /* Remove top padding to close gap visually */
+        padding-bottom: 15px;
+        height: 100%; 
+        vertical-align: bottom; 
+    }
+    .empty-cell {
+        border: none;
+        background: transparent;
+    }
+    .spacer-cell {
+        width: 4%;
     }
 
-    /* FIX: HTML2Canvas table layout for header (User Request) */
+    .step-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
     .step-header { 
         display: table;
         width: 100%;
@@ -243,7 +274,7 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
     
     .step-number-cell {
         display: table-cell;
-        width: 38px; /* 28px icon + 10px margin equivalent */
+        width: 38px;
         vertical-align: middle;
         padding: 0;
     }
@@ -258,15 +289,55 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
         display: table-cell;
         vertical-align: middle;
         font-weight: bold; 
-        font-size: 16px;
+        font-size: 15px; /* Slightly smaller for better fit */
+        line-height: 1.4;
     }
 
-    .step-detail { margin-left: 38px; font-size: 13px; color: #555; margin-bottom: 10px; }
-    .step-image { margin-left: 38px; }
-    .step-image img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; display: block; }
+    .step-text-wrapper {
+        flex-grow: 1; /* Push image to bottom */
+        margin-bottom: 15px;
+    }
+
+    .step-detail { 
+        margin-left: 38px; 
+        font-size: 13px; 
+        color: #555; 
+        margin-bottom: 5px; 
+        white-space: pre-wrap; /* Allow user manual breaks */
+    }
     
-    .notes { margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; }
-    .notes li { margin-bottom: 6px; font-size: 13px; color: #666; }
+    .step-image-wrapper {
+        margin-left: 38px;
+        text-align: center;
+        background: #fdfdfd;
+        border: 1px solid #f0f0f0;
+        border-radius: 4px;
+        padding: 4px;
+        display: flex; 
+        align-items: flex-end; 
+        justify-content: center;
+        min-height: 150px; 
+    }
+
+    .step-image img { 
+        max-width: 100%; 
+        max-height: 320px; /* Limit height further to fit page */
+        object-fit: contain; 
+        display: block; 
+        margin: 0 auto;
+    }
+    
+
+    
+    /* Single Column Fallback Style */
+    .step-single {
+        margin-bottom: 30px;
+        background: #fff;
+        border: 1px solid #eee;
+        padding: 15px;
+        border-radius: 8px;
+        page-break-inside: avoid;
+    }
   </style>
 </head>
 <body>
@@ -274,44 +345,101 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
   <p class="overview">${manual.overview}</p>
   
   <h2>手順</h2>
-  <div class="steps-container">
 `;
 
-    manual.steps.forEach((step) => {
-        const iconSrc = createStepNumberSvg(step.stepNumber);
+    if (isTwoCol) {
+        // Table-based 2-Column Layout
+        html += `<table class="steps-table">`;
+        for (let i = 0; i < manual.steps.length; i += 2) {
+            const step1 = manual.steps[i];
+            const step2 = manual.steps[i + 1];
+            const iconSrc1 = createStepNumberSvg(step1.stepNumber);
 
-        html += `    <div class="step">
-      <div class="step-header">
-        <div class="step-number-cell">
-           <img src="${iconSrc}" class="step-number-img" alt="${step.stepNumber}" />
-        </div>
-        <div class="step-action-cell">${step.action}</div>
-      </div>
-      <p class="step-detail">${step.detail}</p>
-`;
-        if (step.screenshot) {
-            html += `      <div class="step-image"><img src="${step.screenshot}" alt="Step ${step.stepNumber}"></div>\n`;
+            // Wrap pair in tbody for page-break protection
+            html += `<tbody>`;
+
+            html += `<tr>`;
+            // Col 1 Text
+            html += `<td class="step-cell text-cell">
+                    <div class="step-content">
+                        <div class="step-header">
+                            <div class="step-number-cell"><img src="${iconSrc1}" class="step-number-img" /></div>
+                            <div class="step-action-cell">${step1.action}</div>
+                        </div>
+                        <p class="step-detail">${step1.detail}</p>
+                    </div>
+                </td>`;
+
+            html += `<td class="spacer-cell"></td>`;
+
+            // Col 2 Text
+            if (step2) {
+                const iconSrc2 = createStepNumberSvg(step2.stepNumber);
+                html += `<td class="step-cell text-cell">
+                        <div class="step-content">
+                            <div class="step-header">
+                                <div class="step-number-cell"><img src="${iconSrc2}" class="step-number-img" /></div>
+                                <div class="step-action-cell">${step2.action}</div>
+                            </div>
+                            <p class="step-detail">${step2.detail}</p>
+                        </div>
+                    </td>`;
+            } else {
+                html += `<td class="step-cell empty-cell"></td>`;
+            }
+            html += `</tr>`;
+
+            // Image Row
+            html += `<tr>`;
+
+            // Col 1 Image
+            html += `<td class="step-cell image-cell">
+                    ${step1.screenshot ? `
+                    <div class="step-image-wrapper">
+                        <div class="step-image"><img src="${step1.screenshot}" /></div>
+                    </div>` : '<div style="height: 10px;"></div>'}
+                </td>`;
+
+            html += `<td class="spacer-cell"></td>`;
+
+            // Col 2 Image
+            if (step2) {
+                html += `<td class="step-cell image-cell">
+                        ${step2.screenshot ? `
+                        <div class="step-image-wrapper">
+                            <div class="step-image"><img src="${step2.screenshot}" /></div>
+                        </div>` : '<div style="height: 10px;"></div>'}
+                    </td>`;
+            } else {
+                html += `<td class="step-cell empty-cell"></td>`;
+            }
+
+            html += `</tr>`;
+
+            html += `</tbody>`;
+
+            // Spacer Row outside tbody? No, inside or just use margin on tbody if supported (not really).
+            // Use an empty row for spacing
+            html += `<tbody><tr style="height: 20px;"><td colspan="3"></td></tr></tbody>`;
         }
-        html += `    </div>\n`;
-    });
-
-    html += `  </div>`;
-
-    if (manual.notes && manual.notes.length > 0) {
-        html += `
-  <div class="notes">
-    <h3>注意事項</h3>
-    <ul>
-`;
-        manual.notes.forEach((note) => {
-            html += `      <li>${note}</li>\n`;
+        html += `</table>`;
+    } else {
+        // Single Column Layout
+        manual.steps.forEach((step) => {
+            const iconSrc = createStepNumberSvg(step.stepNumber);
+            html += `<div class="step-single">
+                <div class="step-header">
+                    <div class="step-number-cell"><img src="${iconSrc}" class="step-number-img" /></div>
+                    <div class="step-action-cell">${step.action}</div>
+                </div>
+                <p class="step-detail">${step.detail}</p>
+                ${step.screenshot ? `<div class="step-image"><img src="${step.screenshot}" /></div>` : ''}
+            </div>`;
         });
-        html += `    </ul>
-  </div>
-`;
     }
 
-    html += `</body>
+    html += `
+</body>
 </html>`;
 
     return html;
