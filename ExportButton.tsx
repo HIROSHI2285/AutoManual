@@ -9,6 +9,179 @@ interface ExportButtonProps {
 
 
 
+// Base64 data URLをUint8Arrayに変換するヘルパー
+function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' | 'jpg' } {
+    const [header, base64] = dataUrl.split(',');
+    const type = header.includes('png') ? 'png' : 'jpg';
+    const binary = atob(base64);
+    const arr = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+    return { data: arr, type };
+}
+
+// Word(.docx)ファイルを生成してダウンロードする
+// docxライブラリをdynamic importで使用（ブラウザバンドル対応）
+async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
+    const {
+        Document, Packer, Paragraph, TextRun, ImageRun,
+        HeadingLevel, AlignmentType, BorderStyle, WidthType,
+        Table, TableRow, TableCell, ShadingType, VerticalAlign,
+    } = await import('docx');
+
+    const FONT = 'Meiryo UI';
+    // docxライブラリはfont: '...'では日本語フォントが反映されない
+    // rFontsオブジェクトでascii/hAnsi/eastAsia/csを全指定する必要がある
+    const RF = { ascii: FONT, hAnsi: FONT, eastAsia: FONT, cs: FONT };
+
+    const PAGE_WIDTH_DXA = 11906;
+    const MARGIN_DXA = 1000;
+    const CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - MARGIN_DXA * 2; // 9906 DXA ≒ 174mm
+
+    // 画像の表示幅：コンテンツ幅の60%に縮小（2ページにまたがらないように）
+    const IMG_WIDTH_EMU = Math.round(CONTENT_WIDTH_DXA * 635 * 0.6);
+
+    // 丸数字変換（1→①, 2→②, ...）
+    const toCircledNumber = (n: number): string => {
+        const circled = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩',
+                         '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳'];
+        return circled[n - 1] || `${n}.`;
+    };
+
+    const children: any[] = [];
+
+    // タイトル
+    children.push(
+        new Paragraph({
+            heading: HeadingLevel.HEADING_1,
+            children: [new TextRun({ text: manual.title, bold: true, size: 36, font: RF })],
+            spacing: { after: 200 },
+        })
+    );
+
+    // 概要
+    if (manual.overview) {
+        children.push(
+            new Paragraph({
+                children: [new TextRun({ text: manual.overview, size: 24, font: RF })],
+                spacing: { after: 400 },
+            })
+        );
+    }
+
+    // 「手順」見出し帯（グレー背景の段落で代用）
+    children.push(
+        new Paragraph({
+            children: [new TextRun({ text: '手順', bold: true, size: 28, font: RF })],
+            shading: { fill: 'F4F4F4', type: ShadingType.CLEAR },
+            spacing: { before: 200, after: 300 },
+            border: {
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD' },
+            },
+        })
+    );
+
+    // 各ステップ
+    for (const step of manual.steps) {
+        // ステップ番号＋タイトル（見出し2）
+        children.push(
+            new Paragraph({
+                heading: HeadingLevel.HEADING_2,
+                children: [
+                    new TextRun({ text: `${toCircledNumber(step.stepNumber)}  `, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
+                ],
+                spacing: { before: 300, after: 100 },
+            })
+        );
+
+        // 説明文
+        if (step.detail && step.detail !== step.action) {
+            children.push(
+                new Paragraph({
+                    children: [new TextRun({ text: step.detail, size: 22, font: RF })],
+                    spacing: { after: 120 },
+                    indent: { left: 400 },
+                })
+            );
+        }
+
+        // スクリーンショット画像
+        if (step.screenshot) {
+            try {
+                const { data, type } = dataUrlToUint8Array(step.screenshot);
+
+                // 画像の実際のサイズを取得して縦横比を計算
+                const imgHeight = await new Promise<number>((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const ratio = img.height / img.width;
+                        resolve(Math.round(IMG_WIDTH_EMU * ratio));
+                    };
+                    img.onerror = () => resolve(Math.round(IMG_WIDTH_EMU * 0.5625)); // 16:9 fallback
+                    img.src = step.screenshot!;
+                });
+
+                children.push(
+                    new Paragraph({
+                        children: [
+                            new ImageRun({
+                                data,
+                                transformation: { width: Math.round(IMG_WIDTH_EMU / 9525), height: Math.round(imgHeight / 9525) },
+                                type,
+                            }),
+                        ],
+                        spacing: { after: 300 },
+                        indent: { left: 400 },
+                    })
+                );
+            } catch (e) {
+                console.warn(`Step ${step.stepNumber} image embedding failed:`, e);
+            }
+        }
+    }
+
+    // ドキュメント生成
+    const doc = new Document({
+        styles: {
+            default: {
+                document: { run: { font: RF, size: 22 } },
+            },
+            paragraphStyles: [
+                {
+                    id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+                    run: { size: 36, bold: true, font: RF },
+                    paragraph: { spacing: { before: 240, after: 240 }, outlineLevel: 0 },
+                },
+                {
+                    id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+                    run: { size: 28, bold: true, font: RF },
+                    paragraph: { spacing: { before: 180, after: 120 }, outlineLevel: 1 },
+                },
+            ],
+        },
+        sections: [{
+            properties: {
+                page: {
+                    size: { width: PAGE_WIDTH_DXA, height: 16838 },
+                    margin: { top: MARGIN_DXA, right: MARGIN_DXA, bottom: MARGIN_DXA, left: MARGIN_DXA },
+                },
+            },
+            children,
+        }],
+    });
+
+    // Blobに変換してダウンロード
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function generateMarkdown(manual: ManualData): string {
     let md = `# ${manual.title}\n\n`;
     md += `${manual.overview}\n\n`;
@@ -48,7 +221,7 @@ function downloadFile(content: string, filename: string, mimeType: string) {
 export default function ExportButton({ manual }: ExportButtonProps) {
     const [showModal, setShowModal] = useState(false);
 
-    const handleExport = async (format: 'markdown' | 'html' | 'pdf', layout: 'single' | 'two-column' = 'single') => {
+    const handleExport = async (format: 'markdown' | 'html' | 'pdf' | 'docx', layout: 'single' | 'two-column' = 'single') => {
         const safeTitle = manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
 
         switch (format) {
@@ -57,6 +230,14 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 break;
             case 'html':
                 downloadFile(generateHTML(manual, layout), `${safeTitle}.html`, 'text/html;charset=utf-8');
+                break;
+            case 'docx':
+                try {
+                    await generateAndDownloadDocx(manual);
+                } catch (error) {
+                    console.error('Word generation error:', error);
+                    alert('Word出力に失敗しました。ブラウザの対応状況をご確認ください。');
+                }
                 break;
             case 'pdf':
                 try {
@@ -136,6 +317,12 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                             >
                                 <span className="export-modal__label">HTML (.html)</span>
                             </button>
+                            <button
+                                className="export-modal__option"
+                                onClick={() => handleExport('docx')}
+                            >
+                                <span className="export-modal__label">Word (.docx)</span>
+                            </button>
                             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
                                 <button
                                     className="export-modal__option"
@@ -193,22 +380,35 @@ function createStepNumberSvg(number: number): string {
     return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
 
-// セクション見出し帯をSVG画像として生成
-// html2canvas は height + line-height による縦中央揃えを正確に再現できないため
-// テキストと帯を丸ごとSVGにして dominant-baseline="central" で確実に中央配置する
+// FIX: Generate SVG for section header to ensuring perfect vertical centering
 function createSectionHeaderSvg(text: string): string {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="40" viewBox="0 0 760 40">
-  <rect x="0" y="0" width="760" height="40" fill="#f4f4f4" rx="4"/>
-  <text
-    x="12" y="20"
-    text-anchor="start"
-    dominant-baseline="central"
-    font-family="Arial, sans-serif"
-    font-size="18"
-    font-weight="bold"
-    fill="#1e293b"
-  >${text}</text>
-</svg>`;
+    // Width and height based on the CSS: width 100% (container), height 44px
+    // Since we don't know the exact pixel width of A4/container here easily without DOM, we can make it wide enough or responsive.
+    // However, html2pdf renders images well. Let's assume a standard width or use 100% in img tag.
+    // For the SVG itself, we can set a viewBox. 800px is the max-width of the body.
+    const width = 800;
+    const height = 44;
+    const fontSize = 18;
+    const backgroundColor = '#f4f4f4';
+    const textColor = '#333333';
+    const borderRadius = 4;
+
+    const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+        <rect x="0" y="0" width="${width}" height="${height}" rx="${borderRadius}" ry="${borderRadius}" fill="${backgroundColor}" />
+        <text 
+            x="12" 
+            y="50%" 
+            dy="1" 
+            dominant-baseline="central" 
+            text-anchor="start" 
+            fill="${textColor}" 
+            font-family="Arial, 'Helvetica Neue', Helvetica, sans-serif" 
+            font-weight="bold" 
+            font-size="${fontSize}px"
+        >${text}</text>
+    </svg>`;
+
     return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
 
@@ -235,7 +435,8 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
     }
     h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     .overview { margin-bottom: 30px; font-size: 14px; color: #666; white-space: pre-wrap; }
-    h2 { font-size: 0; line-height: 0; margin: 30px 0 15px; padding: 0; border: none; background: none; }
+    h2 { margin: 30px 0 15px; display: block; border: none; background: none; padding: 0; }
+    .section-header-img { width: 100%; height: 44px; display: block; }
     
     /* Table Layout for 2-Column strict alignment */
     .steps-table {
@@ -357,13 +558,17 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
         border-radius: 8px;
         page-break-inside: avoid;
     }
+
+    .step-single .step-image {
+        margin-top: 20px;
+    }
   </style>
 </head>
 <body>
   <h1>${manual.title}</h1>
   <p class="overview">${manual.overview}</p>
   
-  <h2><img src="${createSectionHeaderSvg('手順')}" width="760" height="40" style="display:block;width:100%;height:40px;" alt="手順"></h2>
+  <h2><img src="${createSectionHeaderSvg('手順')}" class="section-header-img" alt="手順" /></h2>
 `;
 
     if (isTwoCol) {
