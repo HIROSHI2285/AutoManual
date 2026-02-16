@@ -72,6 +72,79 @@ export async function extractFrameAtTimestamp(
 }
 
 /**
+ * スマートクロップ：box_2d の座標を元に操作対象を中心にズーム・引きを自動判断
+ *
+ * ズームの判断基準（box_2d の面積比で決定）：
+ *   - 面積比 < 8%  → 小さい要素（ボタン等）→ 2.5倍ズームイン
+ *   - 面積比 8〜25% → 中程度の要素 → 1.8倍ズームイン
+ *   - 面積比 > 25% → 広い範囲 → そのまま表示（引き不要）
+ *
+ * クロップ後は元の解像度にリサイズして出力する。
+ */
+export function smartCropFrame(
+    imageData: string,
+    box_2d: number[] // [ymin, xmin, ymax, xmax] in 0-1000 scale
+): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const [ymin, xmin, ymax, xmax] = box_2d;
+
+            // box_2d の面積比（0〜1）
+            const boxAreaRatio = ((xmax - xmin) / 1000) * ((ymax - ymin) / 1000);
+
+            // ズーム倍率を面積比から決定（ユーザーFBにより再緩和：指寄りすぎ問題を解消）
+            let zoomFactor: number;
+            if (boxAreaRatio < 0.08) {
+                zoomFactor = 1.4; // 小さい要素：1.6倍→1.4倍に緩和
+            } else if (boxAreaRatio < 0.25) {
+                zoomFactor = 1.2; // 中程度の要素：1.3倍→1.2倍に緩和
+            } else {
+                zoomFactor = 1.0; // 広い範囲はそのまま
+            }
+
+            // ズーム不要な場合は元画像をそのまま返す
+            if (zoomFactor === 1.0) {
+                resolve(imageData);
+                return;
+            }
+
+            const imgW = img.width;
+            const imgH = img.height;
+
+            // box_2d の中心座標（ピクセル）
+            const centerX = ((xmin + xmax) / 2 / 1000) * imgW;
+            const centerY = ((ymin + ymax) / 2 / 1000) * imgH;
+
+            // クロップ領域のサイズ（元画像のサイズ / zoomFactor）
+            const cropW = imgW / zoomFactor;
+            const cropH = imgH / zoomFactor;
+
+            // クロップ領域の左上座標（画像の端をはみ出さないようにクランプ）
+            const cropX = Math.max(0, Math.min(centerX - cropW / 2, imgW - cropW));
+            const cropY = Math.max(0, Math.min(centerY - cropH / 2, imgH - cropH));
+
+            // キャンバスに元解像度で描画（クロップ範囲を拡大）
+            const canvas = document.createElement('canvas');
+            canvas.width = imgW;
+            canvas.height = imgH;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { resolve(imageData); return; }
+
+            ctx.drawImage(
+                img,
+                cropX, cropY, cropW, cropH, // ソース：クロップ範囲
+                0, 0, imgW, imgH            // 出力：元サイズにリサイズ
+            );
+
+            resolve(canvas.toDataURL('image/jpeg', 0.92));
+        };
+        img.onerror = () => reject(new Error('Image load failed'));
+        img.src = imageData;
+    });
+}
+
+/**
  * Draw ONLY bounding box on image (no text - keeps text editable)
  */
 export function drawBoundingBox(

@@ -371,6 +371,10 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
         border-radius: 8px;
         page-break-inside: avoid;
     }
+
+    .step-single .step-image {
+        margin-top: 20px;
+    }
   </style>
 </head>
 <body>

@@ -3,10 +3,9 @@
 import { useRef, useState, DragEvent } from 'react';
 
 interface VideoUploaderProps {
-    onVideoSelect: (file: File) => void;
-    videoFile: File | null;
-    videoPreviewUrl: string | null;
-    onRemoveVideo: () => void;
+    onVideosSelect: (files: File[]) => void;
+    videoFiles: File[];
+    onRemoveVideo: (index: number) => void;
 }
 
 const ACCEPTED_VIDEO_TYPES = [
@@ -33,9 +32,8 @@ const UploadIcon = () => (
 );
 
 export default function VideoUploader({
-    onVideoSelect,
-    videoFile,
-    videoPreviewUrl,
+    onVideosSelect,
+    videoFiles,
     onRemoveVideo,
 }: VideoUploaderProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -55,65 +53,55 @@ export default function VideoUploader({
         e.preventDefault();
         setIsDragActive(false);
 
-        const files = e.dataTransfer.files;
+        const files = Array.from(e.dataTransfer.files);
         if (files.length > 0) {
-            validateAndSelectFile(files[0]);
+            validateAndSelectFiles(files);
         }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (files && files.length > 0) {
-            validateAndSelectFile(files[0]);
+        const files = e.target.files ? Array.from(e.target.files) : [];
+        if (files.length > 0) {
+            validateAndSelectFiles(files);
+            // clear input to allow selecting the same file again if needed
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
-    const validateAndSelectFile = (file: File) => {
-        if (!ACCEPTED_VIDEO_TYPES.includes(file.type)) {
-            alert('対応していない動画形式です。MP4, MOV, AVI, WebM, 3GP形式の動画をアップロードしてください。');
-            return;
+    const validateAndSelectFiles = (files: File[]) => {
+        const validFiles: File[] = [];
+
+        for (const file of files) {
+            if (!ACCEPTED_VIDEO_TYPES.includes(file.type)) {
+                // Skip invalid types silently or show one alert at the end?
+                // For now, simple validation
+                continue;
+            }
+            if (file.size > 500 * 1024 * 1024) {
+                // Skip too large
+                continue;
+            }
+            validFiles.push(file);
         }
 
-        if (file.size > 500 * 1024 * 1024) {
-            alert(`ファイルサイズが大きすぎます（${formatFileSize(file.size)}）。\n500MB以下の動画ファイルを選択してください。`);
-            return;
+        if (validFiles.length !== files.length) {
+            alert('一部のファイルは対応形式外ままたはサイズ超過(500MB)のため除外されました。');
         }
 
-        onVideoSelect(file);
+        if (validFiles.length > 0) {
+            onVideosSelect(validFiles);
+        }
     };
 
     const handleClick = () => {
         fileInputRef.current?.click();
     };
 
-    if (videoFile && videoPreviewUrl) {
-        return (
-            <div className="video-preview">
-                <video
-                    className="video-preview__player"
-                    src={videoPreviewUrl}
-                    controls
-                />
-                <div className="video-preview__info">
-                    <div>
-                        <span className="video-preview__name">{videoFile.name}</span>
-                        <span className="video-preview__size"> ({formatFileSize(videoFile.size)})</span>
-                    </div>
-                    <button
-                        className="btn btn--secondary btn--small"
-                        onClick={onRemoveVideo}
-                    >
-                        削除
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <>
+        <div className="w-full max-w-2xl mx-auto">
+            {/* Upload Zone */}
             <div
-                className={`upload-zone ${isDragActive ? 'upload-zone--active' : ''}`}
+                className={`upload-zone mb-6 ${isDragActive ? 'upload-zone--active' : ''}`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -123,6 +111,7 @@ export default function VideoUploader({
                     ref={fileInputRef}
                     type="file"
                     accept="video/*"
+                    multiple
                     onChange={handleFileChange}
                     className="upload-zone__input"
                 />
@@ -134,14 +123,42 @@ export default function VideoUploader({
                 </p>
                 <p className="upload-zone__hint text-xs text-slate-400 mt-2">
                     MP4, MOV, AVI, WebM, 3GPに対応。<br />
-                    AIによる操作解析が可能です。<br />
-                    ※現在は1つの動画ファイルのみ対応しています。<br />
-                    (ローカル環境では長尺動画も解析可能です)
+                    複数動画を統合して1つのマニュアルを作成できます。
                 </p>
-
             </div>
 
-
-        </>
+            {/* File List */}
+            {videoFiles.length > 0 && (
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        アップロード済み動画 ({videoFiles.length})
+                    </div>
+                    <ul className="divide-y divide-slate-100">
+                        {videoFiles.map((file, index) => (
+                            <li key={`${file.name}-${index}`} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 text-purple-600 text-xs font-bold">
+                                        {index + 1}
+                                    </span>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-slate-700 truncate">{file.name}</p>
+                                        <p className="text-xs text-slate-400">{formatFileSize(file.size)}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => onRemoveVideo(index)}
+                                    className="ml-4 p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
+                                    title="削除"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </div>
     );
 }

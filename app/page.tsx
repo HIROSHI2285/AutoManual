@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import VideoUploader from '@/components/VideoUploader';
 import ManualViewer from '@/components/ManualViewer';
-import { extractFrameAtTimestamp } from '@/utils/videoProcessor';
+import { extractFrameAtTimestamp, smartCropFrame } from '@/utils/videoProcessor';
 
 export interface ManualStep {
     stepNumber: number;
@@ -26,19 +26,124 @@ export interface ManualData {
 }
 
 
+// ============================================================
+// 動画圧縮関数 (現在は精度優先のため未使用だが、将来のために保持)
+// ============================================================
+async function compressVideoForAnalysis(
+    file: File,
+    onProgress?: (percent: number) => void
+): Promise<File> {
+    return new Promise((resolve) => {
+        if (typeof MediaRecorder === 'undefined') {
+            console.warn('[compress] MediaRecorder not available, using original file');
+            resolve(file);
+            return;
+        }
 
+        const video = document.createElement('video');
+        const objectUrl = URL.createObjectURL(file);
+        video.src = objectUrl;
+        video.muted = true;
+        video.playsInline = true;
 
+        video.onloadedmetadata = () => {
+            const targetWidth = 854;
+            const targetHeight = Math.round(video.videoHeight * (targetWidth / video.videoWidth));
 
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d')!;
+
+            const stream = (canvas as any).captureStream(10);
+            const chunks: Blob[] = [];
+
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                ? 'video/webm;codecs=vp9'
+                : MediaRecorder.isTypeSupported('video/webm')
+                    ? 'video/webm'
+                    : '';
+
+            if (!mimeType) {
+                console.warn('[compress] No supported codec, using original file');
+                URL.revokeObjectURL(objectUrl);
+                resolve(file);
+                return;
+            }
+
+            const recorder = new MediaRecorder(stream, {
+                mimeType,
+                videoBitsPerSecond: 500_000,
+            });
+
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) chunks.push(e.data);
+            };
+
+            recorder.onstop = () => {
+                URL.revokeObjectURL(objectUrl);
+                const blob = new Blob(chunks, { type: mimeType });
+
+                if (blob.size >= file.size) {
+                    console.log(`[compress] Compressed(${blob.size}) >= Original(${file.size}), using original`);
+                    resolve(file);
+                    return;
+                }
+
+                console.log(`[compress] ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(blob.size / 1024 / 1024).toFixed(1)}MB (${Math.round(blob.size / file.size * 100)}%)`);
+                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, '.webm'), { type: mimeType }));
+            };
+
+            recorder.start(100);
+
+            const duration = video.duration;
+            let lastProgress = 0;
+
+            const drawFrame = () => {
+                if (video.ended || video.paused) {
+                    recorder.stop();
+                    return;
+                }
+                ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+                const progress = Math.round((video.currentTime / duration) * 100);
+                if (progress !== lastProgress) {
+                    lastProgress = progress;
+                    onProgress?.(progress);
+                }
+
+                requestAnimationFrame(drawFrame);
+            };
+
+            video.onended = () => recorder.stop();
+            video.play().then(() => requestAnimationFrame(drawFrame));
+        };
+
+        video.onerror = () => {
+            console.warn('[compress] Video load error, using original file');
+            URL.revokeObjectURL(objectUrl);
+            resolve(file);
+        };
+    });
+}
 
 export default function Home() {
-    const [videoFile, setVideoFile] = useState<File | null>(null);
-    const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+    // Multi-file support
+    const [videoFiles, setVideoFiles] = useState<File[]>([]);
+    // Preview URL for the *first* video (or we could manage a list, but VideoUploader handles list UI now)
+    // We only need this if we want to show a preview player here, but VideoUploader shows the list.
+    // ManualViewer needs a video file for some operations? It takes `videoFile`.
+    // Let's keep `videoPreviewUrls` if we need them, but currently VideoUploader doesn't ask for them for the list,
+    // it just shows names.
+    // However, `handleReset` revokes them. Let's store them if we create them.
+    // Actually, `VideoUploader` doesn't need preview URLs for the list mode we implemented.
+    // But `ManualViewer` might need `videoFile`.
+
     const [isLoading, setIsLoading] = useState(false);
     const [loadingStage, setLoadingStage] = useState<string>('動画を分析中...');
     const [manual, setManual] = useState<ManualData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // ... existing persistence code ...
     // Persistence: Load from localStorage on mount
     useEffect(() => {
         const saved = localStorage.getItem('am_current_manual');
@@ -62,33 +167,25 @@ export default function Home() {
             }
         }
     }, [manual]);
-    // ... end persistence ...
 
-    const handleVideoSelect = useCallback((file: File) => {
-        setVideoFile(file);
-        setVideoPreviewUrl(URL.createObjectURL(file));
+    const handleVideosSelect = useCallback((files: File[]) => {
+        // Add new files to existing ones
+        setVideoFiles(prev => [...prev, ...files]);
         setManual(null);
         setError(null);
     }, []);
 
-    const handleRemoveVideo = useCallback(() => {
-        if (videoPreviewUrl) {
-            URL.revokeObjectURL(videoPreviewUrl);
-        }
-        setVideoFile(null);
-        setVideoPreviewUrl(null);
+    const handleRemoveVideo = useCallback((index: number) => {
+        setVideoFiles(prev => prev.filter((_, i) => i !== index));
         setManual(null);
-    }, [videoPreviewUrl]);
+    }, []);
 
     const handleReset = useCallback(() => {
-        if (videoPreviewUrl) {
-            URL.revokeObjectURL(videoPreviewUrl);
-        }
-        setVideoFile(null);
-        setVideoPreviewUrl(null);
+        setVideoFiles([]);
         setManual(null);
         setError(null);
         setIsLoading(false);
+
         // FORCE RESET: Clear all persistence
         localStorage.removeItem('am_current_manual');
         localStorage.removeItem('am_manual_data');
@@ -102,78 +199,104 @@ export default function Home() {
                 localStorage.removeItem(key);
             }
         });
-    }, [videoPreviewUrl]);
+    }, []);
 
     const handleGenerate = async () => {
-        if (!videoFile) return;
+        if (videoFiles.length === 0) return;
 
         setIsLoading(true);
         setError(null);
-        setLoadingStage('Stage 1: AIが動画全体を解析中... (これには少し時間がかかります)');
+
+        const finalSteps: ManualStep[] = [];
+        let totalProgress = 0;
 
         try {
-            const formData = new FormData();
-            formData.append('video', videoFile);
+            // Process each video sequentially
+            for (let videoIndex = 0; videoIndex < videoFiles.length; videoIndex++) {
+                const videoFile = videoFiles[videoIndex];
+                const videoNum = videoIndex + 1;
+                const totalVideos = videoFiles.length;
 
-            // STAGE 1: Agentic Analysis (Send video to Gemini)
-            const response = await fetch('/api/analyze-video', {
-                method: 'POST',
-                body: formData,
-            });
+                // STAGE 1: Agentic Analysis
+                setLoadingStage(`[${videoNum}/${totalVideos}] 動画「${videoFile.name}」を解析中... (AI分析)`);
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error('Server Error Details:', errorData); // Log full error object
-                throw new Error(errorData.error || '動画の解析に失敗しました。ファイルサイズが大きすぎる可能性があります。');
-            }
+                // Compression disabled for accuracy as per user request
+                // const compressedFile = await compressVideoForAnalysis(videoFile);
 
-            const data = await response.json();
-            const aiSteps = data.steps;
+                const formData = new FormData();
+                formData.append('video', videoFile);
 
-            console.log('✅ AI Analysis complete:', aiSteps.length, 'key steps found');
+                const response = await fetch('/api/analyze-video', {
+                    method: 'POST',
+                    body: formData,
+                });
 
-            // STAGE 2: Extract High-Res Frames at identified timestamps
-            setLoadingStage(`Stage 2: 重要な瞬間を高画質で切り出し中 (0/${aiSteps.length})`);
-
-            const finalSteps: ManualStep[] = [];
-
-            for (let i = 0; i < aiSteps.length; i++) {
-                const step = aiSteps[i];
-
-                if (!step.timestamp) {
-                    continue;
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `動画「${videoFile.name}」の解析に失敗しました。`);
                 }
 
-                try {
-                    // Extract frame at precise timestamp identified by AI
-                    const frameData = await extractFrameAtTimestamp(videoFile, step.timestamp);
+                const data = await response.json();
+                const aiSteps = data.steps;
 
-                    finalSteps.push({
-                        stepNumber: i + 1,
-                        action: step.action,
-                        detail: step.reason || step.action,
-                        timestamp: step.timestamp,
-                        box_2d: step.box_2d, // AI detected box
-                        label: step.label,
-                        screenshot: frameData,
-                        originalUrl: frameData
-                    });
+                console.log(`✅ [Video ${videoNum}] Analysis complete:`, aiSteps.length, 'steps');
 
-                    // Update progress
-                    setLoadingStage(`Stage 2: 重要な瞬間を高画質で切り出し中 (${i + 1}/${aiSteps.length})`);
+                // STAGE 2: Extract Frames
+                setLoadingStage(`[${videoNum}/${totalVideos}] 動画「${videoFile.name}」から画像を切り出し中...`);
 
-                } catch (error) {
-                    console.error(`Error processing step ${i + 1}:`, error);
-                    // Skip if frame extraction fails
+                for (let i = 0; i < aiSteps.length; i++) {
+                    const step = aiSteps[i];
+                    if (!step.timestamp) continue;
+
+                    try {
+                        // Extract high-res frame
+                        const frameData = await extractFrameAtTimestamp(videoFile, step.timestamp);
+
+                        // Smart Automatic Zoom
+                        let displayFrame = frameData;
+                        if (step.box_2d && step.box_2d.length === 4) {
+                            try {
+                                displayFrame = await smartCropFrame(frameData, step.box_2d);
+                            } catch (cropErr) {
+                                console.warn(`SmartCrop failed for step ${i + 1} of video ${videoNum}, using original:`, cropErr);
+                                displayFrame = frameData;
+                            }
+                        }
+
+                        // Calculate global step number
+                        const globalStepNumber = finalSteps.length + 1;
+
+                        finalSteps.push({
+                            stepNumber: globalStepNumber,
+                            action: step.action,
+                            detail: step.reason || step.action,
+                            timestamp: step.timestamp,
+                            box_2d: step.box_2d,
+                            label: step.label,
+                            screenshot: displayFrame,
+                            originalUrl: frameData,
+                            uid: Math.random().toString(36).substr(2, 9) // Ensure unique ID
+                        });
+
+                        // Detailed progress update
+                        setLoadingStage(`[${videoNum}/${totalVideos}] 画像切り出し中... (${i + 1}/${aiSteps.length})`);
+
+                    } catch (error) {
+                        console.error(`Error processing step ${i + 1} of video ${videoNum}:`, error);
+                    }
                 }
             }
 
-            console.log('✅ Stage 2 complete');
+            console.log('✅ All videos processed. Total steps:', finalSteps.length);
 
             // Initialize Manual Data
+            const title = videoFiles.length === 1
+                ? videoFiles[0].name.replace(/\.[^/.]+$/, "") + " マニュアル"
+                : "統合マニュアル (" + videoFiles.length + "本)";
+
             const newManual: ManualData = {
-                title: videoFile.name.replace(/\.[^/.]+$/, "") + " マニュアル",
-                overview: '',
+                title: title,
+                overview: '自動生成されたマニュアルです。編集ボタンから内容を修正できます。',
                 steps: finalSteps,
                 notes: []
             };
@@ -217,7 +340,7 @@ export default function Home() {
                                 データをクリア
                             </button>
                         )}
-                        <span className="header__version bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold text-[10px]">v4.1 PRO</span>
+                        <span className="header__version bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold text-[10px]">v4.4 MULTI</span>
                     </div>
                 </header>
 
@@ -225,7 +348,7 @@ export default function Home() {
                 <section className="hero py-20 text-center">
                     <div className="inline-flex items-center gap-2 mb-8 px-4 py-1.5 rounded-full bg-purple-50 border border-purple-100 shadow-sm animate-fade-in-up">
                         <span className="flex h-2 w-2 rounded-full bg-purple-600"></span>
-                        <span className="text-sm font-bold text-purple-700 tracking-wide">AutoManual V4.3</span>
+                        <span className="text-sm font-bold text-purple-700 tracking-wide">AutoManual V4.4</span>
                     </div>
 
                     <h2 className="hero__title leading-tight mb-8">
@@ -243,23 +366,24 @@ export default function Home() {
                 </section>
 
                 {/* Upload Section (Only show if no manual or explicitly requested) */}
-                {(!manual || videoFile) && (
+                {(!manual || videoFiles.length > 0) && (
                     <VideoUploader
-                        onVideoSelect={handleVideoSelect}
-                        videoFile={videoFile}
-                        videoPreviewUrl={videoPreviewUrl}
+                        onVideosSelect={handleVideosSelect}
+                        videoFiles={videoFiles}
                         onRemoveVideo={handleRemoveVideo}
                     />
                 )}
 
                 {/* Generate Button */}
-                {videoFile && !isLoading && !manual && (
+                {videoFiles.length > 0 && !isLoading && !manual && (
                     <div className="generate-section">
                         <button
                             className="btn btn--primary"
                             onClick={handleGenerate}
                         >
-                            マニュアルを生成
+                            {videoFiles.length > 1
+                                ? `${videoFiles.length}本の動画からマニュアルを生成`
+                                : 'マニュアルを生成'}
                         </button>
                     </div>
                 )}
@@ -284,7 +408,7 @@ export default function Home() {
                 {manual && (
                     <ManualViewer
                         manual={manual}
-                        videoFile={videoFile || undefined}
+                        videoFile={videoFiles[0] || undefined}
                         onUpdateManual={setManual}
                     />
                 )}
