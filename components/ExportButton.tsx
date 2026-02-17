@@ -7,7 +7,7 @@ interface ExportButtonProps {
     manual: ManualData;
 }
 
-// 1. ヘルパー関数をトップレベルに配置（どこからでも呼べるようにする）
+// 1. スコープエラーを防ぐため、ヘルパー関数を一番外側に定義
 const getCircledNumber = (num: number) => {
     if (num >= 1 && num <= 20) return String.fromCodePoint(0x245F + num);
     return `(${num})`;
@@ -22,7 +22,7 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
     return { data: arr, type };
 }
 
-// --- Word出力 (修正済) ---
+// --- Word出力 ---
 async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
     const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, ShadingType } = await import('docx');
     const FONT = 'Meiryo UI';
@@ -74,7 +74,7 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${manual.title}.docx`; a.click();
 }
 
-// --- PowerPoint出力 (修正済: 2列対応 & 突き抜け防止) ---
+// --- PowerPoint出力 (2列対応 & 画像突き抜け防止) ---
 async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
     const pptxgen = (await import('pptxgenjs')).default;
     const pres = new pptxgen();
@@ -82,31 +82,50 @@ async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 't
     const FONT_NAME = 'Meiryo';
 
     const addStepToSlide = async (slide: any, step: any, xPos: number, width: number) => {
+        // タイトル
         slide.addText(`${getCircledNumber(step.stepNumber)} ${step.action}`, {
-            x: xPos, y: 0.3, w: width, h: 0.6, fontSize: isTwoCol ? 18 : 22, bold: true, fontFace: FONT_NAME, color: '4F46E5', fill: { color: 'F8FAFC' }
+            x: xPos, y: 0.3, w: width, h: 0.6,
+            fontSize: isTwoCol ? 18 : 22, bold: true, fontFace: FONT_NAME, color: '4F46E5', fill: { color: 'F8FAFC' }
         });
 
         let currentY = 1.0;
         if (step.detail && step.detail !== step.action) {
-            slide.addText(step.detail, { x: xPos, y: currentY, w: width, h: 0.6, fontSize: isTwoCol ? 11 : 13, fontFace: FONT_NAME, color: '334155', valign: 'top' });
+            slide.addText(step.detail, {
+                x: xPos, y: currentY, w: width, h: 0.6,
+                fontSize: isTwoCol ? 11 : 13, fontFace: FONT_NAME, color: '334155', valign: 'top'
+            });
             currentY += 0.7;
         }
 
         if (step.screenshot) {
-            const ratio = await new Promise<number>((resolve) => {
-                const img = new Image();
-                img.onload = () => resolve(img.height / img.width);
-                img.onerror = () => resolve(0.5625);
-                img.src = step.screenshot!;
-            });
-            const maxW = width;
-            // 重要: スライドの高さ(7.5)からテキスト位置を引いて動的に計算。下部に0.5インチの安全マージン。
-            const maxH = Math.max(1.0, 7.0 - currentY);
-            let finalW = maxW;
-            let finalH = finalW * ratio;
-            if (finalH > maxH) { finalH = maxH; finalW = finalH / ratio; }
+            try {
+                const ratio = await new Promise<number>((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img.height / img.width);
+                    img.onerror = () => resolve(0.5625);
+                    img.src = step.screenshot!;
+                });
 
-            slide.addImage({ data: step.screenshot, x: xPos + (width - finalW) / 2, y: currentY, w: finalW, h: finalH });
+                const maxW = width;
+                // 重要: スライドの高さ(7.5)からテキスト位置を引いた「残りスペース」を最大高さにする
+                const maxH = Math.max(1.0, 7.2 - currentY);
+
+                let finalW = maxW;
+                let finalH = finalW * ratio;
+
+                if (finalH > maxH) {
+                    finalH = maxH;
+                    finalW = finalH / ratio;
+                }
+
+                slide.addImage({
+                    data: step.screenshot,
+                    x: xPos + (width - finalW) / 2, // 列内での中央寄せ
+                    y: currentY,
+                    w: finalW,
+                    h: finalH
+                });
+            } catch (e) { console.warn(e); }
         }
     };
 
@@ -115,6 +134,7 @@ async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 't
     titleSlide.background = { fill: 'F1F5F9' };
     titleSlide.addText(manual.title, { x: 0, y: '40%', w: '100%', h: 1, fontSize: 32, bold: true, fontFace: FONT_NAME, align: 'center' });
 
+    // 各手順スライド
     if (isTwoCol) {
         for (let i = 0; i < manual.steps.length; i += 2) {
             const slide = pres.addSlide();
@@ -127,43 +147,9 @@ async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 't
             await addStepToSlide(slide, step, 0.5, 9.0);
         }
     }
-    await pres.writeFile({ fileName: `${manual.title}_${layout}.pptx` });
-}
 
-function generateMarkdown(manual: ManualData): string {
-    let md = `# ${manual.title}\n\n`;
-    md += `${manual.overview}\n\n`;
-    md += `## 手順\n\n`;
-
-    manual.steps.forEach((step) => {
-        md += `### ${step.stepNumber}. ${step.action}\n\n`;
-        md += `${step.detail}\n\n`;
-
-        if (step.screenshot) {
-            md += `![Step ${step.stepNumber}](${step.screenshot})\n\n`;
-        }
-    });
-
-    if (manual.notes && manual.notes.length > 0) {
-        md += `## 注意事項\n\n`;
-        manual.notes.forEach((note) => {
-            md += `- ${note}\n`;
-        });
-    }
-
-    return md;
-}
-
-function downloadFile(content: string, filename: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const safeTitle = manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+    await pres.writeFile({ fileName: `${safeTitle}_${layout}.pptx` });
 }
 
 export default function ExportButton({ manual }: ExportButtonProps) {
@@ -171,13 +157,8 @@ export default function ExportButton({ manual }: ExportButtonProps) {
 
     const handleExport = async (format: string, layout: 'single' | 'two-column' = 'single') => {
         const safeTitle = manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+
         switch (format) {
-            case 'markdown':
-                downloadFile(generateMarkdown(manual), `${safeTitle}.md`, 'text/markdown;charset=utf-8');
-                break;
-            case 'html':
-                downloadFile(generateHTML(manual, layout), `${safeTitle}.html`, 'text/html;charset=utf-8');
-                break;
             case 'docx': await generateAndDownloadDocx(manual, layout); break;
             case 'pptx': await generateAndDownloadPptx(manual, layout); break;
             case 'pdf':
@@ -187,32 +168,28 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                     container.innerHTML = generateHTML(manual, layout);
                     document.body.appendChild(container);
 
-                    // Allow explicit 2-column styling
-                    if (layout === 'two-column') {
-                        container.classList.add('two-column');
-                    }
-
                     const opt = {
                         margin: [10, 10, 15, 10],
                         filename: `${safeTitle}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, useCORS: true },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                        pagebreak: { mode: ['css', 'legacy'] }
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                     };
 
-                    // PDF生成・保存のチェーンを確実に実行
-                    html2pdf().from(container).set(opt).toPdf().get('pdf').then((pdf: any) => {
+                    const worker = html2pdf().from(container).set(opt).toPdf();
+                    await worker.get('pdf').then((pdf: any) => {
                         const totalPages = pdf.internal.getNumberOfPages();
                         const pageWidth = pdf.internal.pageSize.getWidth();
                         const pageHeight = pdf.internal.pageSize.getHeight();
+
+                        // 表紙(1枚目)を飛ばして2枚目から番号を振る
                         for (let i = 2; i <= totalPages; i++) {
                             pdf.setPage(i);
                             pdf.setFontSize(10);
                             pdf.setTextColor(150);
+                            // 2枚目を「1」とする
                             pdf.text(`${i - 1} / ${totalPages - 1}`, pageWidth - 10, pageHeight - 8, { align: 'right' });
                         }
-                    }).save().then(() => {
+                    });
+                    worker.save().then(() => {
                         document.body.removeChild(container);
                     });
                 } catch (e) { console.error(e); }
@@ -229,19 +206,17 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                     <div className="export-modal__content" onClick={(e) => e.stopPropagation()}>
                         <h3 className="export-modal__title">形式を選択</h3>
                         <div className="export-modal__options">
-                            {/* Markdown/HTML */}
-                            <div className="flex gap-2 w-full">
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('markdown')}><span className="export-modal__label">Markdown</span></button>
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('html')}><span className="export-modal__label">HTML</span></button>
-                            </div>
+                            {/* Word */}
                             <div className="flex gap-2 w-full">
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('docx', 'single')}><span className="export-modal__label">Word (標準)</span></button>
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('docx', 'two-column')}><span className="export-modal__label">Word (2列)</span></button>
                             </div>
+                            {/* PPT */}
                             <div className="flex gap-2 w-full">
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('pptx', 'single')}><span className="export-modal__label">PPT (標準)</span></button>
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('pptx', 'two-column')}><span className="export-modal__label">PPT (2列)</span></button>
                             </div>
+                            {/* PDF */}
                             <div className="flex gap-2 w-full">
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('pdf', 'single')}><span className="export-modal__label">PDF (標準)</span></button>
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('pdf', 'two-column')}><span className="export-modal__label">PDF (2列)</span></button>
