@@ -496,11 +496,12 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                         const pageWidth = pdf.internal.pageSize.getWidth();
                         const pageHeight = pdf.internal.pageSize.getHeight();
 
-                        for (let i = 1; i <= totalPages; i++) {
+                        // 2ページ目から開始し、ページ番号を (i - 1) / (totalPages - 1) と表示
+                        for (let i = 2; i <= totalPages; i++) {
                             pdf.setPage(i);
                             pdf.setFontSize(10);
                             pdf.setTextColor(150);
-                            pdf.text(`${i} / ${totalPages}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
+                            pdf.text(`${i - 1} / ${totalPages - 1}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
                         }
                     });
 
