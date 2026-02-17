@@ -21,8 +21,6 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
 
 // Word(.docx)ファイルを生成してダウンロードする
 // docxライブラリをdynamic importで使用（ブラウザバンドル対応）
-// Word(.docx)ファイルを生成してダウンロードする
-// docxライブラリをdynamic importで使用（ブラウザバンドル対応）
 async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
     const {
         Document, Packer, Paragraph, TextRun, ImageRun,
@@ -198,8 +196,6 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
         // --- 標準1列レイアウトモード ---
         for (const step of manual.steps) {
             const elements = await createStepElements(step);
-            children.forEach(c => { /* no-op */ }); // dummy to prevent linter complaint if I used .push(...elements) directly? No, array push spread is fine.
-            // Spread syntax is fine:
             children.push(...elements);
         }
     }
@@ -276,9 +272,41 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
     URL.revokeObjectURL(url);
 }
 
-// ... markdown generator ...
+function generateMarkdown(manual: ManualData): string {
+    let md = `# ${manual.title}\n\n`;
+    md += `${manual.overview}\n\n`;
+    md += `## 手順\n\n`;
 
-// ... downloadFile ...
+    manual.steps.forEach((step) => {
+        md += `### ${step.stepNumber}. ${step.action}\n\n`;
+        md += `${step.detail}\n\n`;
+
+        if (step.screenshot) {
+            md += `![Step ${step.stepNumber}](${step.screenshot})\n\n`;
+        }
+    });
+
+    if (manual.notes && manual.notes.length > 0) {
+        md += `## 注意事項\n\n`;
+        manual.notes.forEach((note) => {
+            md += `- ${note}\n`;
+        });
+    }
+
+    return md;
+}
+
+function downloadFile(content: string, filename: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
 
 export default function ExportButton({ manual }: ExportButtonProps) {
     const [showModal, setShowModal] = useState(false);
@@ -302,123 +330,128 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 }
                 break;
             case 'pdf':
-            // ... existing pdf logic ...
+                try {
+                    const html2pdf = (await import('html2pdf.js')).default;
+                    const htmlContent = generateHTML(manual, layout);
+
+                    const container = document.createElement('div');
+                    container.innerHTML = htmlContent;
+                    // Apply layout class for 2-column mode
+                    if (layout === 'two-column') {
+                        container.classList.add('two-column');
+                        // Inject specific grid styles for PDF rendering if not already handled by inline styles
+                    }
+                    document.body.appendChild(container);
+
+                    const opt: any = {
+                        margin: [10, 10, 15, 10],
+                        filename: `${safeTitle}.pdf`,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                        pagebreak: { mode: ['css', 'legacy'] }
+                    };
+
+                    // Correct chaining for html2pdf
+                    const worker = html2pdf().from(container).set(opt).toPdf();
+
+                    await worker.get('pdf').then((pdf: any) => {
+                        const totalPages = pdf.internal.getNumberOfPages();
+                        const pageWidth = pdf.internal.pageSize.getWidth();
+                        const pageHeight = pdf.internal.pageSize.getHeight();
+
+                        for (let i = 1; i <= totalPages; i++) {
+                            pdf.setPage(i);
+                            pdf.setFontSize(10);
+                            pdf.setTextColor(150);
+                            pdf.text(`${i} / ${totalPages}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
+                        }
+                    });
+
+                    worker.save();
+
+                    document.body.removeChild(container);
+                } catch (error) {
+                    console.error('PDF generation error:', error);
+                    alert('PDF generation failed. Please try printing via browser (Ctrl+P).');
+                }
+                break;
         }
-    }
-// ... rest of the component
 
-            case 'pdf':
-    try {
-        const html2pdf = (await import('html2pdf.js')).default;
-        const htmlContent = generateHTML(manual, layout);
-
-        const container = document.createElement('div');
-        container.innerHTML = htmlContent;
-        // Apply layout class for 2-column mode
-        if (layout === 'two-column') {
-            container.classList.add('two-column');
-            // Inject specific grid styles for PDF rendering if not already handled by inline styles
-        }
-        document.body.appendChild(container);
-
-        const opt: any = {
-            margin: [10, 10, 15, 10],
-            filename: `${safeTitle}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['css', 'legacy'] }
-        };
-
-        // Correct chaining for html2pdf
-        const worker = html2pdf().from(container).set(opt).toPdf();
-
-        await worker.get('pdf').then((pdf: any) => {
-            const totalPages = pdf.internal.getNumberOfPages();
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-
-            for (let i = 1; i <= totalPages; i++) {
-                pdf.setPage(i);
-                pdf.setFontSize(10);
-                pdf.setTextColor(150);
-                pdf.text(`${i} / ${totalPages}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
-            }
-        });
-
-        worker.save();
-
-        document.body.removeChild(container);
-    } catch (error) {
-        console.error('PDF generation error:', error);
-        alert('PDF generation failed. Please try printing via browser (Ctrl+P).');
-    }
-    break;
-}
-
-setShowModal(false);
+        setShowModal(false);
     };
 
-return (
-    <>
-        <button
-            className="btn btn--secondary btn--small"
-            onClick={() => setShowModal(true)}
-        >
-            エクスポート
-        </button>
+    return (
+        <>
+            <button
+                className="btn btn--secondary btn--small"
+                onClick={() => setShowModal(true)}
+            >
+                エクスポート
+            </button>
 
-        {showModal && (
-            <div className="export-modal" onClick={() => setShowModal(false)}>
-                <div className="export-modal__content" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="export-modal__title">エクスポート形式を選択</h3>
-                    <div className="export-modal__options">
-                        <button
-                            className="export-modal__option"
-                            onClick={() => handleExport('markdown')}
-                        >
-                            <span className="export-modal__label">Markdown (.md)</span>
-                        </button>
-                        <button
-                            className="export-modal__option"
-                            onClick={() => handleExport('html')}
-                        >
-                            <span className="export-modal__label">HTML (.html)</span>
-                        </button>
-                        <button
-                            className="export-modal__option"
-                            onClick={() => handleExport('docx')}
-                        >
-                            <span className="export-modal__label">Word (.docx)</span>
-                        </button>
-                        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+            {showModal && (
+                <div className="export-modal" onClick={() => setShowModal(false)}>
+                    <div className="export-modal__content" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="export-modal__title">エクスポート形式を選択</h3>
+                        <div className="export-modal__options">
                             <button
                                 className="export-modal__option"
-                                onClick={() => handleExport('pdf', 'single')}
-                                style={{ flex: 1 }}
+                                onClick={() => handleExport('markdown')}
                             >
-                                <span className="export-modal__label">PDF (標準)</span>
+                                <span className="export-modal__label">Markdown (.md)</span>
                             </button>
                             <button
                                 className="export-modal__option"
-                                onClick={() => handleExport('pdf', 'two-column')}
-                                style={{ flex: 1 }}
+                                onClick={() => handleExport('html')}
                             >
-                                <span className="export-modal__label">PDF (2列)</span>
+                                <span className="export-modal__label">HTML (.html)</span>
                             </button>
+                            {/* Word Export Buttons */}
+                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                <button
+                                    className="export-modal__option"
+                                    onClick={() => handleExport('docx', 'single')}
+                                    style={{ flex: 1 }}
+                                >
+                                    <span className="export-modal__label">Word (標準)</span>
+                                </button>
+                                <button
+                                    className="export-modal__option"
+                                    onClick={() => handleExport('docx', 'two-column')}
+                                    style={{ flex: 1 }}
+                                >
+                                    <span className="export-modal__label">Word (2列)</span>
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                <button
+                                    className="export-modal__option"
+                                    onClick={() => handleExport('pdf', 'single')}
+                                    style={{ flex: 1 }}
+                                >
+                                    <span className="export-modal__label">PDF (標準)</span>
+                                </button>
+                                <button
+                                    className="export-modal__option"
+                                    onClick={() => handleExport('pdf', 'two-column')}
+                                    style={{ flex: 1 }}
+                                >
+                                    <span className="export-modal__label">PDF (2列)</span>
+                                </button>
+                            </div>
                         </div>
+                        <button
+                            className="btn btn--secondary export-modal__close"
+                            onClick={() => setShowModal(false)}
+                        >
+                            キャンセル
+                        </button>
                     </div>
-                    <button
-                        className="btn btn--secondary export-modal__close"
-                        onClick={() => setShowModal(false)}
-                    >
-                        キャンセル
-                    </button>
                 </div>
-            </div>
-        )}
-    </>
-);
+            )}
+        </>
+    );
 }
 
 // FIX: Generate SVG for perfect centering (html2canvas safe)
