@@ -55,6 +55,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             heading: HeadingLevel.HEADING_1,
             children: [new TextRun({ text: manual.title, bold: true, size: 36, font: RF })],
             spacing: { after: 200 },
+            
         })
     );
 
@@ -64,6 +65,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             new Paragraph({
                 children: [new TextRun({ text: manual.overview, size: 24, font: RF })],
                 spacing: { after: 400 },
+                
             })
         );
     }
@@ -77,21 +79,21 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             border: {
                 bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD' },
             },
+            
         })
     );
 
     // 各ステップ
     for (const step of manual.steps) {
-        // ステップ番号＋タイトル（通常段落として作成）
+        // ステップ番号＋タイトル（【1】形式でWord自動リスト回避）
         children.push(
             new Paragraph({
                 children: [
-                    new TextRun({ text: '\u200B' + `${step.stepNumber}. `, bold: true, size: 28, font: RF }),
-                    new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: `【${step.stepNumber}】`, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: ` ${step.action}`, bold: true, size: 28, font: RF }),
                 ],
                 spacing: { before: 300, after: 100 },
-                indent: { left: 0 }, // インデント0で箇条書き回避
-                keepNext: true, // 次の段落と分離しない
+                keepNext: true,
             })
         );
 
@@ -99,10 +101,9 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         if (step.detail && step.detail !== step.action) {
             children.push(
                 new Paragraph({
-                    children: [new TextRun({ text: '\u200B' + `  ${step.detail}`, size: 22, font: RF })],
+                    children: [new TextRun({ text: step.detail, size: 22, font: RF })],
                     spacing: { after: 120 },
-                    indent: { left: 0 },
-                    keepNext: !!step.screenshot, // 画像がある場合は画像と分離しない
+                    keepNext: !!step.screenshot,
                 })
             );
         }
@@ -112,14 +113,13 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             try {
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
 
-                // 画像の実際のサイズを取得して縦横比を計算
                 const imgHeight = await new Promise<number>((resolve) => {
                     const img = new Image();
                     img.onload = () => {
                         const ratio = img.height / img.width;
                         resolve(Math.round(IMG_WIDTH_EMU * ratio));
                     };
-                    img.onerror = () => resolve(Math.round(IMG_WIDTH_EMU * 0.5625)); // 16:9 fallback
+                    img.onerror = () => resolve(Math.round(IMG_WIDTH_EMU * 0.5625));
                     img.src = step.screenshot!;
                 });
 
@@ -133,8 +133,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                             }),
                         ],
                         spacing: { after: 300 },
-                        indent: { left: 0 }, // インデント0で箇条書き回避
-                        keepLines: true, // 段落内改ページ禁止
+                        // 箇条書きを完全無効化
+                        keepLines: true,
                     })
                 );
             } catch (e) {

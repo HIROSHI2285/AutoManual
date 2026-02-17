@@ -48,6 +48,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             heading: HeadingLevel.HEADING_1,
             children: [new TextRun({ text: manual.title, bold: true, size: 36, font: RF })],
             spacing: { after: 200 },
+            numbering: undefined, // 明示的に箇条書きなし
         })
     );
 
@@ -57,6 +58,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             new Paragraph({
                 children: [new TextRun({ text: manual.overview, size: 24, font: RF })],
                 spacing: { after: 400 },
+                numbering: undefined, // 明示的に箇条書きなし
             })
         );
     }
@@ -70,6 +72,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             border: {
                 bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD' },
             },
+            numbering: undefined, // 明示的に箇条書きなし
         })
     );
 
@@ -80,16 +83,13 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             new Paragraph({
                 style: "ManualStepTitle",
                 children: [
-                    // \u200Bを先頭に置いて自動リスト化を回避
-                    new TextRun({ text: `\u200B${step.stepNumber}. `, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: `${step.stepNumber}. `, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
-                // spacing/indent/keepNext definitions are now in the Style, but we can override if needed.
-                // However, putting them in the Style is cleaner.
-                // We keep them here explicitly just in case style application is tricky.
+                // spacing/keepNext definitions are now in the Style.
                 spacing: { before: 300, after: 100 },
-                indent: { left: 0 },
                 keepNext: true,
+                numbering: undefined, // 明示的に箇条書きなし
             })
         );
 
@@ -100,8 +100,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     style: "ManualStepBody",
                     children: [new TextRun({ text: `  ${step.detail}`, size: 22, font: RF })],
                     spacing: { after: 120 },
-                    indent: { left: 0 },
                     keepNext: !!step.screenshot,
+                    numbering: undefined, // 明示的に箇条書きなし
                 })
             );
         }
@@ -133,8 +133,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                             }),
                         ],
                         spacing: { after: 300 },
-                        indent: { left: 0 },
                         keepLines: true,
+                        numbering: undefined, // 明示的に箇条書きなし
                     })
                 );
             } catch (e) {
@@ -171,7 +171,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     next: 'ManualStepBody',
                     quickFormat: true,
                     run: { size: 28, bold: true, font: RF },
-                    paragraph: { spacing: { before: 300, after: 100 }, indent: { left: 0 }, keepNext: true },
+                    paragraph: { spacing: { before: 300, after: 100 }, keepNext: true }, // indent削除
                 },
                 {
                     id: 'ManualStepBody',
@@ -180,7 +180,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     next: 'SameStyle',
                     quickFormat: true,
                     run: { size: 22, font: RF },
-                    paragraph: { spacing: { after: 120 }, indent: { left: 0 } },
+                    paragraph: { spacing: { after: 120 } }, // indent削除
                 }
             ],
         },
