@@ -147,6 +147,14 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             default: {
                 document: { run: { font: RF, size: 22 } },
             },
+            paragraphStyles: [
+                {
+                    id: 'Normal',
+                    name: 'Normal',
+                    run: { font: RF, size: 22 },
+                    paragraph: { spacing: { line: 240 }, indent: { left: 0, right: 0, hanging: 0, firstLine: 0 } },
+                },
+            ],
         },
         sections: [{
             properties: {
