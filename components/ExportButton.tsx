@@ -94,7 +94,7 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
         // 1. ステップ番号（①）＋タイトル
         elements.push(new Paragraph({
             children: [
-                new TextRun({ text: `${getCircledNumber(step.stepNumber)}  `, bold: true, size: 28, font: RF }),
+                new TextRun({ text: `${getCircledNumber(step.stepNumber)} `, bold: true, size: 28, font: RF }),
                 new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
             ],
             spacing: { before: isTwoCol ? 0 : 300, after: 100 }, // 2列時はセル内なのでbefore: 0
@@ -167,23 +167,25 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
                 new Table({
                     width: { size: 100, type: WidthType.PERCENTAGE },
                     borders: {
-                        top: BorderStyle.NONE, bottom: BorderStyle.NONE,
-                        left: BorderStyle.NONE, right: BorderStyle.NONE,
-                        insideHorizontal: BorderStyle.NONE, insideVertical: BorderStyle.NONE,
+                        top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                        bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                        left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                        right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                        insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                        insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
                     },
                     rows: [
                         new TableRow({
+                            cantSplit: true,
                             children: [
                                 new TableCell({
                                     children: leftElements,
                                     width: { size: 50, type: WidthType.PERCENTAGE },
-                                    cantSplit: true,
                                     margins: { bottom: 400, right: 200 }, // 右に余白
                                 }),
                                 new TableCell({
                                     children: rightElements,
                                     width: { size: 50, type: WidthType.PERCENTAGE },
-                                    cantSplit: true,
                                     margins: { bottom: 400, left: 200 }, // 左に余白
                                 }),
                             ],
