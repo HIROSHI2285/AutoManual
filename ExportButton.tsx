@@ -90,6 +90,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
                 spacing: { before: 300, after: 100 },
+                indent: { left: 0 }, // インデント0で箇条書き回避
+                keepNext: true, // 次の段落と分離しない
             })
         );
 
@@ -99,6 +101,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                 new Paragraph({
                     children: [new TextRun({ text: `  ${step.detail}`, size: 22, font: RF })],
                     spacing: { after: 120 },
+                    indent: { left: 0 },
+                    keepNext: !!step.screenshot, // 画像がある場合は画像と分離しない
                 })
             );
         }
@@ -129,7 +133,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                             }),
                         ],
                         spacing: { after: 300 },
-                        keepLines: true,
+                        indent: { left: 0 }, // インデント0で箇条書き回避
+                        keepLines: true, // 段落内改ページ禁止
                     })
                 );
             } catch (e) {
