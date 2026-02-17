@@ -85,10 +85,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
     // 各ステップ
     for (const step of manual.steps) {
-        const stepElements: any[] = [];
-
         // 1. ステップ番号（①）＋タイトル
-        stepElements.push(
+        children.push(
             new Paragraph({
                 children: [
                     new TextRun({
@@ -98,7 +96,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                         font: RF
                     }),
                 ],
-                spacing: { before: 0, after: 100 }, // TableCell内で調整するため before: 0
+                spacing: { before: 300, after: 100 },
                 indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
             })
         );
@@ -106,7 +104,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         // 2. 説明文
         if (step.detail && step.detail !== step.action) {
             const lines = step.detail.split('\n');
-            stepElements.push(
+            children.push(
                 new Paragraph({
                     children: lines.map((line, index) =>
                         new TextRun({
@@ -138,7 +136,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     img.src = step.screenshot!;
                 });
 
-                stepElements.push(
+                children.push(
                     new Paragraph({
                         children: [
                             new ImageRun({
@@ -147,7 +145,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                                 type,
                             }),
                         ],
-                        spacing: { after: 200 },
+                        spacing: { after: 300 },
                         indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
                     })
                 );
@@ -155,35 +153,6 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                 console.warn(`Step ${step.stepNumber} image embedding failed:`, e);
             }
         }
-
-        // 重要：1ステップ分を丸ごと「分割禁止の表セル」に入れる
-        children.push(
-            new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                borders: {
-                    top: BorderStyle.NONE,
-                    bottom: BorderStyle.NONE,
-                    left: BorderStyle.NONE,
-                    right: BorderStyle.NONE,
-                    insideHorizontal: BorderStyle.NONE,
-                    insideVertical: BorderStyle.NONE,
-                },
-                rows: [
-                    new TableRow({
-                        children: [
-                            new TableCell({
-                                children: stepElements,
-                                cantSplit: true, // これがページまたぎを防ぐ設定
-                                margins: { bottom: 400 }, // ステップ間の余白
-                            }),
-                        ],
-                    }),
-                ],
-            })
-        );
-
-        // ステップ間の余白用段落（表の外に追加）
-        children.push(new Paragraph({ spacing: { after: 300 } }));
     }
 
     // ドキュメント生成
