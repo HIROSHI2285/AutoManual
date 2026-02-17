@@ -1,28 +1,32 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    webpack: (config) => {
-        config.resolve.fallback = { fs: false };
-        // Handle "node:" scheme imports (like node:fs)
-        config.resolve.alias = {
-            ...config.resolve.alias
-        };
-        // Add rule to ignore node: imports in client side code if needed more aggressively, but usually fallback is enough.
-        // For "node:fs", webpack 5 might need this:
-        config.plugins.push(
-            new (class {
-                apply(compiler) {
-                    compiler.hooks.normalModuleFactory.tap("NodeSchemePlugin", (nmf) => {
-                        nmf.hooks.createModule.tap("NodeSchemePlugin", (createData) => {
-                            if (createData.resource && createData.resource.startsWith("node:")) {
-                                createData.resource = createData.resource.replace("node:", "");
-                            }
-                        });
-                    });
-                }
-            })()
-        );
+    config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+        https: false,
+        http: false,
+        crypto: false,
+        os: false,
+        path: false,
+        stream: false,
+        zlib: false,
+    };
 
-        return config;
+    // Specifically ignore node: imports
+    config.resolve.alias = {
+        ...config.resolve.alias,
+        'node:fs': false,
+        'node:https': false,
+        'node:path': false,
+        'node:util': false,
+        'node:stream': false,
+        'node:buffer': false,
+    };
+}
+return config;
     },
 };
 
