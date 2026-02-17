@@ -40,13 +40,6 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
     // 画像の表示幅：コンテンツ幅の60%に縮小（2ページにまたがらないように）
     const IMG_WIDTH_EMU = Math.round(CONTENT_WIDTH_DXA * 635 * 0.6);
 
-    // 丸数字変換（1→①, 2→②, ...）
-    const toCircledNumber = (n: number): string => {
-        const circled = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩',
-            '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳'];
-        return circled[n - 1] || `${n}.`;
-    };
-
     const children: any[] = [];
 
     // タイトル
@@ -82,17 +75,21 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
     // 各ステップ
     for (const step of manual.steps) {
-        // ステップ番号＋タイトル（通常段落として作成）
+        // ステップ番号＋タイトル（カスタムスタイルを使用）
         children.push(
             new Paragraph({
-                style: "Normal", // 強制的に「標準」スタイルを適用
+                style: "ManualStepTitle",
                 children: [
-                    new TextRun({ text: `${step.stepNumber}. `, bold: true, size: 28, font: RF }),
+                    // \u200B (ゼロ幅スペース) を挟んで自動リスト化を回避
+                    new TextRun({ text: `${step.stepNumber}\u200B. `, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
+                // spacing/indent/keepNext definitions are now in the Style, but we can override if needed.
+                // However, putting them in the Style is cleaner.
+                // We keep them here explicitly just in case style application is tricky.
                 spacing: { before: 300, after: 100 },
-                indent: { left: 0 }, // インデント0で箇条書き回避
-                keepNext: true, // 次の段落と分離しない
+                indent: { left: 0 },
+                keepNext: true,
             })
         );
 
@@ -100,11 +97,11 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         if (step.detail && step.detail !== step.action) {
             children.push(
                 new Paragraph({
-                    style: "Normal", // 強制的に「標準」スタイルを適用
+                    style: "ManualStepBody",
                     children: [new TextRun({ text: `  ${step.detail}`, size: 22, font: RF })],
                     spacing: { after: 120 },
                     indent: { left: 0 },
-                    keepNext: !!step.screenshot, // 画像がある場合は画像と分離しない
+                    keepNext: !!step.screenshot,
                 })
             );
         }
@@ -127,7 +124,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
                 children.push(
                     new Paragraph({
-                        style: "Normal", // 強制的に「標準」スタイルを適用
+                        style: "ManualStepBody",
                         children: [
                             new ImageRun({
                                 data,
@@ -136,8 +133,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                             }),
                         ],
                         spacing: { after: 300 },
-                        indent: { left: 0 }, // インデント0で箇条書き回避
-                        keepLines: true, // 段落内改ページ禁止
+                        indent: { left: 0 },
+                        keepLines: true,
                     })
                 );
             } catch (e) {
@@ -166,6 +163,25 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     run: { size: 28, bold: true, font: RF },
                     paragraph: { spacing: { before: 180, after: 120 }, outlineLevel: 1 },
                 },
+                // Custom styles to prevent auto-list detection
+                {
+                    id: 'ManualStepTitle',
+                    name: 'Manual Step Title',
+                    basedOn: 'Normal',
+                    next: 'ManualStepBody',
+                    quickFormat: true,
+                    run: { size: 28, bold: true, font: RF },
+                    paragraph: { spacing: { before: 300, after: 100 }, indent: { left: 0 }, keepNext: true },
+                },
+                {
+                    id: 'ManualStepBody',
+                    name: 'Manual Step Body',
+                    basedOn: 'Normal',
+                    next: 'SameStyle',
+                    quickFormat: true,
+                    run: { size: 22, font: RF },
+                    paragraph: { spacing: { after: 120 }, indent: { left: 0 } },
+                }
             ],
         },
         sections: [{
