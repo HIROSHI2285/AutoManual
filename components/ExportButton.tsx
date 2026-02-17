@@ -21,7 +21,9 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
 
 // Word(.docx)ファイルを生成してダウンロードする
 // docxライブラリをdynamic importで使用（ブラウザバンドル対応）
-async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
+// Word(.docx)ファイルを生成してダウンロードする
+// docxライブラリをdynamic importで使用（ブラウザバンドル対応）
+async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
     const {
         Document, Packer, Paragraph, TextRun, ImageRun,
         AlignmentType, BorderStyle, WidthType,
@@ -37,8 +39,12 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
     const MARGIN_DXA = 1000;
     const CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - MARGIN_DXA * 2; // 9906 DXA ≒ 174mm
 
-    // 画像の表示幅：コンテンツ幅の60%に縮小（2ページにまたがらないように）
-    const IMG_WIDTH_EMU = Math.round(CONTENT_WIDTH_DXA * 635 * 0.6);
+    // レイアウトに応じた列幅と画像幅の計算
+    const isTwoCol = layout === 'two-column';
+    const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA / 2) - 100 : CONTENT_WIDTH_DXA;
+    // 画像の表示幅：2列時はセルの95%、1列時はページ幅の60%
+    const widthRatio = isTwoCol ? 0.95 : 0.6;
+    const imgWidthEmu = Math.round(colWidthDxa * 635 * widthRatio);
 
     const children: any[] = [];
 
@@ -83,75 +89,118 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         return `(${num})`;
     };
 
-    // 各ステップ
-    for (const step of manual.steps) {
+    // ステップの内容を生成するヘルパー関数
+    const createStepElements = async (step: any) => {
+        const elements: any[] = [];
+
         // 1. ステップ番号（①）＋タイトル
-        children.push(
-            new Paragraph({
-                children: [
-                    new TextRun({
-                        text: `${getCircledNumber(step.stepNumber)}  ${step.action}`,
-                        bold: true,
-                        size: 28,
-                        font: RF
-                    }),
-                ],
-                spacing: { before: 300, after: 100 },
-                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
-            })
-        );
+        elements.push(new Paragraph({
+            children: [
+                new TextRun({ text: `${getCircledNumber(step.stepNumber)}  `, bold: true, size: 28, font: RF }),
+                new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
+            ],
+            spacing: { before: isTwoCol ? 0 : 300, after: 100 }, // 2列時はセル内なのでbefore: 0
+            indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
+        }));
 
         // 2. 説明文
         if (step.detail && step.detail !== step.action) {
             const lines = step.detail.split('\n');
-            children.push(
-                new Paragraph({
-                    children: lines.map((line, index) =>
-                        new TextRun({
-                            text: line,
-                            size: 22,
-                            font: RF,
-                            break: index > 0 ? 1 : 0
-                        })
-                    ),
-                    spacing: { after: 120 },
-                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
-                })
-            );
+            elements.push(new Paragraph({
+                children: lines.map((line: string, index: number) =>
+                    new TextRun({ text: line, size: 22, font: RF, break: index > 0 ? 1 : 0 })
+                ),
+                spacing: { after: 120 },
+                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
+            }));
         }
 
-        // 3. スクリーンショット画像
+        // 3. 画像
         if (step.screenshot) {
             try {
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
-
-                // 画像の実際のサイズを取得して縦横比を計算
                 const imgHeight = await new Promise<number>((resolve) => {
                     const img = new Image();
                     img.onload = () => {
                         const ratio = img.height / img.width;
-                        resolve(Math.round(IMG_WIDTH_EMU * ratio));
+                        resolve(Math.round(imgWidthEmu * ratio));
                     };
-                    img.onerror = () => resolve(Math.round(IMG_WIDTH_EMU * 0.5625)); // 16:9 fallback
+                    img.onerror = () => resolve(Math.round(imgWidthEmu * 0.5625));
                     img.src = step.screenshot!;
                 });
 
-                children.push(
-                    new Paragraph({
-                        children: [
-                            new ImageRun({
-                                data,
-                                transformation: { width: Math.round(IMG_WIDTH_EMU / 9525), height: Math.round(imgHeight / 9525) },
-                                type,
-                            }),
-                        ],
-                        spacing: { after: 300 },
-                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
-                    })
-                );
+                elements.push(new Paragraph({
+                    children: [
+                        new ImageRun({
+                            data,
+                            transformation: {
+                                width: Math.round(imgWidthEmu / 9525),
+                                height: Math.round(imgHeight / 9525)
+                            },
+                            type,
+                        }),
+                    ],
+                    spacing: { after: 200 },
+                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
+                }));
             } catch (e) {
-                console.warn(`Step ${step.stepNumber} image embedding failed:`, e);
+                console.warn(`Step ${step.stepNumber} image error:`, e);
             }
+        }
+
+        // 1列レイアウトの場合、ステップ間の余白を追加（2列レイアウトは行送りで調整）
+        if (!isTwoCol) {
+            elements.push(new Paragraph({ spacing: { after: 300 } }));
+        }
+
+        return elements;
+    };
+
+    if (isTwoCol) {
+        // --- 2列レイアウトモード ---
+        for (let i = 0; i < manual.steps.length; i += 2) {
+            const leftStep = manual.steps[i];
+            const rightStep = manual.steps[i + 1];
+
+            const leftElements = await createStepElements(leftStep);
+            const rightElements = rightStep ? await createStepElements(rightStep) : [];
+
+            children.push(
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    borders: {
+                        top: BorderStyle.NONE, bottom: BorderStyle.NONE,
+                        left: BorderStyle.NONE, right: BorderStyle.NONE,
+                        insideHorizontal: BorderStyle.NONE, insideVertical: BorderStyle.NONE,
+                    },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                new TableCell({
+                                    children: leftElements,
+                                    width: { size: 50, type: WidthType.PERCENTAGE },
+                                    cantSplit: true,
+                                    margins: { bottom: 400, right: 200 }, // 右に余白
+                                }),
+                                new TableCell({
+                                    children: rightElements,
+                                    width: { size: 50, type: WidthType.PERCENTAGE },
+                                    cantSplit: true,
+                                    margins: { bottom: 400, left: 200 }, // 左に余白
+                                }),
+                            ],
+                        }),
+                    ],
+                })
+            );
+        }
+    } else {
+        // --- 標準1列レイアウトモード ---
+        for (const step of manual.steps) {
+            const elements = await createStepElements(step);
+            children.forEach(c => { /* no-op */ }); // dummy to prevent linter complaint if I used .push(...elements) directly? No, array push spread is fine.
+            // Spread syntax is fine:
+            children.push(...elements);
         }
     }
 
@@ -194,23 +243,18 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         const settingsXml = await zip.file("word/settings.xml")?.async("string");
 
         if (settingsXml) {
-            // <w:settings>直下に設定を追加
-            // 既存のsettingsがあればそれにマージすべきだが、単純な置換で対応
-            // <w:settings ...> の直後に挿入
             const newSettingsXml = settingsXml.replace(
                 /(<w:settings[^>]*>)/,
                 '$1<w:autoHyphenation w:val="0"/><w:doNotUseIndentAsNumberingTabStop/>'
             );
             zip.file("word/settings.xml", newSettingsXml);
-
-            // 再生成
             const newBlob = await zip.generateAsync({ type: "blob" });
 
             // ダウンロード
             const url = URL.createObjectURL(newBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}.docx`;
+            a.download = `${manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}_${layout}.docx`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -219,55 +263,22 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         }
     } catch (e) {
         console.error("ZIP editing failed:", e);
-        // フォールバック：元のBlobでダウンロード
     }
 
     // ZIP編集に失敗した場合は元のBlobを使用
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}.docx`;
+    a.download = `${manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}_${layout}.docx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
 
-function generateMarkdown(manual: ManualData): string {
-    let md = `# ${manual.title}\n\n`;
-    md += `${manual.overview}\n\n`;
-    md += `## 手順\n\n`;
+// ... markdown generator ...
 
-    manual.steps.forEach((step) => {
-        md += `### ${step.stepNumber}. ${step.action}\n\n`;
-        md += `${step.detail}\n\n`;
-
-        if (step.screenshot) {
-            md += `![Step ${step.stepNumber}](${step.screenshot})\n\n`;
-        }
-    });
-
-    if (manual.notes && manual.notes.length > 0) {
-        md += `## 注意事項\n\n`;
-        manual.notes.forEach((note) => {
-            md += `- ${note}\n`;
-        });
-    }
-
-    return md;
-}
-
-function downloadFile(content: string, filename: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
+// ... downloadFile ...
 
 export default function ExportButton({ manual }: ExportButtonProps) {
     const [showModal, setShowModal] = useState(false);
@@ -284,124 +295,130 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 break;
             case 'docx':
                 try {
-                    await generateAndDownloadDocx(manual);
+                    await generateAndDownloadDocx(manual, layout);
                 } catch (error) {
                     console.error('Word generation error:', error);
                     alert('Word出力に失敗しました。ブラウザの対応状況をご確認ください。');
                 }
                 break;
             case 'pdf':
-                try {
-                    const html2pdf = (await import('html2pdf.js')).default;
-                    const htmlContent = generateHTML(manual, layout);
-
-                    const container = document.createElement('div');
-                    container.innerHTML = htmlContent;
-                    // Apply layout class for 2-column mode
-                    if (layout === 'two-column') {
-                        container.classList.add('two-column');
-                        // Inject specific grid styles for PDF rendering if not already handled by inline styles
-                    }
-                    document.body.appendChild(container);
-
-                    const opt: any = {
-                        margin: [10, 10, 15, 10],
-                        filename: `${safeTitle}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, useCORS: true },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                        pagebreak: { mode: ['css', 'legacy'] }
-                    };
-
-                    // Correct chaining for html2pdf
-                    const worker = html2pdf().from(container).set(opt).toPdf();
-
-                    await worker.get('pdf').then((pdf: any) => {
-                        const totalPages = pdf.internal.getNumberOfPages();
-                        const pageWidth = pdf.internal.pageSize.getWidth();
-                        const pageHeight = pdf.internal.pageSize.getHeight();
-
-                        for (let i = 1; i <= totalPages; i++) {
-                            pdf.setPage(i);
-                            pdf.setFontSize(10);
-                            pdf.setTextColor(150);
-                            pdf.text(`${i} / ${totalPages}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
-                        }
-                    });
-
-                    worker.save();
-
-                    document.body.removeChild(container);
-                } catch (error) {
-                    console.error('PDF generation error:', error);
-                    alert('PDF generation failed. Please try printing via browser (Ctrl+P).');
-                }
-                break;
+            // ... existing pdf logic ...
         }
+    }
+// ... rest of the component
 
-        setShowModal(false);
+            case 'pdf':
+    try {
+        const html2pdf = (await import('html2pdf.js')).default;
+        const htmlContent = generateHTML(manual, layout);
+
+        const container = document.createElement('div');
+        container.innerHTML = htmlContent;
+        // Apply layout class for 2-column mode
+        if (layout === 'two-column') {
+            container.classList.add('two-column');
+            // Inject specific grid styles for PDF rendering if not already handled by inline styles
+        }
+        document.body.appendChild(container);
+
+        const opt: any = {
+            margin: [10, 10, 15, 10],
+            filename: `${safeTitle}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['css', 'legacy'] }
+        };
+
+        // Correct chaining for html2pdf
+        const worker = html2pdf().from(container).set(opt).toPdf();
+
+        await worker.get('pdf').then((pdf: any) => {
+            const totalPages = pdf.internal.getNumberOfPages();
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
+            for (let i = 1; i <= totalPages; i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(10);
+                pdf.setTextColor(150);
+                pdf.text(`${i} / ${totalPages}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
+            }
+        });
+
+        worker.save();
+
+        document.body.removeChild(container);
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        alert('PDF generation failed. Please try printing via browser (Ctrl+P).');
+    }
+    break;
+}
+
+setShowModal(false);
     };
 
-    return (
-        <>
-            <button
-                className="btn btn--secondary btn--small"
-                onClick={() => setShowModal(true)}
-            >
-                エクスポート
-            </button>
+return (
+    <>
+        <button
+            className="btn btn--secondary btn--small"
+            onClick={() => setShowModal(true)}
+        >
+            エクスポート
+        </button>
 
-            {showModal && (
-                <div className="export-modal" onClick={() => setShowModal(false)}>
-                    <div className="export-modal__content" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="export-modal__title">エクスポート形式を選択</h3>
-                        <div className="export-modal__options">
-                            <button
-                                className="export-modal__option"
-                                onClick={() => handleExport('markdown')}
-                            >
-                                <span className="export-modal__label">Markdown (.md)</span>
-                            </button>
-                            <button
-                                className="export-modal__option"
-                                onClick={() => handleExport('html')}
-                            >
-                                <span className="export-modal__label">HTML (.html)</span>
-                            </button>
-                            <button
-                                className="export-modal__option"
-                                onClick={() => handleExport('docx')}
-                            >
-                                <span className="export-modal__label">Word (.docx)</span>
-                            </button>
-                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                                <button
-                                    className="export-modal__option"
-                                    onClick={() => handleExport('pdf', 'single')}
-                                    style={{ flex: 1 }}
-                                >
-                                    <span className="export-modal__label">PDF (標準)</span>
-                                </button>
-                                <button
-                                    className="export-modal__option"
-                                    onClick={() => handleExport('pdf', 'two-column')}
-                                    style={{ flex: 1 }}
-                                >
-                                    <span className="export-modal__label">PDF (2列)</span>
-                                </button>
-                            </div>
-                        </div>
+        {showModal && (
+            <div className="export-modal" onClick={() => setShowModal(false)}>
+                <div className="export-modal__content" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="export-modal__title">エクスポート形式を選択</h3>
+                    <div className="export-modal__options">
                         <button
-                            className="btn btn--secondary export-modal__close"
-                            onClick={() => setShowModal(false)}
+                            className="export-modal__option"
+                            onClick={() => handleExport('markdown')}
                         >
-                            キャンセル
+                            <span className="export-modal__label">Markdown (.md)</span>
                         </button>
+                        <button
+                            className="export-modal__option"
+                            onClick={() => handleExport('html')}
+                        >
+                            <span className="export-modal__label">HTML (.html)</span>
+                        </button>
+                        <button
+                            className="export-modal__option"
+                            onClick={() => handleExport('docx')}
+                        >
+                            <span className="export-modal__label">Word (.docx)</span>
+                        </button>
+                        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                            <button
+                                className="export-modal__option"
+                                onClick={() => handleExport('pdf', 'single')}
+                                style={{ flex: 1 }}
+                            >
+                                <span className="export-modal__label">PDF (標準)</span>
+                            </button>
+                            <button
+                                className="export-modal__option"
+                                onClick={() => handleExport('pdf', 'two-column')}
+                                style={{ flex: 1 }}
+                            >
+                                <span className="export-modal__label">PDF (2列)</span>
+                            </button>
+                        </div>
                     </div>
+                    <button
+                        className="btn btn--secondary export-modal__close"
+                        onClick={() => setShowModal(false)}
+                    >
+                        キャンセル
+                    </button>
                 </div>
-            )}
-        </>
-    );
+            </div>
+        )}
+    </>
+);
 }
 
 // FIX: Generate SVG for perfect centering (html2canvas safe)
