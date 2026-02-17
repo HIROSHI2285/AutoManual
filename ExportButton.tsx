@@ -83,12 +83,12 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
     // 各ステップ
     for (const step of manual.steps) {
-        // ステップ番号＋タイトル（【1】形式でWord自動リスト回避）
+        // ステップ番号＋タイトル
         children.push(
             new Paragraph({
                 children: [
-                    new TextRun({ text: `【${step.stepNumber}】`, bold: true, size: 28, font: RF }),
-                    new TextRun({ text: ` ${step.action}`, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: `■手順${step.stepNumber}　`, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
                 spacing: { before: 300, after: 100 },
                 indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },

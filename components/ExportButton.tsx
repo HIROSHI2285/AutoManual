@@ -24,7 +24,7 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
 async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
     const {
         Document, Packer, Paragraph, TextRun, ImageRun,
-        HeadingLevel, AlignmentType, BorderStyle, WidthType,
+        AlignmentType, BorderStyle, WidthType,
         Table, TableRow, TableCell, ShadingType, VerticalAlign,
     } = await import('docx');
 
@@ -82,7 +82,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             new Paragraph({
                 style: "ManualStepTitle",
                 children: [
-                    new TextRun({ text: `【${step.stepNumber}】`, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: `■手順${step.stepNumber} `, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
                 // spacing/keepNext definitions are now in the Style.
