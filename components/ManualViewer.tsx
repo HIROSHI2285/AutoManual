@@ -15,34 +15,35 @@ interface ManualViewerProps {
 }
 
 export default function ManualViewer({ manual, videoFile, onUpdateManual }: ManualViewerProps) {
-    // Editor State (Initialized from localStorage if available)
+    // Editor State (Lazy initialized from localStorage — rerender-lazy-init)
     const [isEditMode, setIsEditMode] = useState(false);
     const [activeTool, setActiveTool] = useState<ToolType>('select');
-    const [currentColor, setCurrentColor] = useState('#ef4444'); // Default Red
-    const [strokeWidth, setStrokeWidth] = useState(1); // Default thin line
-    const [fontSize, setFontSize] = useState(24); // Default font size (must be in FONT_SIZE_STEPS)
+    const [currentColor, setCurrentColor] = useState(() => {
+        if (typeof window === 'undefined') return '#ef4444';
+        return localStorage.getItem('am_editor_color_v2') || '#ef4444';
+    });
+    const [strokeWidth, setStrokeWidth] = useState(() => {
+        if (typeof window === 'undefined') return 1;
+        const saved = localStorage.getItem('am_editor_stroke_v2');
+        return saved ? parseInt(saved) : 1;
+    });
+    const [fontSize, setFontSize] = useState(() => {
+        if (typeof window === 'undefined') return 24;
+        const saved = localStorage.getItem('am_editor_fontSize_v2');
+        return saved ? parseInt(saved) : 24;
+    });
     const [stampCount, setStampCount] = useState(1);
     const [isTwoColumn, setIsTwoColumn] = useState(false); // New state for layout mode
-    const [strokeStyle, setStrokeStyle] = useState<StrokeStyle>('solid');
+    const [strokeStyle, setStrokeStyle] = useState<StrokeStyle>(() => {
+        if (typeof window === 'undefined') return 'solid';
+        const saved = localStorage.getItem('am_editor_strokeStyle_v2');
+        return (saved === 'solid' || saved === 'dashed') ? saved : 'solid';
+    });
+
 
     // Backup for cancellation & Original reference for InlineCanvas
     const [backupManual, setBackupManual] = useState<ManualData | null>(null);
     const originalScreenshots = useRef<{ [key: string]: string }>({});
-
-    // Initialize from localStorage
-    useEffect(() => {
-        const savedColor = localStorage.getItem('am_editor_color_v2');
-        const savedStroke = localStorage.getItem('am_editor_stroke_v2');
-        const savedStrokeStyle = localStorage.getItem('am_editor_strokeStyle_v2');
-        const savedFontSize = localStorage.getItem('am_editor_fontSize_v2');
-
-        if (savedColor) setCurrentColor(savedColor);
-        if (savedStroke) setStrokeWidth(parseInt(savedStroke));
-        if (savedStrokeStyle && (savedStrokeStyle === 'solid' || savedStrokeStyle === 'dashed')) {
-            setStrokeStyle(savedStrokeStyle as StrokeStyle);
-        }
-        if (savedFontSize) setFontSize(parseInt(savedFontSize));
-    }, []);
 
     // Persist to localStorage
     useEffect(() => {

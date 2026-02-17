@@ -16,6 +16,18 @@ const STAGE2_PROMPT = `
 }
 `;
 
+// Hoisted RegExp patterns (js-hoist-regexp: compiled once at module level)
+const RE_CLICK = /をクリック(する|します)?/g;
+const RE_SELECT = /を選択(する|します)?/g;
+const RE_PRESS = /を押(す|します)?/g;
+const RE_TAP = /をタップ(する|します)?/g;
+const RE_INPUT = /に入力(する|します)?/g;
+const RE_ACCESS = /にアクセス(する|します)?/g;
+const RE_OPEN = /を開(く|きます)?/g;
+const RE_LINK = /のリンク/g;
+const RE_BUTTON = /ボタン$/g;
+const RE_QUOTED = /[「『"'](.*?)[」』"']/;
+
 export async function POST(request: NextRequest) {
     try {
         // Check API key
@@ -44,15 +56,15 @@ export async function POST(request: NextRequest) {
         const extractKeyword = (actionText: string): string => {
             // Remove common action verbs and particles
             const cleaned = actionText
-                .replace(/をクリック(する|します)?/g, '')
-                .replace(/を選択(する|します)?/g, '')
-                .replace(/を押(す|します)?/g, '')
-                .replace(/をタップ(する|します)?/g, '')
-                .replace(/に入力(する|します)?/g, '')
-                .replace(/にアクセス(する|します)?/g, '')
-                .replace(/を開(く|きます)?/g, '')
-                .replace(/のリンク/g, '')
-                .replace(/ボタン$/g, '')
+                .replace(RE_CLICK, '')
+                .replace(RE_SELECT, '')
+                .replace(RE_PRESS, '')
+                .replace(RE_TAP, '')
+                .replace(RE_INPUT, '')
+                .replace(RE_ACCESS, '')
+                .replace(RE_OPEN, '')
+                .replace(RE_LINK, '')
+                .replace(RE_BUTTON, '')
                 .trim();
 
             // Extract quoted text if present

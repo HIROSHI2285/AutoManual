@@ -3,11 +3,14 @@
 import { useState } from 'react';
 import { ManualData } from '@/app/page';
 
+// Hoisted RegExp (js-hoist-regexp: compiled once at module level)
+const RE_SAFE_TITLE = /[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g;
+
 interface ExportButtonProps {
     manual: ManualData;
 }
 
-// 1. スコープエラーを防ぐため、ヘルパー関数を一番外側に定義
+// 1. スコープエラーを防ぐため、ヘルパー関数をトップレベルに定義
 const getCircledNumber = (num: number) => {
     if (num >= 1 && num <= 20) return String.fromCodePoint(0x245F + num);
     return `(${num})`;
@@ -24,7 +27,7 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
 
 // --- Word出力 ---
 async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
-    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, ShadingType } = await import('docx');
+    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType } = await import('docx');
     const FONT = 'Meiryo UI';
     const RF = { ascii: FONT, hAnsi: FONT, eastAsia: FONT, cs: FONT };
     const PAGE_WIDTH_DXA = 11906;
@@ -60,43 +63,79 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
         return elements;
     };
 
+    const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
     if (isTwoCol) {
         for (let i = 0; i < manual.steps.length; i += 2) {
             const left = await createStepElements(manual.steps[i]);
             const right = manual.steps[i + 1] ? await createStepElements(manual.steps[i + 1]) : [];
-            children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: BorderStyle.NONE, bottom: BorderStyle.NONE, left: BorderStyle.NONE, right: BorderStyle.NONE, insideHorizontal: BorderStyle.NONE, insideVertical: BorderStyle.NONE }, rows: [new TableRow({ cantSplit: true, children: [new TableCell({ children: left, width: { size: 50, type: WidthType.PERCENTAGE }, margins: { bottom: 400, right: 200 } }), new TableCell({ children: right, width: { size: 50, type: WidthType.PERCENTAGE }, margins: { bottom: 400, left: 200 } })] })] }));
+            children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder }, rows: [new TableRow({ cantSplit: true, children: [new TableCell({ children: left, width: { size: 50, type: WidthType.PERCENTAGE }, margins: { bottom: 400, right: 200 } }), new TableCell({ children: right, width: { size: 50, type: WidthType.PERCENTAGE }, margins: { bottom: 400, left: 200 } })] })] }));
         }
     } else {
         for (const step of manual.steps) children.push(...(await createStepElements(step)));
     }
 
-    const blob = await Packer.toBlob(new Document({ sections: [{ children }] }));
+    const blob = await Packer.toBlob(new Document({
+        sections: [{
+            children,
+            footers: {
+                default: new Footer({
+                    children: [
+                        new Paragraph({
+                            alignment: AlignmentType.RIGHT,
+                            children: [
+                                new TextRun({
+                                    children: [PageNumber.CURRENT],
+                                    size: 18,
+                                    font: RF,
+                                    color: '888888'
+                                })
+                            ]
+                        })
+                    ]
+                })
+            }
+        }]
+    }));
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${manual.title}.docx`; a.click();
 }
 
-// --- PowerPoint出力 (2列対応 & 画像突き抜け防止) ---
+// --- PowerPoint出力 (修正済: スライド高さ5.625対応・画像突き抜け完全防止版) ---
 async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
     const pptxgen = (await import('pptxgenjs')).default;
     const pres = new pptxgen();
     const isTwoCol = layout === 'two-column';
     const FONT_NAME = 'Meiryo';
+    // pptxgenjs LAYOUT_16x9 のデフォルトスライドサイズ
+    const SLIDE_W = 10;
+    const SLIDE_H = 5.625;
+    // ページ番号領域を確保 (スライド下部)
+    const PAGE_NUM_Y = SLIDE_H - 0.35;
+    // コンテンツの最大下端 (ページ番号の上)
+    const CONTENT_BOTTOM = PAGE_NUM_Y - 0.1;
+
+    let pageNum = 0; // 表紙の次から1でカウント
 
     const addStepToSlide = async (slide: any, step: any, xPos: number, width: number) => {
-        // タイトル
+        // 1. タイトル (黒文字)
         slide.addText(`${getCircledNumber(step.stepNumber)} ${step.action}`, {
-            x: xPos, y: 0.3, w: width, h: 0.6,
-            fontSize: isTwoCol ? 18 : 22, bold: true, fontFace: FONT_NAME, color: '4F46E5', fill: { color: 'F8FAFC' }
+            x: xPos, y: 0.15, w: width, h: 0.4,
+            fontSize: isTwoCol ? 16 : 20, bold: true, fontFace: FONT_NAME, color: '000000', fill: { color: 'F8FAFC' }
         });
 
-        let currentY = 1.0;
+        let currentY = 0.6;
+        // 2. 詳細テキスト (長さに応じて高さを動的に計算)
         if (step.detail && step.detail !== step.action) {
+            const lines = Math.ceil(step.detail.length / (isTwoCol ? 25 : 55));
+            const textH = Math.min(Math.max(0.3, lines * 0.2), 1.2);
+
             slide.addText(step.detail, {
-                x: xPos, y: currentY, w: width, h: 0.6,
-                fontSize: isTwoCol ? 11 : 13, fontFace: FONT_NAME, color: '334155', valign: 'top'
+                x: xPos, y: currentY, w: width, h: textH,
+                fontSize: isTwoCol ? 10 : 12, fontFace: FONT_NAME, color: '333333', valign: 'top'
             });
-            currentY += 0.7;
+            currentY += textH + 0.1;
         }
 
+        // 3. 画像 (スライド高さ5.625に基づく突き抜け防止)
         if (step.screenshot) {
             try {
                 const ratio = await new Promise<number>((resolve) => {
@@ -107,8 +146,8 @@ async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 't
                 });
 
                 const maxW = width;
-                // 重要: スライドの高さ(7.5)からテキスト位置を引いた「残りスペース」を最大高さにする
-                const maxH = Math.max(1.0, 7.2 - currentY);
+                // CONTENT_BOTTOM から currentY を引いて最大画像高さを算出
+                const maxH = Math.max(0.5, CONTENT_BOTTOM - currentY);
 
                 let finalW = maxW;
                 let finalH = finalW * ratio;
@@ -118,37 +157,54 @@ async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 't
                     finalW = finalH / ratio;
                 }
 
+                // 最終安全チェック: 画像がスライド外に出ないことを保証
+                if (currentY + finalH > CONTENT_BOTTOM) {
+                    finalH = CONTENT_BOTTOM - currentY;
+                    finalW = finalH / ratio;
+                }
+
                 slide.addImage({
                     data: step.screenshot,
-                    x: xPos + (width - finalW) / 2, // 列内での中央寄せ
+                    x: xPos + (width - finalW) / 2,
                     y: currentY,
-                    w: finalW,
-                    h: finalH
+                    w: Math.max(0.5, finalW),
+                    h: Math.max(0.5, finalH)
                 });
-            } catch (e) { console.warn(e); }
+            } catch (e) { console.error(e); }
         }
     };
 
     // 表紙
     const titleSlide = pres.addSlide();
     titleSlide.background = { fill: 'F1F5F9' };
-    titleSlide.addText(manual.title, { x: 0, y: '40%', w: '100%', h: 1, fontSize: 32, bold: true, fontFace: FONT_NAME, align: 'center' });
+    titleSlide.addText(manual.title, { x: 0, y: '35%', w: '100%', h: 1, fontSize: 28, bold: true, fontFace: FONT_NAME, align: 'center', color: '000000' });
 
-    // 各手順スライド
     if (isTwoCol) {
         for (let i = 0; i < manual.steps.length; i += 2) {
             const slide = pres.addSlide();
+            pageNum++;
             await addStepToSlide(slide, manual.steps[i], 0.25, 4.5);
             if (manual.steps[i + 1]) await addStepToSlide(slide, manual.steps[i + 1], 5.25, 4.5);
+            // ページ番号 (右下)
+            slide.addText(`${pageNum}`, {
+                x: SLIDE_W - 1.2, y: PAGE_NUM_Y, w: 1.0, h: 0.3,
+                fontSize: 9, fontFace: FONT_NAME, color: '888888', align: 'right'
+            });
         }
     } else {
         for (const step of manual.steps) {
             const slide = pres.addSlide();
+            pageNum++;
             await addStepToSlide(slide, step, 0.5, 9.0);
+            // ページ番号 (右下)
+            slide.addText(`${pageNum}`, {
+                x: SLIDE_W - 1.2, y: PAGE_NUM_Y, w: 1.0, h: 0.3,
+                fontSize: 9, fontFace: FONT_NAME, color: '888888', align: 'right'
+            });
         }
     }
 
-    const safeTitle = manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+    const safeTitle = manual.title.replace(RE_SAFE_TITLE, '_');
     await pres.writeFile({ fileName: `${safeTitle}_${layout}.pptx` });
 }
 
@@ -205,29 +261,38 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                     document.body.appendChild(container);
 
                     const opt = {
-                        margin: [10, 10, 15, 10],
+                        margin: [10, 10, 15, 10] as [number, number, number, number],
                         filename: `${safeTitle}.pdf`,
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                        image: { type: 'jpeg' as const, quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true },
+                        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
                     };
 
+                    // 修正: outputPdf('blob')で一度PDFを作成し、jsPDFで直接操作してからダウンロードする
                     const worker = html2pdf().from(container).set(opt).toPdf();
-                    await worker.get('pdf').then((pdf: any) => {
-                        const totalPages = pdf.internal.getNumberOfPages();
-                        const pageWidth = pdf.internal.pageSize.getWidth();
-                        const pageHeight = pdf.internal.pageSize.getHeight();
+                    const pdf = await worker.get('pdf');
 
-                        // 表紙(1枚目)を飛ばして2枚目から番号を振る
-                        for (let i = 2; i <= totalPages; i++) {
-                            pdf.setPage(i);
-                            pdf.setFontSize(10);
-                            pdf.setTextColor(150);
-                            // 2枚目を「1」とする
-                            pdf.text(`${i - 1} / ${totalPages - 1}`, pageWidth - 10, pageHeight - 8, { align: 'right' });
-                        }
-                    });
-                    worker.save().then(() => {
-                        document.body.removeChild(container);
-                    });
+                    const totalPages = pdf.internal.getNumberOfPages();
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const pageHeight = pdf.internal.pageSize.getHeight();
+
+                    // 全ページにページ番号を打つ (1ページ目から)
+                    for (let i = 1; i <= totalPages; i++) {
+                        pdf.setPage(i);
+                        pdf.setFontSize(10);
+                        pdf.setTextColor(150); // グレー
+                        // 右下に「1 / 5」の形式で表示
+                        pdf.text(
+                            `${i}`,
+                            pageWidth - 10,
+                            pageHeight - 8,
+                            { align: 'right' }
+                        );
+                    }
+
+                    // ページ番号描画完了後にsave
+                    await worker.save();
+                    document.body.removeChild(container);
                 } catch (e) { console.error(e); }
                 break;
             case 'markdown':
@@ -248,17 +313,15 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                     <div className="export-modal__content" onClick={(e) => e.stopPropagation()}>
                         <h3 className="export-modal__title">形式を選択</h3>
                         <div className="export-modal__options">
-                            {/* Word */}
+                            {/* 各ボタンの配置 */}
                             <div className="flex gap-2 w-full">
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('docx', 'single')}><span className="export-modal__label">Word (標準)</span></button>
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('docx', 'two-column')}><span className="export-modal__label">Word (2列)</span></button>
                             </div>
-                            {/* PPT */}
                             <div className="flex gap-2 w-full">
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('pptx', 'single')}><span className="export-modal__label">PPT (標準)</span></button>
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('pptx', 'two-column')}><span className="export-modal__label">PPT (2列)</span></button>
                             </div>
-                            {/* PDF */}
                             <div className="flex gap-2 w-full">
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('pdf', 'single')}><span className="export-modal__label">PDF (標準)</span></button>
                                 <button className="export-modal__option flex-1" onClick={() => handleExport('pdf', 'two-column')}><span className="export-modal__label">PDF (2列)</span></button>

@@ -5,6 +5,9 @@ import VideoUploader from '@/components/VideoUploader';
 import ManualViewer from '@/components/ManualViewer';
 import { extractFrameAtTimestamp, smartCropFrame } from '@/utils/videoProcessor';
 
+// Hoisted RegExp (js-hoist-regexp: compiled once at module level)
+const RE_FILE_EXT = /\.[^/.]+$/;
+
 export interface ManualStep {
     stepNumber: number;
     action: string;
@@ -91,7 +94,7 @@ async function compressVideoForAnalysis(
                 }
 
                 console.log(`[compress] ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(blob.size / 1024 / 1024).toFixed(1)}MB (${Math.round(blob.size / file.size * 100)}%)`);
-                resolve(new File([blob], file.name.replace(/\.[^/.]+$/, '.webm'), { type: mimeType }));
+                resolve(new File([blob], file.name.replace(RE_FILE_EXT, '.webm'), { type: mimeType }));
             };
 
             recorder.start(100);
@@ -144,13 +147,13 @@ export default function Home() {
     const [manual, setManual] = useState<ManualData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Persistence: Load from localStorage on mount
+    // Persistence: Load from localStorage on mount (must use useEffect, not lazy init,
+    // because `manual` controls conditional rendering — lazy init would cause hydration mismatch)
     useEffect(() => {
         const saved = localStorage.getItem('am_current_manual');
         if (saved) {
             try {
-                const parsed = JSON.parse(saved);
-                setManual(parsed);
+                setManual(JSON.parse(saved));
             } catch (e) {
                 console.error('Failed to load manual from localStorage');
             }
@@ -291,7 +294,7 @@ export default function Home() {
 
             // Initialize Manual Data
             const title = videoFiles.length === 1
-                ? videoFiles[0].name.replace(/\.[^/.]+$/, "") + " マニュアル"
+                ? videoFiles[0].name.replace(RE_FILE_EXT, "") + " マニュアル"
                 : "統合マニュアル (" + videoFiles.length + "本)";
 
             const newManual: ManualData = {
