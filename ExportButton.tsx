@@ -52,10 +52,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
     // タイトル
     children.push(
         new Paragraph({
-            heading: HeadingLevel.HEADING_1,
             children: [new TextRun({ text: manual.title, bold: true, size: 36, font: RF })],
             spacing: { after: 200 },
-            
         })
     );
 
@@ -152,18 +150,6 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             default: {
                 document: { run: { font: RF, size: 22 } },
             },
-            paragraphStyles: [
-                {
-                    id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-                    run: { size: 36, bold: true, font: RF },
-                    paragraph: { spacing: { before: 240, after: 240 }, outlineLevel: 0 },
-                },
-                {
-                    id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-                    run: { size: 28, bold: true, font: RF },
-                    paragraph: { spacing: { before: 180, after: 120 }, outlineLevel: 1 },
-                },
-            ],
         },
         sections: [{
             properties: {
