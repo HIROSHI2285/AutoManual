@@ -80,8 +80,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             new Paragraph({
                 style: "ManualStepTitle",
                 children: [
-                    // \u200B (ゼロ幅スペース) を挟んで自動リスト化を回避
-                    new TextRun({ text: `${step.stepNumber}\u200B. `, bold: true, size: 28, font: RF }),
+                    // \u200Bを先頭に置いて自動リスト化を回避
+                    new TextRun({ text: `\u200B${step.stepNumber}. `, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
                 // spacing/indent/keepNext definitions are now in the Style, but we can override if needed.

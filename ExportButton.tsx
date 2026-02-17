@@ -86,7 +86,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         children.push(
             new Paragraph({
                 children: [
-                    new TextRun({ text: `${step.stepNumber}. `, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: '\u200B' + `${step.stepNumber}. `, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
                 spacing: { before: 300, after: 100 },
@@ -99,7 +99,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         if (step.detail && step.detail !== step.action) {
             children.push(
                 new Paragraph({
-                    children: [new TextRun({ text: `  ${step.detail}`, size: 22, font: RF })],
+                    children: [new TextRun({ text: '\u200B' + `  ${step.detail}`, size: 22, font: RF })],
                     spacing: { after: 120 },
                     indent: { left: 0 },
                     keepNext: !!step.screenshot, // 画像がある場合は画像と分離しない
