@@ -164,8 +164,34 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         }],
     });
 
-    // Blobに変換してダウンロード
-    const blob = await Packer.toBlob(doc);
+    // Blobに変換
+    let blob = await Packer.toBlob(doc);
+    
+    // jszipでXMLを編集してWord自動書式を無効化
+    try {
+        const JSZip = (await import('jszip')).default;
+        const zip = await JSZip.loadAsync(blob);
+        
+        // settings.xmlを編集
+        let settingsXml = await zip.file('word/settings.xml')?.async('string');
+        if (settingsXml) {
+            // 自動番号付けを無効化する設定を追加
+            if (!settingsXml.includes('<w:autoHyphenation')) {
+                settingsXml = settingsXml.replace(
+                    '</w:settings>',
+                    '<w:autoHyphenation w:val="0"/><w:doNotUseIndentAsNumberingTabStop/></w:settings>'
+                );
+            }
+            zip.file('word/settings.xml', settingsXml);
+        }
+        
+        // 再圧縮
+        blob = await zip.generateAsync({ type: 'blob' });
+    } catch (e) {
+        console.warn('XML post-processing failed, using original:', e);
+    }
+    
+    // ダウンロード
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

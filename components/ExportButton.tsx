@@ -191,8 +191,45 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         }],
     });
 
-    // Blobに変換してダウンロード
+    // Blobに変換
     const blob = await Packer.toBlob(doc);
+
+    // JSZipでXMLを直接編集して、箇条書き無効化設定を注入
+    try {
+        const JSZip = (await import('jszip')).default;
+        const zip = await JSZip.loadAsync(blob);
+        const settingsXml = await zip.file("word/settings.xml")?.async("string");
+
+        if (settingsXml) {
+            // <w:settings>直下に設定を追加
+            // 既存のsettingsがあればそれにマージすべきだが、単純な置換で対応
+            // <w:settings ...> の直後に挿入
+            const newSettingsXml = settingsXml.replace(
+                /(<w:settings[^>]*>)/,
+                '$1<w:autoHyphenation w:val="0"/><w:doNotUseIndentAsNumberingTabStop/>'
+            );
+            zip.file("word/settings.xml", newSettingsXml);
+
+            // 再生成
+            const newBlob = await zip.generateAsync({ type: "blob" });
+
+            // ダウンロード
+            const url = URL.createObjectURL(newBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            return;
+        }
+    } catch (e) {
+        console.error("ZIP editing failed:", e);
+        // フォールバック：元のBlobでダウンロード
+    }
+
+    // ZIP編集に失敗した場合は元のBlobを使用
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
