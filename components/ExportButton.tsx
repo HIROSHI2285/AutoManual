@@ -88,7 +88,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                 // heading: HeadingLevel.HEADING_2, // 自動箇条書きを防ぐため見出し属性を削除
                 style: "Normal", // 強制的に「標準」スタイルを適用してリスト化を防ぐ
                 children: [
-                    new TextRun({ text: `${toCircledNumber(step.stepNumber)}  `, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: `${toCircledNumber(step.stepNumber)}　`, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
                 spacing: { before: 300, after: 100 },
@@ -101,11 +101,10 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         if (step.detail && step.detail !== step.action) {
             children.push(
                 new Paragraph({
-                    style: "Normal", // 強制的に「標準」スタイルを適用してリスト化を防ぐ
+                    style: "Normal",
                     children: [new TextRun({ text: step.detail, size: 22, font: RF })],
                     spacing: { after: 120 },
-                    indent: { left: 400 },
-                    keepNext: !!step.screenshot, // 画像がある場合は画像と分離しないようにする
+                    keepNext: !!step.screenshot,
                 })
             );
         }
@@ -136,8 +135,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                             }),
                         ],
                         spacing: { after: 300 },
-                        indent: { left: 400 },
-                        keepLines: true, // 画像段落内で改ページしない
+                        keepLines: true,
                     })
                 );
             } catch (e) {
@@ -438,6 +436,7 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
         line-height: 1.6; 
         color: #333; 
         background: #fff; 
+        font-weight: 500;
     }
     h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
     .overview { margin-bottom: 30px; font-size: 14px; color: #666; white-space: pre-wrap; }
@@ -552,8 +551,6 @@ function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'sin
         display: block; 
         margin: 0 auto;
     }
-    
-
     
     /* Single Column Fallback Style */
     .step-single {

@@ -43,7 +43,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
     // 丸数字変換（1→①, 2→②, ...）
     const toCircledNumber = (n: number): string => {
         const circled = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩',
-                         '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳'];
+            '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳'];
         return circled[n - 1] || `${n}.`;
     };
 
@@ -85,22 +85,24 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         // ステップ番号＋タイトル（見出し2）
         children.push(
             new Paragraph({
-                heading: HeadingLevel.HEADING_2,
+                // heading: HeadingLevel.HEADING_2, // 自動箇条書きを防ぐため見出し属性を削除
+                style: "Normal", // 強制的に「標準」スタイルを適用してリスト化を防ぐ
                 children: [
-                    new TextRun({ text: `${toCircledNumber(step.stepNumber)}  `, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: `${toCircledNumber(step.stepNumber)}　`, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
                 spacing: { before: 300, after: 100 },
+                keepNext: true, // 詳細または画像と分離しないようにする
+                // outlineLevel: 1, // アウトラインレベルを削除して箇条書き化を防ぐ
             })
         );
 
-        // 説明文
+        // 説明文（リスト化されないよう明示的に通常段落として定義）
         if (step.detail && step.detail !== step.action) {
             children.push(
                 new Paragraph({
                     children: [new TextRun({ text: step.detail, size: 22, font: RF })],
                     spacing: { after: 120 },
-                    indent: { left: 400 },
                 })
             );
         }
@@ -131,7 +133,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                             }),
                         ],
                         spacing: { after: 300 },
-                        indent: { left: 400 },
+                        keepLines: true,
                     })
                 );
             } catch (e) {
