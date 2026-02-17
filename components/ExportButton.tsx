@@ -275,12 +275,20 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
 }
 
 // PowerPoint(.pptx)ファイルを生成してダウンロードする
-async function generateAndDownloadPptx(manual: ManualData): Promise<void> {
+async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
     const pptxgen = (await import('pptxgenjs')).default;
     const pres = new pptxgen();
+    const isTwoCol = layout === 'two-column';
 
     // 日本語フォント設定
     const FONT_NAME = 'Meiryo';
+
+    // スライドマスター定義（ページ番号付き）
+    pres.defineSlideMaster({
+        title: 'MASTER_WITH_PAGE_NUM',
+        slideNumber: { x: '92%', y: '90%', fontSize: 12, color: '000000' }
+    });
+
 
     // 丸囲み数字に変換するヘルパー
     const getCircledNumber = (num: number) => {
@@ -288,6 +296,71 @@ async function generateAndDownloadPptx(manual: ManualData): Promise<void> {
             return String.fromCodePoint(0x245F + num);
         }
         return `(${num})`;
+    };
+
+    // スライドに1つの手順を配置する内部関数
+    const addStepToSlide = async (slide: any, step: any, colType: 'left' | 'right' | 'full') => {
+        const xPos = colType === 'left' ? 0.25 : colType === 'right' ? 5.25 : 0.5;
+        const width = colType === 'full' ? 9.0 : 4.5;
+
+        // ヘッダー
+        slide.addText(`${getCircledNumber(step.stepNumber)} ${step.action}`, {
+            x: xPos, y: 0.3, w: width, h: 0.6,
+            fontSize: isTwoCol ? 18 : 24, bold: true, fontFace: FONT_NAME, color: '000000',
+            fill: { color: 'F8FAFC' }
+        });
+
+        let currentY = 1.0;
+        if (step.detail && step.detail !== step.action) {
+            slide.addText(step.detail, {
+                x: xPos, y: currentY, w: width, h: 0.6,
+                fontSize: isTwoCol ? 12 : 14, fontFace: FONT_NAME, color: '000000',
+                valign: 'top'
+            });
+            currentY += 0.7;
+        }
+
+        if (step.screenshot) {
+            try {
+                // 画像のサイズを取得してアスペクト比を維持
+                const { w, h, xOffset } = await new Promise<{ w: number, h: number, xOffset: number }>((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const imgRatio = img.width / img.height;
+                        const maxW = width;
+                        const maxH = isTwoCol ? 3.5 : 5.0; // 2列時は高さを少し制限
+
+                        let finalW = maxW;
+                        let finalH = finalW / imgRatio;
+
+                        if (finalH > maxH) {
+                            finalH = maxH;
+                            finalW = finalH * imgRatio;
+                        }
+
+                        // 列内での中央寄せ (左端からのオフセット)
+                        const offset = (width - finalW) / 2;
+
+                        resolve({ w: finalW, h: finalH, xOffset: offset });
+                    };
+                    img.onerror = () => {
+                        console.warn('Image load failed for step', step.stepNumber);
+                        resolve({ w: width * 0.9, h: width * 0.9 * 0.5625, xOffset: width * 0.05 });
+                    };
+                    img.src = step.screenshot!;
+                });
+
+                slide.addImage({
+                    data: step.screenshot,
+                    x: xPos + xOffset,
+                    y: currentY,
+                    w: w,
+                    h: h,
+                });
+            } catch (error) {
+                console.error('Error adding image to slide:', error);
+            }
+        }
     };
 
     // --- 1. タイトルスライド ---
@@ -306,69 +379,19 @@ async function generateAndDownloadPptx(manual: ManualData): Promise<void> {
         });
     }
 
-    // --- 2. 各ステップのスライド ---
-    for (const step of manual.steps) {
-        const slide = pres.addSlide();
-
-        // ヘッダー（手順番号 + アクション）
-        slide.addText(`${getCircledNumber(step.stepNumber)} ${step.action}`, {
-            x: 0.5, y: 0.3, w: '90%', h: 0.6,
-            fontSize: 24, bold: true, fontFace: FONT_NAME, color: '4F46E5',
-            fill: { color: 'F8FAFC' }
-        });
-
-        // 詳細説明
-        let currentY = 1.1;
-        if (step.detail && step.detail !== step.action) {
-            slide.addText(step.detail, {
-                x: 0.5, y: currentY, w: '90%', h: 0.8,
-                fontSize: 14, fontFace: FONT_NAME, color: '334155',
-                valign: 'top'
-            });
-            currentY += 1.0;
-        }
-
-        // スクリーンショット画像
-        if (step.screenshot) {
-            try {
-                // 画像のサイズを取得してアスペクト比を維持
-                const { w, h, x } = await new Promise<{ w: number, h: number, x: number }>((resolve) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const imgRatio = img.width / img.height;
-                        const maxW = 9.0; // 最大幅 (インチ)
-                        const maxH = 4.0; // 最大高さ (インチ)
-
-                        let finalW = maxW;
-                        let finalH = finalW / imgRatio;
-
-                        if (finalH > maxH) {
-                            finalH = maxH;
-                            finalW = finalH * imgRatio;
-                        }
-
-                        // 中央寄せのためのX座標 (スライド幅はデフォルトで10インチ)
-                        const finalX = (10 - finalW) / 2;
-
-                        resolve({ w: finalW, h: finalH, x: finalX });
-                    };
-                    img.onerror = () => {
-                        console.warn('Image load failed for step', step.stepNumber);
-                        resolve({ w: 9, h: 4, x: 0.5 });
-                    };
-                    img.src = step.screenshot!;
-                });
-
-                slide.addImage({
-                    data: step.screenshot,
-                    x: x,
-                    y: currentY,
-                    w: w,
-                    h: h,
-                });
-            } catch (error) {
-                console.error('Error adding image to slide:', error);
+    // --- 2. 各ステップのスライド生成 ---
+    if (isTwoCol) {
+        for (let i = 0; i < manual.steps.length; i += 2) {
+            const slide = pres.addSlide({ masterName: 'MASTER_WITH_PAGE_NUM' });
+            await addStepToSlide(slide, manual.steps[i], 'left');
+            if (manual.steps[i + 1]) {
+                await addStepToSlide(slide, manual.steps[i + 1], 'right');
             }
+        }
+    } else {
+        for (const step of manual.steps) {
+            const slide = pres.addSlide({ masterName: 'MASTER_WITH_PAGE_NUM' });
+            await addStepToSlide(slide, step, 'full');
         }
     }
 
@@ -436,7 +459,7 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 break;
             case 'pptx':
                 try {
-                    await generateAndDownloadPptx(manual);
+                    await generateAndDownloadPptx(manual, layout);
                 } catch (error) {
                     console.error('PowerPoint generation error:', error);
                     alert('PowerPoint出力に失敗しました。');
@@ -537,12 +560,22 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                                     <span className="export-modal__label">Word (2列)</span>
                                 </button>
                             </div>
-                            <button
-                                className="export-modal__option"
-                                onClick={() => handleExport('pptx')}
-                            >
-                                <span className="export-modal__label">PowerPoint (.pptx)</span>
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                <button
+                                    className="export-modal__option"
+                                    onClick={() => handleExport('pptx', 'single')}
+                                    style={{ flex: 1 }}
+                                >
+                                    <span className="export-modal__label">PPT (標準)</span>
+                                </button>
+                                <button
+                                    className="export-modal__option"
+                                    onClick={() => handleExport('pptx', 'two-column')}
+                                    style={{ flex: 1 }}
+                                >
+                                    <span className="export-modal__label">PPT (2列)</span>
+                                </button>
+                            </div>
                             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
                                 <button
                                     className="export-modal__option"
