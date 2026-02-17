@@ -274,6 +274,78 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
     URL.revokeObjectURL(url);
 }
 
+// PowerPoint(.pptx)ファイルを生成してダウンロードする
+async function generateAndDownloadPptx(manual: ManualData): Promise<void> {
+    const pptxgen = (await import('pptxgenjs')).default;
+    const pres = new pptxgen();
+
+    // 日本語フォント設定
+    const FONT_NAME = 'Meiryo';
+
+    // 丸囲み数字に変換するヘルパー
+    const getCircledNumber = (num: number) => {
+        if (num >= 1 && num <= 20) {
+            return String.fromCodePoint(0x245F + num);
+        }
+        return `(${num})`;
+    };
+
+    // --- 1. タイトルスライド ---
+    const titleSlide = pres.addSlide();
+    titleSlide.background = { fill: 'F1F5F9' }; // 薄いグレー
+    titleSlide.addText(manual.title, {
+        x: '10%', y: '35%', w: '80%', h: 1,
+        fontSize: 32, bold: true, fontFace: FONT_NAME, color: '1E293B',
+        align: 'center'
+    });
+    if (manual.overview) {
+        titleSlide.addText(manual.overview, {
+            x: '10%', y: '50%', w: '80%', h: 1.5,
+            fontSize: 16, fontFace: FONT_NAME, color: '64748B',
+            align: 'center'
+        });
+    }
+
+    // --- 2. 各ステップのスライド ---
+    for (const step of manual.steps) {
+        const slide = pres.addSlide();
+
+        // ヘッダー（手順番号 + アクション）
+        slide.addText(`${getCircledNumber(step.stepNumber)} ${step.action}`, {
+            x: 0.5, y: 0.3, w: '90%', h: 0.6,
+            fontSize: 24, bold: true, fontFace: FONT_NAME, color: '4F46E5',
+            fill: { color: 'F8FAFC' }
+        });
+
+        // 詳細説明
+        let currentY = 1.1;
+        if (step.detail && step.detail !== step.action) {
+            slide.addText(step.detail, {
+                x: 0.5, y: currentY, w: '90%', h: 0.8,
+                fontSize: 14, fontFace: FONT_NAME, color: '334155',
+                valign: 'top'
+            });
+            currentY += 1.0;
+        }
+
+        // スクリーンショット画像
+        if (step.screenshot) {
+            slide.addImage({
+                data: step.screenshot, // base64そのままでOK
+                x: 0.5,
+                y: currentY,
+                w: 9, // 横幅いっぱい（インチ指定。デフォルトのスライド幅は約10インチ）
+                h: 4,  // 高さを調整
+                sizing: { type: 'contain', w: 9, h: 4 } // アスペクト比を維持
+            });
+        }
+    }
+
+    // ダウンロード実行
+    const safeTitle = manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+    await pres.writeFile({ fileName: `${safeTitle}.pptx` });
+}
+
 function generateMarkdown(manual: ManualData): string {
     let md = `# ${manual.title}\n\n`;
     md += `${manual.overview}\n\n`;
@@ -329,6 +401,14 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 } catch (error) {
                     console.error('Word generation error:', error);
                     alert('Word出力に失敗しました。ブラウザの対応状況をご確認ください。');
+                }
+                break;
+            case 'pptx':
+                try {
+                    await generateAndDownloadPptx(manual);
+                } catch (error) {
+                    console.error('PowerPoint generation error:', error);
+                    alert('PowerPoint出力に失敗しました。');
                 }
                 break;
             case 'pdf':
@@ -426,6 +506,12 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                                     <span className="export-modal__label">Word (2列)</span>
                                 </button>
                             </div>
+                            <button
+                                className="export-modal__option"
+                                onClick={() => handleExport('pptx')}
+                            >
+                                <span className="export-modal__label">PowerPoint (.pptx)</span>
+                            </button>
                             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
                                 <button
                                     className="export-modal__option"
