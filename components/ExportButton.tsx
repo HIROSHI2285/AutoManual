@@ -9,6 +9,7 @@ interface ExportButtonProps {
 
 
 
+
 // Base64 data URLをUint8Arrayに変換するヘルパー
 function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' | 'jpg' } {
     const [header, base64] = dataUrl.split(',');
@@ -18,6 +19,14 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
     for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
     return { data: arr, type };
 }
+
+// ヘルパー関数をトップレベルに移動して共有可能にする
+const getCircledNumber = (num: number) => {
+    if (num >= 1 && num <= 20) {
+        return String.fromCodePoint(0x245F + num);
+    }
+    return `(${num})`;
+};
 
 // Word(.docx)ファイルを生成してダウンロードする
 // docxライブラリをdynamic importで使用（ブラウザバンドル対応）
@@ -79,13 +88,6 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
         })
     );
 
-    // 丸囲み数字に変換するヘルパー
-    const getCircledNumber = (num: number) => {
-        if (num >= 1 && num <= 20) {
-            return String.fromCodePoint(0x245F + num);
-        }
-        return `(${num})`;
-    };
 
     // ステップの内容を生成するヘルパー関数
     const createStepElements = async (step: any) => {
@@ -463,15 +465,15 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                         const pageWidth = pdf.internal.pageSize.getWidth();
                         const pageHeight = pdf.internal.pageSize.getHeight();
 
-                        // 修正点: 2ページ目 (i=2) からループを開始する
+                        // 修正: 2ページ目から番号を打つ
                         for (let i = 2; i <= totalPages; i++) {
                             pdf.setPage(i);
                             pdf.setFontSize(10);
                             pdf.setTextColor(150);
-                            // 2枚目を「1ページ」とするため i - 1
-                            const currentPage = i - 1;
-                            const totalDataPages = totalPages - 1;
-                            pdf.text(`${currentPage} / ${totalDataPages}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
+                            // 2ページ目を「1」として表示
+                            const displayPage = i - 1;
+                            const displayTotal = totalPages - 1;
+                            pdf.text(`${displayPage} / ${displayTotal}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
                         }
                     });
 
