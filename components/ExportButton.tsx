@@ -7,10 +7,12 @@ interface ExportButtonProps {
     manual: ManualData;
 }
 
+// 1. ヘルパー関数をトップレベルに配置（どこからでも呼べるようにする）
+const getCircledNumber = (num: number) => {
+    if (num >= 1 && num <= 20) return String.fromCodePoint(0x245F + num);
+    return `(${num})`;
+};
 
-
-
-// Base64 data URLをUint8Arrayに変換するヘルパー
 function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' | 'jpg' } {
     const [header, base64] = dataUrl.split(',');
     const type = header.includes('png') ? 'png' : 'jpg';
@@ -20,353 +22,112 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
     return { data: arr, type };
 }
 
-// ヘルパー関数をトップレベルに移動して共有可能にする
-const getCircledNumber = (num: number) => {
-    if (num >= 1 && num <= 20) {
-        return String.fromCodePoint(0x245F + num);
-    }
-    return `(${num})`;
-};
-
-// Word(.docx)ファイルを生成してダウンロードする
-// docxライブラリをdynamic importで使用（ブラウザバンドル対応）
+// --- Word出力 (修正済) ---
 async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
-    const {
-        Document, Packer, Paragraph, TextRun, ImageRun,
-        AlignmentType, BorderStyle, WidthType,
-        Table, TableRow, TableCell, ShadingType, VerticalAlign,
-    } = await import('docx');
-
+    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, ShadingType } = await import('docx');
     const FONT = 'Meiryo UI';
-    // docxライブラリはfont: '...'では日本語フォントが反映されない
-    // rFontsオブジェクトでascii/hAnsi/eastAsia/csを全指定する必要がある
     const RF = { ascii: FONT, hAnsi: FONT, eastAsia: FONT, cs: FONT };
-
     const PAGE_WIDTH_DXA = 11906;
     const MARGIN_DXA = 1000;
-    const CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - MARGIN_DXA * 2; // 9906 DXA ≒ 174mm
-
-    // レイアウトに応じた列幅と画像幅の計算
+    const CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - MARGIN_DXA * 2;
     const isTwoCol = layout === 'two-column';
     const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA / 2) - 100 : CONTENT_WIDTH_DXA;
-    // 画像の表示幅：2列時はセルの95%、1列時はページ幅の60%
-    const widthRatio = isTwoCol ? 0.95 : 0.6;
-    const imgWidthEmu = Math.round(colWidthDxa * 635 * widthRatio);
+    const imgWidthEmu = Math.round(colWidthDxa * 635 * (isTwoCol ? 0.95 : 0.6));
 
     const children: any[] = [];
+    children.push(new Paragraph({ children: [new TextRun({ text: manual.title, bold: true, size: 36, font: RF })], spacing: { after: 200 } }));
+    if (manual.overview) children.push(new Paragraph({ children: [new TextRun({ text: manual.overview, size: 24, font: RF })], spacing: { after: 400 } }));
 
-    // タイトル
-    children.push(
-        new Paragraph({
-            children: [new TextRun({ text: manual.title, bold: true, size: 36, font: RF })],
-            spacing: { after: 200 },
-            indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
-        })
-    );
-
-    // 概要
-    if (manual.overview) {
-        children.push(
-            new Paragraph({
-                children: [new TextRun({ text: manual.overview, size: 24, font: RF })],
-                spacing: { after: 400 },
-                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
-            })
-        );
-    }
-
-    // 「手順」見出し帯（グレー背景の段落で代用）
-    children.push(
-        new Paragraph({
-            children: [new TextRun({ text: '手順', bold: true, size: 28, font: RF })],
-            shading: { fill: 'F4F4F4', type: ShadingType.CLEAR },
-            spacing: { before: 200, after: 300 },
-            border: {
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD' },
-            },
-            indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
-        })
-    );
-
-
-    // ステップの内容を生成するヘルパー関数
     const createStepElements = async (step: any) => {
         const elements: any[] = [];
-
-        // 1. ステップ番号（①）＋タイトル
-        elements.push(new Paragraph({
-            children: [
-                new TextRun({ text: `${getCircledNumber(step.stepNumber)} `, bold: true, size: 28, font: RF }),
-                new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
-            ],
-            spacing: { before: isTwoCol ? 0 : 300, after: 100 }, // 2列時はセル内なのでbefore: 0
-            indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
-        }));
-
-        // 2. 説明文
+        elements.push(new Paragraph({ children: [new TextRun({ text: `${getCircledNumber(step.stepNumber)} ${step.action}`, bold: true, size: 28, font: RF })], spacing: { before: isTwoCol ? 0 : 300, after: 100 } }));
         if (step.detail && step.detail !== step.action) {
             const lines = step.detail.split('\n');
-            elements.push(new Paragraph({
-                children: lines.map((line: string, index: number) =>
-                    new TextRun({ text: line, size: 22, font: RF, break: index > 0 ? 1 : 0 })
-                ),
-                spacing: { after: 120 },
-                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
-            }));
+            elements.push(new Paragraph({ children: lines.map((line: string, index: number) => new TextRun({ text: line, size: 22, font: RF, break: index > 0 ? 1 : 0 })), spacing: { after: 120 } }));
         }
-
-        // 3. 画像
         if (step.screenshot) {
             try {
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
                 const imgHeight = await new Promise<number>((resolve) => {
                     const img = new Image();
-                    img.onload = () => {
-                        const ratio = img.height / img.width;
-                        resolve(Math.round(imgWidthEmu * ratio));
-                    };
+                    img.onload = () => resolve(Math.round(imgWidthEmu * (img.height / img.width)));
                     img.onerror = () => resolve(Math.round(imgWidthEmu * 0.5625));
                     img.src = step.screenshot!;
                 });
-
-                elements.push(new Paragraph({
-                    children: [
-                        new ImageRun({
-                            data,
-                            transformation: {
-                                width: Math.round(imgWidthEmu / 9525),
-                                height: Math.round(imgHeight / 9525)
-                            },
-                            type,
-                        }),
-                    ],
-                    spacing: { after: 200 },
-                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
-                }));
-            } catch (e) {
-                console.warn(`Step ${step.stepNumber} image error:`, e);
-            }
+                elements.push(new Paragraph({ children: [new ImageRun({ data, transformation: { width: Math.round(imgWidthEmu / 9525), height: Math.round(imgHeight / 9525) }, type })], spacing: { after: 200 } }));
+            } catch (e) { console.error(e); }
         }
-
-        // 1列レイアウトの場合、ステップ間の余白を追加（2列レイアウトは行送りで調整）
-        if (!isTwoCol) {
-            elements.push(new Paragraph({ spacing: { after: 300 } }));
-        }
-
         return elements;
     };
 
     if (isTwoCol) {
-        // --- 2列レイアウトモード ---
         for (let i = 0; i < manual.steps.length; i += 2) {
-            const leftStep = manual.steps[i];
-            const rightStep = manual.steps[i + 1];
-
-            const leftElements = await createStepElements(leftStep);
-            const rightElements = rightStep ? await createStepElements(rightStep) : [];
-
-            children.push(
-                new Table({
-                    width: { size: 100, type: WidthType.PERCENTAGE },
-                    borders: {
-                        top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                        bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                        left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                        right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                        insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                        insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                    },
-                    rows: [
-                        new TableRow({
-                            cantSplit: true,
-                            children: [
-                                new TableCell({
-                                    children: leftElements,
-                                    width: { size: 50, type: WidthType.PERCENTAGE },
-                                    margins: { bottom: 400, right: 200 }, // 右に余白
-                                }),
-                                new TableCell({
-                                    children: rightElements,
-                                    width: { size: 50, type: WidthType.PERCENTAGE },
-                                    margins: { bottom: 400, left: 200 }, // 左に余白
-                                }),
-                            ],
-                        }),
-                    ],
-                })
-            );
+            const left = await createStepElements(manual.steps[i]);
+            const right = manual.steps[i + 1] ? await createStepElements(manual.steps[i + 1]) : [];
+            children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: BorderStyle.NONE, bottom: BorderStyle.NONE, left: BorderStyle.NONE, right: BorderStyle.NONE, insideHorizontal: BorderStyle.NONE, insideVertical: BorderStyle.NONE }, rows: [new TableRow({ cantSplit: true, children: [new TableCell({ children: left, width: { size: 50, type: WidthType.PERCENTAGE }, margins: { bottom: 400, right: 200 } }), new TableCell({ children: right, width: { size: 50, type: WidthType.PERCENTAGE }, margins: { bottom: 400, left: 200 } })] })] }));
         }
     } else {
-        // --- 標準1列レイアウトモード ---
-        for (const step of manual.steps) {
-            const elements = await createStepElements(step);
-            children.push(...elements);
-        }
+        for (const step of manual.steps) children.push(...(await createStepElements(step)));
     }
 
-    // ドキュメント生成
-    const doc = new Document({
-        numbering: {
-            config: [], // 箇条書き設定を完全に無効化
-        },
-        styles: {
-            default: {
-                document: { run: { font: RF, size: 22 } },
-            },
-            paragraphStyles: [
-                {
-                    id: 'Normal',
-                    name: 'Normal',
-                    run: { font: RF, size: 22 },
-                    paragraph: { spacing: { line: 240 }, indent: { left: 0, right: 0, hanging: 0, firstLine: 0 } },
-                },
-            ],
-        },
-        sections: [{
-            properties: {
-                page: {
-                    size: { width: PAGE_WIDTH_DXA, height: 16838 },
-                    margin: { top: MARGIN_DXA, right: MARGIN_DXA, bottom: MARGIN_DXA, left: MARGIN_DXA },
-                },
-            },
-            children,
-        }],
-    });
-
-    // Blobに変換
-    const blob = await Packer.toBlob(doc);
-
-    // JSZipでXMLを直接編集して、箇条書き無効化設定を注入
-    try {
-        const JSZip = (await import('jszip')).default;
-        const zip = await JSZip.loadAsync(blob);
-        const settingsXml = await zip.file("word/settings.xml")?.async("string");
-
-        if (settingsXml) {
-            const newSettingsXml = settingsXml.replace(
-                /(<w:settings[^>]*>)/,
-                '$1<w:autoHyphenation w:val="0"/><w:doNotUseIndentAsNumberingTabStop/>'
-            );
-            zip.file("word/settings.xml", newSettingsXml);
-            const newBlob = await zip.generateAsync({ type: "blob" });
-
-            // ダウンロード
-            const url = URL.createObjectURL(newBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}_${layout}.docx`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            return;
-        }
-    } catch (e) {
-        console.error("ZIP editing failed:", e);
-    }
-
-    // ZIP編集に失敗した場合は元のBlobを使用
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_')}_${layout}.docx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const blob = await Packer.toBlob(new Document({ sections: [{ children }] }));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${manual.title}.docx`; a.click();
 }
 
-// PowerPoint(.pptx)ファイルを生成してダウンロードする
-// --- PowerPoint出力関数の完全版 (2列レイアウト対応) ---
+// --- PowerPoint出力 (修正済: 2列対応 & 突き抜け防止) ---
 async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
     const pptxgen = (await import('pptxgenjs')).default;
     const pres = new pptxgen();
     const isTwoCol = layout === 'two-column';
     const FONT_NAME = 'Meiryo';
 
-    // ヘルパー: 1ステップ分をスライドの指定位置に描画する
     const addStepToSlide = async (slide: any, step: any, xPos: number, width: number) => {
-        // 1. ヘッダー（手順番号 + アクション）
         slide.addText(`${getCircledNumber(step.stepNumber)} ${step.action}`, {
-            x: xPos, y: 0.3, w: width, h: 0.6,
-            fontSize: isTwoCol ? 18 : 24, bold: true, fontFace: FONT_NAME, color: '4F46E5',
-            fill: { color: 'F8FAFC' }
+            x: xPos, y: 0.3, w: width, h: 0.6, fontSize: isTwoCol ? 18 : 22, bold: true, fontFace: FONT_NAME, color: '4F46E5', fill: { color: 'F8FAFC' }
         });
 
-        // 2. 詳細説明
         let currentY = 1.0;
         if (step.detail && step.detail !== step.action) {
-            slide.addText(step.detail, {
-                x: xPos, y: currentY, w: width, h: 0.6,
-                fontSize: isTwoCol ? 12 : 14, fontFace: FONT_NAME, color: '334155',
-                valign: 'top'
-            });
+            slide.addText(step.detail, { x: xPos, y: currentY, w: width, h: 0.6, fontSize: isTwoCol ? 11 : 13, fontFace: FONT_NAME, color: '334155', valign: 'top' });
             currentY += 0.7;
         }
 
-        // 3. スクリーンショット画像（はみ出し防止ロジック）
         if (step.screenshot) {
-            try {
-                const ratio = await new Promise<number>((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve(img.height / img.width);
-                    img.onerror = () => resolve(0.5625);
-                    img.src = step.screenshot!;
-                });
+            const ratio = await new Promise<number>((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img.height / img.width);
+                img.onerror = () => resolve(0.5625);
+                img.src = step.screenshot!;
+            });
+            const maxW = width;
+            // 重要: スライドの高さ(7.5)からテキスト位置を引いて動的に計算。下部に0.5インチの安全マージン。
+            const maxH = Math.max(1.0, 7.0 - currentY);
+            let finalW = maxW;
+            let finalH = finalW * ratio;
+            if (finalH > maxH) { finalH = maxH; finalW = finalH / ratio; }
 
-                const maxW = width;
-                // はみ出し防止: スライド高さ 7.5 から現在位置と余白(0.5)を引いた値を上限にする
-                const maxH = 7.5 - currentY - 0.5;
-
-                let finalW = maxW;
-                let finalH = finalW * ratio;
-
-                // 計算した高さが制限を超える場合、高さ基準でリサイズ
-                if (finalH > maxH) {
-                    finalH = maxH;
-                    finalW = finalH / ratio;
-                }
-
-                slide.addImage({
-                    data: step.screenshot,
-                    x: xPos + (width - finalW) / 2, // 列内での中央寄せ
-                    y: currentY,
-                    w: finalW,
-                    h: finalH
-                });
-            } catch (e) {
-                console.warn(`Step ${step.stepNumber} image error:`, e);
-            }
+            slide.addImage({ data: step.screenshot, x: xPos + (width - finalW) / 2, y: currentY, w: finalW, h: finalH });
         }
     };
 
-    // --- 表紙 (ページ番号なし) ---
+    // 表紙
     const titleSlide = pres.addSlide();
     titleSlide.background = { fill: 'F1F5F9' };
-    titleSlide.addText(manual.title, {
-        x: '10%', y: '35%', w: '80%', h: 1,
-        fontSize: 32, bold: true, fontFace: FONT_NAME, color: '1E293B', align: 'center'
-    });
+    titleSlide.addText(manual.title, { x: 0, y: '40%', w: '100%', h: 1, fontSize: 32, bold: true, fontFace: FONT_NAME, align: 'center' });
 
-    // --- 各ステップのスライド生成 ---
     if (isTwoCol) {
         for (let i = 0; i < manual.steps.length; i += 2) {
             const slide = pres.addSlide();
             await addStepToSlide(slide, manual.steps[i], 0.25, 4.5);
-            if (manual.steps[i + 1]) {
-                await addStepToSlide(slide, manual.steps[i + 1], 5.25, 4.5);
-            }
+            if (manual.steps[i + 1]) await addStepToSlide(slide, manual.steps[i + 1], 5.25, 4.5);
         }
     } else {
         for (const step of manual.steps) {
             const slide = pres.addSlide();
-            // シングルカラム時は幅 9.0 インチで中央付近に配置
             await addStepToSlide(slide, step, 0.5, 9.0);
         }
     }
-
-    const safeTitle = manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-    await pres.writeFile({ fileName: `${safeTitle}_${layout}.pptx` });
+    await pres.writeFile({ fileName: `${manual.title}_${layout}.pptx` });
 }
 
 function generateMarkdown(manual: ManualData): string {
@@ -408,9 +169,8 @@ function downloadFile(content: string, filename: string, mimeType: string) {
 export default function ExportButton({ manual }: ExportButtonProps) {
     const [showModal, setShowModal] = useState(false);
 
-    const handleExport = async (format: 'markdown' | 'html' | 'pdf' | 'docx', layout: 'single' | 'two-column' = 'single') => {
+    const handleExport = async (format: string, layout: 'single' | 'two-column' = 'single') => {
         const safeTitle = manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-
         switch (format) {
             case 'markdown':
                 downloadFile(generateMarkdown(manual), `${safeTitle}.md`, 'text/markdown;charset=utf-8');
@@ -418,37 +178,21 @@ export default function ExportButton({ manual }: ExportButtonProps) {
             case 'html':
                 downloadFile(generateHTML(manual, layout), `${safeTitle}.html`, 'text/html;charset=utf-8');
                 break;
-            case 'docx':
-                try {
-                    await generateAndDownloadDocx(manual, layout);
-                } catch (error) {
-                    console.error('Word generation error:', error);
-                    alert('Word出力に失敗しました。ブラウザの対応状況をご確認ください。');
-                }
-                break;
-            case 'pptx':
-                try {
-                    await generateAndDownloadPptx(manual, layout);
-                } catch (error) {
-                    console.error('PowerPoint generation error:', error);
-                    alert('PowerPoint出力に失敗しました。');
-                }
-                break;
+            case 'docx': await generateAndDownloadDocx(manual, layout); break;
+            case 'pptx': await generateAndDownloadPptx(manual, layout); break;
             case 'pdf':
                 try {
                     const html2pdf = (await import('html2pdf.js')).default;
-                    const htmlContent = generateHTML(manual, layout);
-
                     const container = document.createElement('div');
-                    container.innerHTML = htmlContent;
-                    // Apply layout class for 2-column mode
-                    if (layout === 'two-column') {
-                        container.classList.add('two-column');
-                        // Inject specific grid styles for PDF rendering if not already handled by inline styles
-                    }
+                    container.innerHTML = generateHTML(manual, layout);
                     document.body.appendChild(container);
 
-                    const opt: any = {
+                    // Allow explicit 2-column styling
+                    if (layout === 'two-column') {
+                        container.classList.add('two-column');
+                    }
+
+                    const opt = {
                         margin: [10, 10, 15, 10],
                         filename: `${safeTitle}.pdf`,
                         image: { type: 'jpeg', quality: 0.98 },
@@ -457,121 +201,53 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                         pagebreak: { mode: ['css', 'legacy'] }
                     };
 
-                    // Correct chaining for html2pdf
-                    const worker = html2pdf().from(container).set(opt).toPdf();
-
-                    await worker.get('pdf').then((pdf: any) => {
+                    // PDF生成・保存のチェーンを確実に実行
+                    html2pdf().from(container).set(opt).toPdf().get('pdf').then((pdf: any) => {
                         const totalPages = pdf.internal.getNumberOfPages();
                         const pageWidth = pdf.internal.pageSize.getWidth();
                         const pageHeight = pdf.internal.pageSize.getHeight();
-
-                        // 修正: 2ページ目から番号を打つ
                         for (let i = 2; i <= totalPages; i++) {
                             pdf.setPage(i);
                             pdf.setFontSize(10);
                             pdf.setTextColor(150);
-                            // 2ページ目を「1」として表示
-                            const displayPage = i - 1;
-                            const displayTotal = totalPages - 1;
-                            pdf.text(`${displayPage} / ${displayTotal}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
+                            pdf.text(`${i - 1} / ${totalPages - 1}`, pageWidth - 10, pageHeight - 8, { align: 'right' });
                         }
+                    }).save().then(() => {
+                        document.body.removeChild(container);
                     });
-
-                    worker.save();
-
-                    document.body.removeChild(container);
-                } catch (error) {
-                    console.error('PDF generation error:', error);
-                    alert('PDF generation failed. Please try printing via browser (Ctrl+P).');
-                }
+                } catch (e) { console.error(e); }
                 break;
         }
-
         setShowModal(false);
     };
 
     return (
         <>
-            <button
-                className="btn btn--secondary btn--small"
-                onClick={() => setShowModal(true)}
-            >
-                エクスポート
-            </button>
-
+            <button className="btn btn--secondary btn--small" onClick={() => setShowModal(true)}>エクスポート</button>
             {showModal && (
                 <div className="export-modal" onClick={() => setShowModal(false)}>
                     <div className="export-modal__content" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="export-modal__title">エクスポート形式を選択</h3>
+                        <h3 className="export-modal__title">形式を選択</h3>
                         <div className="export-modal__options">
-                            <button
-                                className="export-modal__option"
-                                onClick={() => handleExport('markdown')}
-                            >
-                                <span className="export-modal__label">Markdown (.md)</span>
-                            </button>
-                            <button
-                                className="export-modal__option"
-                                onClick={() => handleExport('html')}
-                            >
-                                <span className="export-modal__label">HTML (.html)</span>
-                            </button>
-                            {/* Word Export Buttons */}
-                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                                <button
-                                    className="export-modal__option"
-                                    onClick={() => handleExport('docx', 'single')}
-                                    style={{ flex: 1 }}
-                                >
-                                    <span className="export-modal__label">Word (標準)</span>
-                                </button>
-                                <button
-                                    className="export-modal__option"
-                                    onClick={() => handleExport('docx', 'two-column')}
-                                    style={{ flex: 1 }}
-                                >
-                                    <span className="export-modal__label">Word (2列)</span>
-                                </button>
+                            {/* Markdown/HTML */}
+                            <div className="flex gap-2 w-full">
+                                <button className="export-modal__option flex-1" onClick={() => handleExport('markdown')}><span className="export-modal__label">Markdown</span></button>
+                                <button className="export-modal__option flex-1" onClick={() => handleExport('html')}><span className="export-modal__label">HTML</span></button>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                                <button
-                                    className="export-modal__option"
-                                    onClick={() => handleExport('pptx', 'single')}
-                                    style={{ flex: 1 }}
-                                >
-                                    <span className="export-modal__label">PPT (標準)</span>
-                                </button>
-                                <button
-                                    className="export-modal__option"
-                                    onClick={() => handleExport('pptx', 'two-column')}
-                                    style={{ flex: 1 }}
-                                >
-                                    <span className="export-modal__label">PPT (2列)</span>
-                                </button>
+                            <div className="flex gap-2 w-full">
+                                <button className="export-modal__option flex-1" onClick={() => handleExport('docx', 'single')}><span className="export-modal__label">Word (標準)</span></button>
+                                <button className="export-modal__option flex-1" onClick={() => handleExport('docx', 'two-column')}><span className="export-modal__label">Word (2列)</span></button>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                                <button
-                                    className="export-modal__option"
-                                    onClick={() => handleExport('pdf', 'single')}
-                                    style={{ flex: 1 }}
-                                >
-                                    <span className="export-modal__label">PDF (標準)</span>
-                                </button>
-                                <button
-                                    className="export-modal__option"
-                                    onClick={() => handleExport('pdf', 'two-column')}
-                                    style={{ flex: 1 }}
-                                >
-                                    <span className="export-modal__label">PDF (2列)</span>
-                                </button>
+                            <div className="flex gap-2 w-full">
+                                <button className="export-modal__option flex-1" onClick={() => handleExport('pptx', 'single')}><span className="export-modal__label">PPT (標準)</span></button>
+                                <button className="export-modal__option flex-1" onClick={() => handleExport('pptx', 'two-column')}><span className="export-modal__label">PPT (2列)</span></button>
+                            </div>
+                            <div className="flex gap-2 w-full">
+                                <button className="export-modal__option flex-1" onClick={() => handleExport('pdf', 'single')}><span className="export-modal__label">PDF (標準)</span></button>
+                                <button className="export-modal__option flex-1" onClick={() => handleExport('pdf', 'two-column')}><span className="export-modal__label">PDF (2列)</span></button>
                             </div>
                         </div>
-                        <button
-                            className="btn btn--secondary export-modal__close"
-                            onClick={() => setShowModal(false)}
-                        >
-                            キャンセル
-                        </button>
+                        <button className="btn btn--secondary mt-4 w-full" onClick={() => setShowModal(false)}>キャンセル</button>
                     </div>
                 </div>
             )}
