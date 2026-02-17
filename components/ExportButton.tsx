@@ -136,7 +136,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                             }),
                         ],
                         spacing: { after: 300 },
-                        keepLines: true,
+
                         indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // インデント完全無効化
                     })
                 );
