@@ -275,129 +275,96 @@ async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 't
 }
 
 // PowerPoint(.pptx)ファイルを生成してダウンロードする
+// --- PowerPoint出力関数の完全版 (2列レイアウト対応) ---
 async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
     const pptxgen = (await import('pptxgenjs')).default;
     const pres = new pptxgen();
     const isTwoCol = layout === 'two-column';
-
-    // 日本語フォント設定
     const FONT_NAME = 'Meiryo';
 
-    // スライドマスター定義（ページ番号付き）
-    pres.defineSlideMaster({
-        title: 'MASTER_WITH_PAGE_NUM',
-        slideNumber: { x: '92%', y: '90%', fontSize: 12, color: '000000' }
-    });
-
-
-    // 丸囲み数字に変換するヘルパー
-    const getCircledNumber = (num: number) => {
-        if (num >= 1 && num <= 20) {
-            return String.fromCodePoint(0x245F + num);
-        }
-        return `(${num})`;
-    };
-
-    // スライドに1つの手順を配置する内部関数
-    const addStepToSlide = async (slide: any, step: any, colType: 'left' | 'right' | 'full') => {
-        const xPos = colType === 'left' ? 0.25 : colType === 'right' ? 5.25 : 0.5;
-        const width = colType === 'full' ? 9.0 : 4.5;
-
-        // ヘッダー
+    // ヘルパー: 1ステップ分をスライドの指定位置に描画する
+    const addStepToSlide = async (slide: any, step: any, xPos: number, width: number) => {
+        // 1. ヘッダー（手順番号 + アクション）
         slide.addText(`${getCircledNumber(step.stepNumber)} ${step.action}`, {
             x: xPos, y: 0.3, w: width, h: 0.6,
-            fontSize: isTwoCol ? 18 : 24, bold: true, fontFace: FONT_NAME, color: '000000',
+            fontSize: isTwoCol ? 18 : 24, bold: true, fontFace: FONT_NAME, color: '4F46E5',
             fill: { color: 'F8FAFC' }
         });
 
+        // 2. 詳細説明
         let currentY = 1.0;
         if (step.detail && step.detail !== step.action) {
             slide.addText(step.detail, {
                 x: xPos, y: currentY, w: width, h: 0.6,
-                fontSize: isTwoCol ? 12 : 14, fontFace: FONT_NAME, color: '000000',
+                fontSize: isTwoCol ? 12 : 14, fontFace: FONT_NAME, color: '334155',
                 valign: 'top'
             });
             currentY += 0.7;
         }
 
+        // 3. スクリーンショット画像（はみ出し防止ロジック）
         if (step.screenshot) {
             try {
-                // 画像のサイズを取得してアスペクト比を維持
-                const { w, h, xOffset } = await new Promise<{ w: number, h: number, xOffset: number }>((resolve) => {
+                const ratio = await new Promise<number>((resolve) => {
                     const img = new Image();
-                    img.onload = () => {
-                        const imgRatio = img.width / img.height;
-                        const maxW = width;
-                        const maxH = isTwoCol ? 3.5 : 5.0; // 2列時は高さを少し制限
-
-                        let finalW = maxW;
-                        let finalH = finalW / imgRatio;
-
-                        if (finalH > maxH) {
-                            finalH = maxH;
-                            finalW = finalH * imgRatio;
-                        }
-
-                        // 列内での中央寄せ (左端からのオフセット)
-                        const offset = (width - finalW) / 2;
-
-                        resolve({ w: finalW, h: finalH, xOffset: offset });
-                    };
-                    img.onerror = () => {
-                        console.warn('Image load failed for step', step.stepNumber);
-                        resolve({ w: width * 0.9, h: width * 0.9 * 0.5625, xOffset: width * 0.05 });
-                    };
+                    img.onload = () => resolve(img.height / img.width);
+                    img.onerror = () => resolve(0.5625);
                     img.src = step.screenshot!;
                 });
 
+                const maxW = width;
+                // はみ出し防止: スライド高さ 7.5 から現在位置と余白(0.5)を引いた値を上限にする
+                const maxH = 7.5 - currentY - 0.5;
+
+                let finalW = maxW;
+                let finalH = finalW * ratio;
+
+                // 計算した高さが制限を超える場合、高さ基準でリサイズ
+                if (finalH > maxH) {
+                    finalH = maxH;
+                    finalW = finalH / ratio;
+                }
+
                 slide.addImage({
                     data: step.screenshot,
-                    x: xPos + xOffset,
+                    x: xPos + (width - finalW) / 2, // 列内での中央寄せ
                     y: currentY,
-                    w: w,
-                    h: h,
+                    w: finalW,
+                    h: finalH
                 });
-            } catch (error) {
-                console.error('Error adding image to slide:', error);
+            } catch (e) {
+                console.warn(`Step ${step.stepNumber} image error:`, e);
             }
         }
     };
 
-    // --- 1. タイトルスライド ---
+    // --- 表紙 (ページ番号なし) ---
     const titleSlide = pres.addSlide();
-    titleSlide.background = { fill: 'F1F5F9' }; // 薄いグレー
+    titleSlide.background = { fill: 'F1F5F9' };
     titleSlide.addText(manual.title, {
         x: '10%', y: '35%', w: '80%', h: 1,
-        fontSize: 32, bold: true, fontFace: FONT_NAME, color: '1E293B',
-        align: 'center'
+        fontSize: 32, bold: true, fontFace: FONT_NAME, color: '1E293B', align: 'center'
     });
-    if (manual.overview) {
-        titleSlide.addText(manual.overview, {
-            x: '10%', y: '50%', w: '80%', h: 1.5,
-            fontSize: 16, fontFace: FONT_NAME, color: '64748B',
-            align: 'center'
-        });
-    }
 
-    // --- 2. 各ステップのスライド生成 ---
+    // --- 各ステップのスライド生成 ---
     if (isTwoCol) {
         for (let i = 0; i < manual.steps.length; i += 2) {
-            const slide = pres.addSlide({ masterName: 'MASTER_WITH_PAGE_NUM' });
-            await addStepToSlide(slide, manual.steps[i], 'left');
+            const slide = pres.addSlide();
+            await addStepToSlide(slide, manual.steps[i], 0.25, 4.5);
             if (manual.steps[i + 1]) {
-                await addStepToSlide(slide, manual.steps[i + 1], 'right');
+                await addStepToSlide(slide, manual.steps[i + 1], 5.25, 4.5);
             }
         }
     } else {
         for (const step of manual.steps) {
-            const slide = pres.addSlide({ masterName: 'MASTER_WITH_PAGE_NUM' });
-            await addStepToSlide(slide, step, 'full');
+            const slide = pres.addSlide();
+            // シングルカラム時は幅 9.0 インチで中央付近に配置
+            await addStepToSlide(slide, step, 0.5, 9.0);
         }
     }
 
-    // ダウンロード実行
     const safeTitle = manual.title.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-    await pres.writeFile({ fileName: `${safeTitle}.pptx` });
+    await pres.writeFile({ fileName: `${safeTitle}_${layout}.pptx` });
 }
 
 function generateMarkdown(manual: ManualData): string {
@@ -496,12 +463,15 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                         const pageWidth = pdf.internal.pageSize.getWidth();
                         const pageHeight = pdf.internal.pageSize.getHeight();
 
-                        // 2ページ目から開始し、ページ番号を (i - 1) / (totalPages - 1) と表示
+                        // 修正点: 2ページ目 (i=2) からループを開始する
                         for (let i = 2; i <= totalPages; i++) {
                             pdf.setPage(i);
                             pdf.setFontSize(10);
                             pdf.setTextColor(150);
-                            pdf.text(`${i - 1} / ${totalPages - 1}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
+                            // 2枚目を「1ページ」とするため i - 1
+                            const currentPage = i - 1;
+                            const totalDataPages = totalPages - 1;
+                            pdf.text(`${currentPage} / ${totalDataPages}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
                         }
                     });
 
