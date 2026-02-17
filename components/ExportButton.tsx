@@ -75,25 +75,38 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         })
     );
 
+    // 丸囲み数字に変換するヘルパー
+    const getCircledNumber = (num: number) => {
+        if (num >= 1 && num <= 20) {
+            return String.fromCodePoint(0x245F + num);
+        }
+        return `(${num})`;
+    };
+
     // 各ステップ
     for (const step of manual.steps) {
-        // ステップ番号＋タイトル（スタイルなし・直接指定）
-        children.push(
+        const stepElements: any[] = [];
+
+        // 1. ステップ番号（①）＋タイトル
+        stepElements.push(
             new Paragraph({
                 children: [
-                    new TextRun({ text: `■手順${step.stepNumber} `, bold: true, size: 28, font: RF }),
-                    new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
+                    new TextRun({
+                        text: `${getCircledNumber(step.stepNumber)}  ${step.action}`,
+                        bold: true,
+                        size: 28,
+                        font: RF
+                    }),
                 ],
-                spacing: { before: 300, after: 100 },
-
-                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // インデント完全無効化
+                spacing: { before: 0, after: 100 }, // TableCell内で調整するため before: 0
+                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
             })
         );
 
-        // 説明文
+        // 2. 説明文
         if (step.detail && step.detail !== step.action) {
             const lines = step.detail.split('\n');
-            children.push(
+            stepElements.push(
                 new Paragraph({
                     children: lines.map((line, index) =>
                         new TextRun({
@@ -104,13 +117,12 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                         })
                     ),
                     spacing: { after: 120 },
-                    // keepNext removed to prevent "black square" formatting marks
-                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // インデント完全無効化
+                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
                 })
             );
         }
 
-        // スクリーンショット画像
+        // 3. スクリーンショット画像
         if (step.screenshot) {
             try {
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
@@ -126,7 +138,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     img.src = step.screenshot!;
                 });
 
-                children.push(
+                stepElements.push(
                     new Paragraph({
                         children: [
                             new ImageRun({
@@ -135,15 +147,43 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                                 type,
                             }),
                         ],
-                        spacing: { after: 300 },
-
-                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // インデント完全無効化
+                        spacing: { after: 200 },
+                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
                     })
                 );
             } catch (e) {
                 console.warn(`Step ${step.stepNumber} image embedding failed:`, e);
             }
         }
+
+        // 重要：1ステップ分を丸ごと「分割禁止の表セル」に入れる
+        children.push(
+            new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: {
+                    top: BorderStyle.NONE,
+                    bottom: BorderStyle.NONE,
+                    left: BorderStyle.NONE,
+                    right: BorderStyle.NONE,
+                    insideHorizontal: BorderStyle.NONE,
+                    insideVertical: BorderStyle.NONE,
+                },
+                rows: [
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                children: stepElements,
+                                cantSplit: true, // これがページまたぎを防ぐ設定
+                                margins: { bottom: 400 }, // ステップ間の余白
+                            }),
+                        ],
+                    }),
+                ],
+            })
+        );
+
+        // ステップ間の余白用段落（表の外に追加）
+        children.push(new Paragraph({ spacing: { after: 300 } }));
     }
 
     // ドキュメント生成
