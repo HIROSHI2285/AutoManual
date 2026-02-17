@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    webpack: (config, { isServer }) => {
+    webpack: (config, { isServer, webpack }) => {
         if (!isServer) {
             config.resolve.fallback = {
                 ...config.resolve.fallback,
@@ -22,7 +22,7 @@ const nextConfig = {
             // Use NormalModuleReplacementPlugin to strip "node:" prefix
             // This allows the fallback (e.g. fs: false) to kick in for "node:fs" imports
             config.plugins.push(
-                new config.webpack.NormalModuleReplacementPlugin(
+                new webpack.NormalModuleReplacementPlugin(
                     /^node:/,
                     (resource) => {
                         resource.request = resource.request.replace(/^node:/, '');
