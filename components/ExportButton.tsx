@@ -47,6 +47,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         new Paragraph({
             children: [new TextRun({ text: manual.title, bold: true, size: 36, font: RF })],
             spacing: { after: 200 },
+            indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
         })
     );
 
@@ -56,6 +57,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             new Paragraph({
                 children: [new TextRun({ text: manual.overview, size: 24, font: RF })],
                 spacing: { after: 400 },
+                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
             })
         );
     }
@@ -69,6 +71,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             border: {
                 bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD' },
             },
+            indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
         })
     );
 
@@ -85,6 +88,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                 // spacing/keepNext definitions are now in the Style.
                 spacing: { before: 300, after: 100 },
                 keepNext: true,
+                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
             })
         );
 
@@ -96,6 +100,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     children: [new TextRun({ text: step.detail, size: 22, font: RF })],
                     spacing: { after: 120 },
                     keepNext: !!step.screenshot,
+                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
                 })
             );
         }
@@ -128,6 +133,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                         ],
                         spacing: { after: 300 },
                         keepLines: true,
+                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
                     })
                 );
             } catch (e) {
@@ -154,7 +160,11 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     next: 'ManualStepBody',
                     quickFormat: true,
                     run: { size: 28, bold: true, font: RF },
-                    paragraph: { spacing: { before: 300, after: 100 }, keepNext: true }, // indent削除
+                    paragraph: {
+                        spacing: { before: 300, after: 100 },
+                        keepNext: true,
+                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 念のためスタイル側でもリセット
+                    },
                 },
                 {
                     id: 'ManualStepBody',
@@ -163,7 +173,10 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     next: 'SameStyle',
                     quickFormat: true,
                     run: { size: 22, font: RF },
-                    paragraph: { spacing: { after: 120 } }, // indent削除
+                    paragraph: {
+                        spacing: { after: 120 },
+                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 } // 念のためスタイル側でもリセット
+                    },
                 }
             ],
         },

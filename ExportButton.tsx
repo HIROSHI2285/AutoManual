@@ -91,6 +91,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                     new TextRun({ text: ` ${step.action}`, bold: true, size: 28, font: RF }),
                 ],
                 spacing: { before: 300, after: 100 },
+                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
                 keepNext: true,
             })
         );
@@ -101,6 +102,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                 new Paragraph({
                     children: [new TextRun({ text: step.detail, size: 22, font: RF })],
                     spacing: { after: 120 },
+                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 全インデント完全ゼロ
                     keepNext: !!step.screenshot,
                 })
             );
@@ -131,7 +133,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                             }),
                         ],
                         spacing: { after: 300 },
-                        // 箇条書きを完全無効化
+                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 },
                         keepLines: true,
                     })
                 );
