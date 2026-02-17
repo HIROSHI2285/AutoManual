@@ -82,18 +82,14 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
     // 各ステップ
     for (const step of manual.steps) {
-        // ステップ番号＋タイトル（見出し2）
+        // ステップ番号＋タイトル（通常段落として作成）
         children.push(
             new Paragraph({
-                // heading: HeadingLevel.HEADING_2, // 自動箇条書きを防ぐため見出し属性を削除
-                style: "Normal", // 強制的に「標準」スタイルを適用してリスト化を防ぐ
                 children: [
-                    new TextRun({ text: `${toCircledNumber(step.stepNumber)}　`, bold: true, size: 28, font: RF }),
+                    new TextRun({ text: `${step.stepNumber}. `, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
                 spacing: { before: 300, after: 100 },
-                keepNext: true, // 詳細または画像と分離しないようにする
-                // outlineLevel: 1, // アウトラインレベルを削除して箇条書き化を防ぐ
             })
         );
 
@@ -101,10 +97,8 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         if (step.detail && step.detail !== step.action) {
             children.push(
                 new Paragraph({
-                    style: "Normal",
-                    children: [new TextRun({ text: step.detail, size: 22, font: RF })],
+                    children: [new TextRun({ text: `  ${step.detail}`, size: 22, font: RF })],
                     spacing: { after: 120 },
-                    keepNext: !!step.screenshot,
                 })
             );
         }
@@ -146,6 +140,9 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
     // ドキュメント生成
     const doc = new Document({
+        numbering: {
+            config: [], // 箇条書き設定を完全に無効化
+        },
         styles: {
             default: {
                 document: { run: { font: RF, size: 22 } },
