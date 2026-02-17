@@ -77,18 +77,16 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
     // 各ステップ
     for (const step of manual.steps) {
-        // ステップ番号＋タイトル（カスタムスタイルを使用）
+        // ステップ番号＋タイトル（スタイルなし・直接指定）
         children.push(
             new Paragraph({
-                style: "ManualStepTitle",
                 children: [
                     new TextRun({ text: `■手順${step.stepNumber} `, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
                 ],
-                // spacing/keepNext definitions are now in the Style.
                 spacing: { before: 300, after: 100 },
                 keepNext: true,
-                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
+                indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // インデント完全無効化
             })
         );
 
@@ -96,11 +94,10 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         if (step.detail && step.detail !== step.action) {
             children.push(
                 new Paragraph({
-                    style: "ManualStepBody",
                     children: [new TextRun({ text: step.detail, size: 22, font: RF })],
                     spacing: { after: 120 },
                     keepNext: !!step.screenshot,
-                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
+                    indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // インデント完全無効化
                 })
             );
         }
@@ -123,7 +120,6 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
                 children.push(
                     new Paragraph({
-                        style: "ManualStepBody",
                         children: [
                             new ImageRun({
                                 data,
@@ -133,7 +129,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
                         ],
                         spacing: { after: 300 },
                         keepLines: true,
-                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 箇条書き回避の最終手段
+                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // インデント完全無効化
                     })
                 );
             } catch (e) {
@@ -151,34 +147,6 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
             default: {
                 document: { run: { font: RF, size: 22 } },
             },
-            paragraphStyles: [
-                // Custom styles to prevent auto-list detection
-                {
-                    id: 'ManualStepTitle',
-                    name: 'Manual Step Title',
-                    basedOn: 'Normal',
-                    next: 'ManualStepBody',
-                    quickFormat: true,
-                    run: { size: 28, bold: true, font: RF },
-                    paragraph: {
-                        spacing: { before: 300, after: 100 },
-                        keepNext: true,
-                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 }, // 念のためスタイル側でもリセット
-                    },
-                },
-                {
-                    id: 'ManualStepBody',
-                    name: 'Manual Step Body',
-                    basedOn: 'Normal',
-                    next: 'SameStyle',
-                    quickFormat: true,
-                    run: { size: 22, font: RF },
-                    paragraph: {
-                        spacing: { after: 120 },
-                        indent: { left: 0, right: 0, hanging: 0, firstLine: 0 } // 念のためスタイル側でもリセット
-                    },
-                }
-            ],
         },
         sections: [{
             properties: {
