@@ -85,6 +85,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         // ステップ番号＋タイトル（通常段落として作成）
         children.push(
             new Paragraph({
+                style: "Normal", // 強制的に「標準」スタイルを適用
                 children: [
                     new TextRun({ text: `${step.stepNumber}. `, bold: true, size: 28, font: RF }),
                     new TextRun({ text: step.action, bold: true, size: 28, font: RF }),
@@ -99,6 +100,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
         if (step.detail && step.detail !== step.action) {
             children.push(
                 new Paragraph({
+                    style: "Normal", // 強制的に「標準」スタイルを適用
                     children: [new TextRun({ text: `  ${step.detail}`, size: 22, font: RF })],
                     spacing: { after: 120 },
                     indent: { left: 0 },
@@ -125,6 +127,7 @@ async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
 
                 children.push(
                     new Paragraph({
+                        style: "Normal", // 強制的に「標準」スタイルを適用
                         children: [
                             new ImageRun({
                                 data,
