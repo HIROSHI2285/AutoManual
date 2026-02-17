@@ -330,14 +330,45 @@ async function generateAndDownloadPptx(manual: ManualData): Promise<void> {
 
         // スクリーンショット画像
         if (step.screenshot) {
-            slide.addImage({
-                data: step.screenshot, // base64そのままでOK
-                x: 0.5,
-                y: currentY,
-                w: 9, // 横幅いっぱい（インチ指定。デフォルトのスライド幅は約10インチ）
-                h: 4,  // 高さを調整
-                sizing: { type: 'contain', w: 9, h: 4 } // アスペクト比を維持
-            });
+            try {
+                // 画像のサイズを取得してアスペクト比を維持
+                const { w, h, x } = await new Promise<{ w: number, h: number, x: number }>((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const imgRatio = img.width / img.height;
+                        const maxW = 9.0; // 最大幅 (インチ)
+                        const maxH = 4.0; // 最大高さ (インチ)
+
+                        let finalW = maxW;
+                        let finalH = finalW / imgRatio;
+
+                        if (finalH > maxH) {
+                            finalH = maxH;
+                            finalW = finalH * imgRatio;
+                        }
+
+                        // 中央寄せのためのX座標 (スライド幅はデフォルトで10インチ)
+                        const finalX = (10 - finalW) / 2;
+
+                        resolve({ w: finalW, h: finalH, x: finalX });
+                    };
+                    img.onerror = () => {
+                        console.warn('Image load failed for step', step.stepNumber);
+                        resolve({ w: 9, h: 4, x: 0.5 });
+                    };
+                    img.src = step.screenshot!;
+                });
+
+                slide.addImage({
+                    data: step.screenshot,
+                    x: x,
+                    y: currentY,
+                    w: w,
+                    h: h,
+                });
+            } catch (error) {
+                console.error('Error adding image to slide:', error);
+            }
         }
     }
 
