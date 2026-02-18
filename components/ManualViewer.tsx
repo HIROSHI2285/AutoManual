@@ -36,7 +36,8 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         return saved ? parseInt(saved) : 24;
     });
     const [stampCount, setStampCount] = useState(1);
-    const [isTwoColumn, setIsTwoColumn] = useState(false); // New state for layout mode
+    const [isTwoColumn, setIsTwoColumn] = useState(false);
+    const savedTwoColumnRef = useRef(false); // Remember column state before editing
     const [strokeStyle, setStrokeStyle] = useState<StrokeStyle>(() => {
         if (typeof window === 'undefined') return 'solid';
         const saved = localStorage.getItem('am_editor_strokeStyle_v2');
@@ -91,6 +92,9 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
 
         setIsEditMode(true);
         setStampCount(1); // Reset stamp count on entry
+        // Auto-switch to single-column for editing
+        savedTwoColumnRef.current = isTwoColumn;
+        setIsTwoColumn(false);
     };
 
     const handleCancelEdit = () => {
@@ -101,6 +105,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         setIsReorderMode(false);
         setSelectedSwapIndex(null);
         setBackupManual(null);
+        setIsTwoColumn(savedTwoColumnRef.current); // Restore column state
     };
 
     const handleSaveAndExit = () => {
@@ -108,6 +113,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         setIsReorderMode(false);
         setSelectedSwapIndex(null);
         setBackupManual(null);
+        setIsTwoColumn(savedTwoColumnRef.current); // Restore column state
     };
 
     const handleSaveProgress = () => {
@@ -342,25 +348,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             <ExportButton manual={manual} />
                         </div>
                     )}
-                    {/* Column toggle in edit mode */}
-                    {isEditMode && !isReorderMode && (
-                        <div className="manual__actions flex items-center gap-3 shrink-0 ml-4">
-                            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
-                                <button
-                                    onClick={() => setIsTwoColumn(false)}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!isTwoColumn ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
-                                >
-                                    1列
-                                </button>
-                                <button
-                                    onClick={() => setIsTwoColumn(true)}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isTwoColumn ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
-                                >
-                                    2列
-                                </button>
-                            </div>
-                        </div>
-                    )}
+
                 </div>
             </div>
 
@@ -449,13 +437,10 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                 </div>
             ) : isEditMode ? (
                 /* Normal Edit Mode: Full InlineCanvas */
-                <div className={`mx-auto px-4 pb-32 ${isTwoColumn
-                    ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8 py-12'
-                    : 'steps max-w-4xl space-y-20 py-16'
-                    }`}>
+                <div className="mx-auto px-4 pb-32 steps max-w-4xl space-y-20 py-16">
                     {manual.steps.map((step, index) => (
-                        <section key={step.uid || `step-${index}`} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : ''}`}>
-                            <div className={`flex items-start gap-6 group ${isTwoColumn ? 'flex-grow mb-4' : 'mb-6'}`}>
+                        <section key={step.uid || `step-${index}`} className="manual__step animate-slide-up">
+                            <div className="flex items-start gap-6 group mb-6">
                                 <div className="flex flex-col items-center gap-3">
                                     <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
                                         {step.stepNumber}
@@ -478,7 +463,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                             newSteps[index] = { ...step, action: e.target.value };
                                             onUpdateManual({ ...manual, steps: newSteps });
                                         }}
-                                        className={`manual__step-title font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300 ${isTwoColumn ? 'text-2xl' : 'text-3xl'}`}
+                                        className="manual__step-title font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300 text-3xl"
                                         placeholder="手順のタイトル"
                                     />
                                     <textarea
@@ -489,43 +474,31 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                             newSteps[index] = { ...step, detail: e.target.value };
                                             onUpdateManual({ ...manual, steps: newSteps });
                                         }}
-                                        className={`manual__step-desc text-slate-800 font-bold leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors resize-y placeholder-slate-300 ${isTwoColumn ? 'text-base min-h-[60px]' : 'text-lg min-h-[100px]'}`}
+                                        className="manual__step-desc text-slate-800 font-bold leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors resize-y placeholder-slate-300 text-lg min-h-[100px]"
                                         placeholder="手順の詳細説明"
                                     />
                                 </div>
                             </div>
 
-                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 ${isTwoColumn
-                                ? 'bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1 aspect-[4/3] flex items-center justify-center bg-slate-100'
-                                : 'bg-white shadow-floating border-purple-600/10'
-                                }`}>
-                                {isTwoColumn ? (
-                                    <img
-                                        src={step.screenshot}
-                                        alt={`Step ${step.stepNumber}: ${step.action}`}
-                                        className="w-full h-full object-contain"
-                                        loading="lazy"
-                                    />
-                                ) : (
-                                    <InlineCanvas
-                                        canvasId={`step-${step.uid || index}`}
-                                        imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
-                                        activeTool={activeTool}
-                                        currentColor={currentColor}
-                                        onColorChange={setCurrentColor}
-                                        strokeWidth={strokeWidth}
-                                        onStrokeWidthChange={setStrokeWidth}
-                                        strokeStyle={strokeStyle}
-                                        onStrokeStyleChange={setStrokeStyle}
-                                        fontSize={fontSize}
-                                        onFontSizeChange={setFontSize}
-                                        stampCount={stampCount}
-                                        onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
-                                        onStampUsed={() => setStampCount(prev => prev + 1)}
-                                        onToolReset={() => setActiveTool('select')}
-                                        initialData={step.canvasData}
-                                    />
-                                )}
+                            <div className="manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10">
+                                <InlineCanvas
+                                    canvasId={`step-${step.uid || index}`}
+                                    imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
+                                    activeTool={activeTool}
+                                    currentColor={currentColor}
+                                    onColorChange={setCurrentColor}
+                                    strokeWidth={strokeWidth}
+                                    onStrokeWidthChange={setStrokeWidth}
+                                    strokeStyle={strokeStyle}
+                                    onStrokeStyleChange={setStrokeStyle}
+                                    fontSize={fontSize}
+                                    onFontSizeChange={setFontSize}
+                                    stampCount={stampCount}
+                                    onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
+                                    onStampUsed={() => setStampCount(prev => prev + 1)}
+                                    onToolReset={() => setActiveTool('select')}
+                                    initialData={step.canvasData}
+                                />
                             </div>
                         </section>
                     ))}
