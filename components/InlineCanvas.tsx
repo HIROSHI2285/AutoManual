@@ -650,7 +650,7 @@ export default function InlineCanvas({
     return (
         <div
             ref={containerRef}
-            className={`relative group transition-all ${compact ? 'flex items-center justify-center' : 'w-full'}`}
+            className={`relative group transition-all ${compact ? 'w-full overflow-hidden' : 'w-full'}`}
             style={compact
                 ? { aspectRatio: '4/3', backgroundColor: '#f1f5f9' }
                 : { minHeight: '300px', backgroundColor: '#ffffff' }
@@ -658,7 +658,10 @@ export default function InlineCanvas({
         >
             <div className={`relative z-10 shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-slate-900/5 ${compact ? '' : 'w-full'}`}
                 style={compact && compactScale < 1 ? {
-                    transform: `scale(${compactScale})`,
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: `translate(-50%, -50%) scale(${compactScale})`,
                     transformOrigin: 'center center'
                 } : undefined}
             >
