@@ -67,7 +67,11 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             if (!src) return;
             const img = new Image();
             img.onload = () => {
-                const isP = img.height > img.width;
+                // Determine if portrait (or square) based on dimensions
+                // User requirement: Square images should be treated as portrait (576px)
+                // Landscape: width > height
+                // Portrait/Square: width <= height
+                const isP = img.naturalHeight >= img.naturalWidth;
                 setOrientations(prev => {
                     const key = step.uid || index;
                     if (prev[key] === isP) return prev;
@@ -499,7 +503,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 </div>
                             </div>
 
-                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10 mx-auto ${orientations[step.uid || index] ? 'max-w-xl' : 'max-w-3xl'}`}>
+                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10 mx-auto ${orientations[step.uid || index] ? 'max-w-[576px]' : 'max-w-[768px]'}`}>
                                 <InlineCanvas
                                     canvasId={`step-${step.uid || index}`}
                                     imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
@@ -529,34 +533,40 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8'
                     : 'steps max-w-4xl space-y-20'
                     }`}>
-                    {manual.steps.map((step, index) => (
-                        <section key={index} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : ''}`}>
-                            <div className={`flex items-start gap-6 group ${isTwoColumn ? 'flex-grow mb-4' : 'mb-6'}`}>
-                                <div className="flex flex-col items-center gap-3">
-                                    <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
-                                        {step.stepNumber}
+                    {manual.steps.map((step, index) => {
+                        const isPortrait = orientations[step.uid || index];
+                        return (
+                            <section key={index} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : `mx-auto w-full ${isPortrait ? 'max-w-[576px]' : 'max-w-[768px]'}`}`}>
+                                <div className={`flex items-start gap-6 group ${isTwoColumn ? 'flex-grow mb-4' : 'mb-6'}`}>
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
+                                            {step.stepNumber}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-3 py-1 w-full">
+                                        <h3 className="manual__step-title text-2xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
+                                            {step.action}
+                                        </h3>
+                                        <p className="manual__step-desc text-slate-800 font-bold text-base leading-relaxed">
+                                            {step.detail}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-3 py-1 w-full">
-                                    <h3 className="manual__step-title text-2xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
-                                        {step.action}
-                                    </h3>
-                                    <p className="manual__step-desc text-slate-800 font-bold text-base leading-relaxed">
-                                        {step.detail}
-                                    </p>
-                                </div>
-                            </div>
 
-                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1 ${isTwoColumn ? 'aspect-[4/3] flex items-center justify-center bg-slate-100' : ''}`}>
-                                <img
-                                    src={step.screenshot}
-                                    alt={`Step ${step.stepNumber}: ${step.action}`}
-                                    className={`block transition-transform duration-700 group-hover:scale-[1.01] ${isTwoColumn ? 'w-full h-full object-contain' : 'w-full h-auto'}`}
-                                    loading="lazy"
-                                />
-                            </div>
-                        </section>
-                    ))}
+                                <div
+                                    className={`manual__image-container mx-auto rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1 ${isTwoColumn ? 'aspect-[4/3] flex items-center justify-center bg-slate-100' : ''}`}
+                                    style={!isTwoColumn ? { maxWidth: isPortrait ? '576px' : '768px' } : {}}
+                                >
+                                    <img
+                                        src={step.screenshot}
+                                        alt={`Step ${step.stepNumber}: ${step.action}`}
+                                        className={`block transition-transform duration-700 group-hover:scale-[1.01] ${isTwoColumn ? 'w-full h-full object-contain' : 'w-full h-auto'}`}
+                                        loading="lazy"
+                                    />
+                                </div>
+                            </section>
+                        );
+                    })}
                 </div>
             )}
 
