@@ -487,8 +487,18 @@ export default function InlineCanvas({
             const originalWidth = img.width ?? 800;
             const originalHeight = img.height ?? 600;
 
-            let containerWidth = containerRef.current?.getBoundingClientRect().width || 800;
-            if (containerWidth === 0) containerWidth = 800;
+            // 2. ターゲットとなる最大幅を定義（デフォルトの800を廃止）
+            const targetMaxWidth = isPortrait ? 576 : 768; // 縦:576, 横:768
+
+            // コンテナの幅を計測
+            let containerWidth = containerRef.current?.getBoundingClientRect().width;
+
+            // 3. 幅が取得できない、または最大幅を超えている場合の補正
+            // Edit Modeのサイドバーなどで幅が狭まっている場合は containerWidth を優先するが
+            // 計測不能(0)や、逆に広すぎる場合は強制的に targetMaxWidth にする
+            if (!containerWidth || containerWidth === 0 || containerWidth > targetMaxWidth) {
+                containerWidth = targetMaxWidth;
+            }
 
             // Always render at full-width zoom for crisp quality
             const zoomLevel = containerWidth / originalWidth;
