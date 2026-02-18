@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import VideoUploader from '@/components/VideoUploader';
 import ManualViewer from '@/components/ManualViewer';
 import { extractFrameAtTimestamp, smartCropFrame } from '@/utils/videoProcessor';
@@ -144,6 +144,26 @@ export default function Home() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [loadingStage, setLoadingStage] = useState<string>('動画を分析中...');
+    const [progress, setProgress] = useState(0);
+    const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Simulated progress helper: gradually increases progress toward a target
+    const startSimulatedProgress = useCallback((from: number, to: number, durationMs: number) => {
+        if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+        let current = from;
+        const step = (to - from) / (durationMs / 200); // update every 200ms
+        progressTimerRef.current = setInterval(() => {
+            current = Math.min(current + step + Math.random() * 0.3, to - 1); // never quite reach target
+            setProgress(Math.round(current));
+        }, 200);
+    }, []);
+
+    const stopSimulatedProgress = useCallback(() => {
+        if (progressTimerRef.current) {
+            clearInterval(progressTimerRef.current);
+            progressTimerRef.current = null;
+        }
+    }, []);
     const [manual, setManual] = useState<ManualData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -209,6 +229,7 @@ export default function Home() {
 
         setIsLoading(true);
         setError(null);
+        setProgress(0);
 
         const finalSteps: ManualStep[] = [];
         let totalProgress = 0;
@@ -222,6 +243,11 @@ export default function Home() {
 
                 // STAGE 1: Agentic Analysis
                 setLoadingStage(`[${videoNum}/${totalVideos}] 動画「${videoFile.name}」を解析中... (AI分析)`);
+
+                // Simulated progress: each video's AI analysis covers (85 / totalVideos)% of the bar
+                const videoProgressStart = Math.round((videoIndex / totalVideos) * 85);
+                const videoProgressEnd = Math.round(((videoIndex + 1) / totalVideos) * 85);
+                startSimulatedProgress(videoProgressStart, videoProgressEnd, 60000); // simulate over ~60s
 
                 // Compression disabled for accuracy as per user request
                 // const compressedFile = await compressVideoForAnalysis(videoFile);
@@ -243,6 +269,10 @@ export default function Home() {
                 const aiSteps = data.steps;
 
                 console.log(`✅ [Video ${videoNum}] Analysis complete:`, aiSteps.length, 'steps');
+
+                // Stop simulated progress, jump to the video's analysis end point
+                stopSimulatedProgress();
+                setProgress(videoProgressEnd);
 
                 // STAGE 2: Extract Frames
                 setLoadingStage(`[${videoNum}/${totalVideos}] 動画「${videoFile.name}」から画像を切り出し中...`);
@@ -281,7 +311,9 @@ export default function Home() {
                             uid: Math.random().toString(36).substr(2, 9) // Ensure unique ID
                         });
 
-                        // Detailed progress update
+                        // Detailed progress update (85% → 100% range)
+                        const extractionProgress = 85 + Math.round(((videoIndex + (i + 1) / aiSteps.length) / totalVideos) * 15);
+                        setProgress(Math.min(extractionProgress, 99));
                         setLoadingStage(`[${videoNum}/${totalVideos}] 画像切り出し中... (${i + 1}/${aiSteps.length})`);
 
                     } catch (error) {
@@ -304,13 +336,16 @@ export default function Home() {
                 notes: []
             };
 
+            setProgress(100);
             setManual(newManual);
 
         } catch (err) {
             console.error(err);
             setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
         } finally {
+            stopSimulatedProgress();
             setIsLoading(false);
+            setProgress(0);
         }
     };
 
@@ -394,8 +429,18 @@ export default function Home() {
                 {/* Loading State */}
                 {isLoading && (
                     <div className="loading">
-                        <div className="loading__spinner"></div>
-                        <p className="loading__text">{loadingStage}</p>
+                        <div className="w-full max-w-md mx-auto mb-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-bold text-slate-600">{loadingStage}</p>
+                                <span className="text-sm font-black text-purple-600 tabular-nums">{progress}%</span>
+                            </div>
+                            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden shadow-inner">
+                                <div
+                                    className="bg-gradient-to-r from-purple-600 to-violet-500 h-full rounded-full transition-all duration-300 ease-out"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                        </div>
                         <p className="loading__subtext">少々お待ちください。</p>
                     </div>
                 )}

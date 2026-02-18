@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ManualData } from '@/app/page';
 import CopyButton from './CopyButton';
 import ExportButton from './ExportButton';
 import EditorToolbar from './EditorToolbar';
 import InlineCanvas from './InlineCanvas';
 import { ToolType, EditorState, StrokeStyle } from './EditorTypes';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface ManualViewerProps {
     manual: ManualData;
@@ -180,6 +181,22 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         });
     };
 
+    const handleDragEnd = useCallback((result: DropResult) => {
+        if (!result.destination || !onUpdateManual) return;
+        if (result.source.index === result.destination.index) return;
+
+        // Force all canvases to save before reordering
+        window.dispatchEvent(new CustomEvent('am:force-save'));
+
+        const reordered = Array.from(manual.steps);
+        const [removed] = reordered.splice(result.source.index, 1);
+        reordered.splice(result.destination.index, 0, removed);
+
+        // Renumber steps
+        const renumbered = reordered.map((step, i) => ({ ...step, stepNumber: i + 1 }));
+        onUpdateManual({ ...manual, steps: renumbered });
+    }, [manual, onUpdateManual]);
+
     return (
         <div className={`manual min-h-screen transition-all duration-700 ease-in-out ${isEditMode ? 'bg-[#f8fafc] pl-[80px] max-w-none' : 'bg-white'}`}>
 
@@ -294,130 +311,167 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                 </div>
             </div>
 
-            {/* Steps Section - ELITE RECONSTRUCTION */}
-            <div className={`mx-auto px-4 ${isEditMode ? 'py-16' : 'py-12'} pb-32 ${isTwoColumn && !isEditMode
-                ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8'
-                : 'steps max-w-4xl space-y-20'
-                }`}>
-                {
-                    manual.steps.map((step, index) => (
-                        <section key={index} className={`manual__step animate-slide-up ${isTwoColumn && !isEditMode ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : ''}`}>
-                            <div className={`flex items-start gap-6 group ${isEditMode ? 'opacity-50 hover:opacity-100 transition-opacity mb-6' : (isTwoColumn ? 'flex-grow mb-4' : 'mb-6')}`}>
+            {/* Steps Section */}
+            {isEditMode ? (
+                /* Edit Mode: Drag & Drop enabled */
+                <DragDropContext onDragEnd={handleDragEnd}>
+                    <Droppable droppableId="steps">
+                        {(provided) => (
+                            <div
+                                className="mx-auto px-4 py-16 pb-32 steps max-w-4xl space-y-20"
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                            >
+                                {manual.steps.map((step, index) => (
+                                    <Draggable key={step.uid || `step-${index}`} draggableId={step.uid || `step-${index}`} index={index}>
+                                        {(provided, snapshot) => (
+                                            <section
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                className={`manual__step animate-slide-up transition-shadow ${snapshot.isDragging ? 'shadow-2xl shadow-purple-500/20 ring-2 ring-purple-400 rounded-2xl bg-white p-4' : ''}`}
+                                            >
+                                                <div className="flex items-start gap-6 group opacity-50 hover:opacity-100 transition-opacity mb-6">
+                                                    {/* Drag Handle */}
+                                                    <div
+                                                        {...provided.dragHandleProps}
+                                                        className="flex-shrink-0 w-6 h-10 flex items-center justify-center cursor-grab active:cursor-grabbing text-slate-300 hover:text-purple-500 transition-colors mt-0.5"
+                                                        title="ドラッグして並び替え"
+                                                    >
+                                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                            <circle cx="5" cy="3" r="1.5" />
+                                                            <circle cx="11" cy="3" r="1.5" />
+                                                            <circle cx="5" cy="8" r="1.5" />
+                                                            <circle cx="11" cy="8" r="1.5" />
+                                                            <circle cx="5" cy="13" r="1.5" />
+                                                            <circle cx="11" cy="13" r="1.5" />
+                                                        </svg>
+                                                    </div>
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
+                                                            {step.stepNumber}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleDeleteStep(index)}
+                                                            className="px-3 py-1 bg-rose-50 text-rose-600 rounded-md text-xs font-bold border border-rose-200 hover:bg-rose-600 hover:text-white hover:border-transparent transition-all active:scale-95 flex items-center justify-center w-full whitespace-nowrap"
+                                                            title={`ステップ ${step.stepNumber} を削除`}
+                                                        >
+                                                            削除
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex flex-col gap-3 py-1 w-full">
+                                                        <input
+                                                            type="text"
+                                                            value={step.action}
+                                                            onChange={(e) => {
+                                                                if (!onUpdateManual) return;
+                                                                const newSteps = [...manual.steps];
+                                                                newSteps[index] = { ...step, action: e.target.value };
+                                                                onUpdateManual({ ...manual, steps: newSteps });
+                                                            }}
+                                                            className="manual__step-title text-3xl font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300"
+                                                            placeholder="手順のタイトル"
+                                                        />
+                                                        <textarea
+                                                            value={step.detail}
+                                                            onChange={(e) => {
+                                                                if (!onUpdateManual) return;
+                                                                const newSteps = [...manual.steps];
+                                                                newSteps[index] = { ...step, detail: e.target.value };
+                                                                onUpdateManual({ ...manual, steps: newSteps });
+                                                            }}
+                                                            className="manual__step-desc text-slate-800 font-bold text-lg leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors min-h-[100px] resize-y placeholder-slate-300"
+                                                            placeholder="手順の詳細説明"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10">
+                                                    <InlineCanvas
+                                                        canvasId={`step-${step.uid || index}`}
+                                                        imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
+                                                        activeTool={activeTool}
+                                                        currentColor={currentColor}
+                                                        onColorChange={setCurrentColor}
+                                                        strokeWidth={strokeWidth}
+                                                        onStrokeWidthChange={setStrokeWidth}
+                                                        strokeStyle={strokeStyle}
+                                                        onStrokeStyleChange={setStrokeStyle}
+                                                        fontSize={fontSize}
+                                                        onFontSizeChange={setFontSize}
+                                                        stampCount={stampCount}
+                                                        onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
+                                                        onStampUsed={() => setStampCount(prev => prev + 1)}
+                                                        onToolReset={() => setActiveTool('select')}
+                                                        initialData={step.canvasData}
+                                                    />
+                                                </div>
+                                            </section>
+                                        )}
+                                    </Draggable>
+                                ))}
+                                {provided.placeholder}
+                            </div>
+                        )}
+                    </Droppable>
+                </DragDropContext>
+            ) : (
+                /* View Mode: No drag & drop */
+                <div className={`mx-auto px-4 py-12 pb-32 ${isTwoColumn
+                    ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8'
+                    : 'steps max-w-4xl space-y-20'
+                    }`}>
+                    {manual.steps.map((step, index) => (
+                        <section key={index} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : ''}`}>
+                            <div className={`flex items-start gap-6 group ${isTwoColumn ? 'flex-grow mb-4' : 'mb-6'}`}>
                                 <div className="flex flex-col items-center gap-3">
                                     <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
                                         {step.stepNumber}
                                     </div>
-                                    {isEditMode && (
-                                        <button
-                                            onClick={() => handleDeleteStep(index)}
-                                            className="px-3 py-1 bg-rose-50 text-rose-600 rounded-md text-xs font-bold border border-rose-200 hover:bg-rose-600 hover:text-white hover:border-transparent transition-all active:scale-95 flex items-center justify-center w-full whitespace-nowrap"
-                                            title={`ステップ ${step.stepNumber} を削除`}
-                                        >
-                                            削除
-                                        </button>
-                                    )}
                                 </div>
                                 <div className="flex flex-col gap-3 py-1 w-full">
-                                    {isEditMode ? (
-                                        <>
-                                            <input
-                                                type="text"
-                                                value={step.action}
-                                                onChange={(e) => {
-                                                    if (!onUpdateManual) return;
-                                                    const newSteps = [...manual.steps];
-                                                    newSteps[index] = { ...step, action: e.target.value };
-                                                    onUpdateManual({ ...manual, steps: newSteps });
-                                                }}
-                                                className="manual__step-title text-3xl font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300"
-                                                placeholder="手順のタイトル"
-                                            />
-                                            <textarea
-                                                value={step.detail}
-                                                onChange={(e) => {
-                                                    if (!onUpdateManual) return;
-                                                    const newSteps = [...manual.steps];
-                                                    newSteps[index] = { ...step, detail: e.target.value };
-                                                    onUpdateManual({ ...manual, steps: newSteps });
-                                                }}
-                                                className="manual__step-desc text-slate-800 font-bold text-lg leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors min-h-[100px] resize-y placeholder-slate-300"
-                                                placeholder="手順の詳細説明"
-                                            />
-                                        </>
-                                    ) : (
-                                        <>
-                                            <h3 className="manual__step-title text-2xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
-                                                {step.action}
-                                            </h3>
-                                            <p className="manual__step-desc text-slate-800 font-bold text-base leading-relaxed">
-                                                {step.detail}
-                                            </p>
-                                        </>
-                                    )}
+                                    <h3 className="manual__step-title text-2xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
+                                        {step.action}
+                                    </h3>
+                                    <p className="manual__step-desc text-slate-800 font-bold text-base leading-relaxed">
+                                        {step.detail}
+                                    </p>
                                 </div>
                             </div>
 
-                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 ${isEditMode
-                                ? 'bg-white shadow-floating border-purple-600/10'
-                                : 'bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1'
-                                } ${isTwoColumn && !isEditMode ? 'aspect-[4/3] flex items-center justify-center bg-slate-100' : ''}`}>
-                                {isEditMode ? (
-                                    <InlineCanvas
-                                        canvasId={`step-${step.uid || index}`} // Stable ID using uid
-                                        // CRITICAL FIX: Avoid expired Blob URLs from localStorage. Prefer Base64 screenshot if originalUrl is blob.
-                                        imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
-                                        activeTool={activeTool}
-                                        currentColor={currentColor}
-                                        onColorChange={setCurrentColor}
-                                        strokeWidth={strokeWidth}
-                                        onStrokeWidthChange={setStrokeWidth}
-                                        strokeStyle={strokeStyle}
-                                        onStrokeStyleChange={setStrokeStyle}
-                                        fontSize={fontSize}
-                                        onFontSizeChange={setFontSize}
-                                        stampCount={stampCount}
-                                        onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
-                                        onStampUsed={() => setStampCount(prev => prev + 1)}
-                                        onToolReset={() => setActiveTool('select')}
-                                        initialData={step.canvasData}
-                                    />
-                                ) : (
-                                    <img
-                                        src={step.screenshot}
-                                        alt={`Step ${step.stepNumber}: ${step.action}`}
-                                        className={`block transition-transform duration-700 group-hover:scale-[1.01] ${isTwoColumn ? 'w-full h-full object-contain' : 'w-full h-auto'}`}
-                                        loading="lazy"
-                                    />
-                                )}
+                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1 ${isTwoColumn ? 'aspect-[4/3] flex items-center justify-center bg-slate-100' : ''}`}>
+                                <img
+                                    src={step.screenshot}
+                                    alt={`Step ${step.stepNumber}: ${step.action}`}
+                                    className={`block transition-transform duration-700 group-hover:scale-[1.01] ${isTwoColumn ? 'w-full h-full object-contain' : 'w-full h-auto'}`}
+                                    loading="lazy"
+                                />
                             </div>
                         </section>
-                    ))
-                }
-            </div >
+                    ))}
+                </div>
+            )}
 
             {/* Notes Section */}
-            {
-                !isEditMode && manual.notes && manual.notes.length > 0 && (
-                    <div className="max-w-4xl mx-auto px-4 pb-24">
-                        <div className="bg-amber-50/50 border border-amber-100 p-8 rounded-[32px]">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                </div>
-                                <h4 className="text-lg font-black text-amber-900 uppercase tracking-wider">Attention & Notes</h4>
+            {!isEditMode && manual.notes && manual.notes.length > 0 && (
+                <div className="max-w-4xl mx-auto px-4 pb-24">
+                    <div className="bg-amber-50/50 border border-amber-100 p-8 rounded-[32px]">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </div>
-                            <ul className="grid gap-3">
-                                {manual.notes.map((note, index) => (
-                                    <li key={index} className="flex items-start gap-3 text-amber-800/80 font-medium">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 shrink-0" />
-                                        <span>{note}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                            <h4 className="text-lg font-black text-amber-900 uppercase tracking-wider">Attention & Notes</h4>
                         </div>
+                        <ul className="grid gap-3">
+                            {manual.notes.map((note, index) => (
+                                <li key={index} className="flex items-start gap-3 text-amber-800/80 font-medium">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 shrink-0" />
+                                    <span>{note}</span>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
-                )
-            }
-        </div >
+                </div>
+            )}
+        </div>
     );
 }
