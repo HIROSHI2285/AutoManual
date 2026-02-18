@@ -52,6 +52,7 @@ export default function InlineCanvas({
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastSelectedTextRef = useRef<Textbox | null>(null);
     const [, setTick] = useState(0);
+    const [compactScale, setCompactScale] = useState(1);
 
     const activeToolRef = useRef(activeTool);
     const currentColorRef = useRef(currentColor);
@@ -488,21 +489,27 @@ export default function InlineCanvas({
             let containerWidth = containerRef.current?.getBoundingClientRect().width || 800;
             if (containerWidth === 0) containerWidth = 800;
 
-            let zoomLevel: number;
-            if (compact) {
-                const maxHeight = containerWidth * 0.75;
-                zoomLevel = Math.min(containerWidth / originalWidth, maxHeight / originalHeight);
-            } else {
-                zoomLevel = containerWidth / originalWidth;
-            }
+            // Always render at full-width zoom for crisp quality
+            const zoomLevel = containerWidth / originalWidth;
             // Fix: Check if this specific canvas instance is still the active one
             if (!isMounted.current || fabricCanvasRef.current !== canvas) return;
 
-            const canvasWidth = originalWidth * zoomLevel;
-            const canvasHeight = originalHeight * zoomLevel;
-            canvas.setWidth(canvasWidth);
-            canvas.setHeight(canvasHeight);
+            canvas.setWidth(containerWidth);
+            canvas.setHeight(originalHeight * zoomLevel);
             canvas.setZoom(zoomLevel);
+
+            // For compact mode: calculate CSS scale to fit within 4:3 aspect ratio
+            if (compact) {
+                const maxHeight = containerWidth * 0.75;
+                const canvasHeight = originalHeight * zoomLevel;
+                if (canvasHeight > maxHeight) {
+                    setCompactScale(maxHeight / canvasHeight);
+                } else {
+                    setCompactScale(1);
+                }
+            } else {
+                setCompactScale(1);
+            }
 
             img.set({ originX: 'left', originY: 'top', left: 0, top: 0, scaleX: 1, scaleY: 1, selectable: false, evented: false });
             canvas.backgroundImage = img;
@@ -649,7 +656,12 @@ export default function InlineCanvas({
                 : { minHeight: '300px', backgroundColor: '#ffffff' }
             }
         >
-            <div className={`relative z-10 shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-slate-900/5 ${compact ? '' : 'w-full'}`}>
+            <div className={`relative z-10 shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-slate-900/5 ${compact ? '' : 'w-full'}`}
+                style={compact && compactScale < 1 ? {
+                    transform: `scale(${compactScale})`,
+                    transformOrigin: 'center center'
+                } : undefined}
+            >
                 <canvas ref={canvasRef} />
             </div>
             {!compact && (
