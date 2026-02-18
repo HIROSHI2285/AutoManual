@@ -440,12 +440,12 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             ) : isEditMode ? (
                 /* Normal Edit Mode: Full InlineCanvas */
                 <div className={`mx-auto px-4 py-16 pb-32 ${isTwoColumn
-                    ? 'w-full max-w-[1400px] grid grid-cols-2 gap-6'
+                    ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8'
                     : 'steps max-w-4xl space-y-20'
                     }`}>
                     {manual.steps.map((step, index) => (
-                        <section key={step.uid || `step-${index}`} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-4 rounded-2xl border border-purple-100 shadow-sm flex flex-col' : ''}`}>
-                            <div className="flex items-start gap-6 group mb-6">
+                        <section key={step.uid || `step-${index}`} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : ''}`}>
+                            <div className={`flex items-start gap-6 group ${isTwoColumn ? 'flex-grow mb-4' : 'mb-6'}`}>
                                 <div className="flex flex-col items-center gap-3">
                                     <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
                                         {step.stepNumber}
@@ -485,7 +485,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 </div>
                             </div>
 
-                            <div className="manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10">
+                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10 ${isTwoColumn ? 'aspect-[4/3]' : ''}`}>
                                 <InlineCanvas
                                     canvasId={`step-${step.uid || index}`}
                                     imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
