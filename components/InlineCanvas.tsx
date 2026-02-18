@@ -42,7 +42,8 @@ export default function InlineCanvas({
     onStampUsed,
     onToolReset,
     initialData,
-    compact
+    compact,
+    isPortrait
 }: InlineCanvasProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
