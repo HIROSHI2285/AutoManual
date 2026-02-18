@@ -506,6 +506,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                     onStampUsed={() => setStampCount(prev => prev + 1)}
                                     onToolReset={() => setActiveTool('select')}
                                     initialData={step.canvasData}
+                                    compact={isTwoColumn}
                                 />
                             </div>
                         </section>

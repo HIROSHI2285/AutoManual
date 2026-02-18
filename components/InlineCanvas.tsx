@@ -21,6 +21,7 @@ interface InlineCanvasProps {
     onStampUsed: () => void;
     onToolReset: () => void;
     initialData?: any;
+    compact?: boolean;
 }
 
 export default function InlineCanvas({
@@ -39,7 +40,8 @@ export default function InlineCanvas({
     onUpdate,
     onStampUsed,
     onToolReset,
-    initialData
+    initialData,
+    compact
 }: InlineCanvasProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -485,12 +487,21 @@ export default function InlineCanvas({
 
             let containerWidth = containerRef.current?.getBoundingClientRect().width || 800;
             if (containerWidth === 0) containerWidth = 800;
-            const zoomLevel = containerWidth / originalWidth;
+
+            let zoomLevel: number;
+            if (compact) {
+                const maxHeight = containerWidth * 0.75;
+                zoomLevel = Math.min(containerWidth / originalWidth, maxHeight / originalHeight);
+            } else {
+                zoomLevel = containerWidth / originalWidth;
+            }
             // Fix: Check if this specific canvas instance is still the active one
             if (!isMounted.current || fabricCanvasRef.current !== canvas) return;
 
-            canvas.setWidth(containerWidth);
-            canvas.setHeight(originalHeight * zoomLevel);
+            const canvasWidth = originalWidth * zoomLevel;
+            const canvasHeight = originalHeight * zoomLevel;
+            canvas.setWidth(canvasWidth);
+            canvas.setHeight(canvasHeight);
             canvas.setZoom(zoomLevel);
 
             img.set({ originX: 'left', originY: 'top', left: 0, top: 0, scaleX: 1, scaleY: 1, selectable: false, evented: false });
@@ -537,7 +548,7 @@ export default function InlineCanvas({
             window.removeEventListener('am:force-save', handleForceSave);
             canvas.dispose();
         };
-    }, [canvasId, imageUrl]);
+    }, [canvasId, imageUrl, compact]);
 
     // ツール切替・プロパティ更新 Effect
     useEffect(() => {
@@ -632,15 +643,20 @@ export default function InlineCanvas({
     return (
         <div
             ref={containerRef}
-            className="w-full relative group transition-all"
-            style={{ minHeight: '300px', backgroundColor: '#ffffff' }}
+            className={`relative group transition-all ${compact ? 'flex items-center justify-center' : 'w-full'}`}
+            style={compact
+                ? { aspectRatio: '4/3', backgroundColor: '#f1f5f9' }
+                : { minHeight: '300px', backgroundColor: '#ffffff' }
+            }
         >
-            <div className="relative z-10 w-full shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-slate-900/5">
+            <div className={`relative z-10 shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-slate-900/5 ${compact ? '' : 'w-full'}`}>
                 <canvas ref={canvasRef} />
             </div>
-            <div className="absolute inset-0 pointer-events-none z-0 opacity-10 rounded-xl overflow-hidden">
-                <div className="w-full h-full" style={{ backgroundImage: 'radial-gradient(#4f46e5 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
-            </div>
+            {!compact && (
+                <div className="absolute inset-0 pointer-events-none z-0 opacity-10 rounded-xl overflow-hidden">
+                    <div className="w-full h-full" style={{ backgroundImage: 'radial-gradient(#4f46e5 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
+                </div>
+            )}
         </div>
     );
 }
