@@ -486,7 +486,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             </div>
 
                             <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 ${isTwoColumn
-                                ? 'bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl aspect-[4/3] flex items-center justify-center bg-slate-100'
+                                ? 'bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1'
                                 : 'bg-white shadow-floating border-purple-600/10'
                                 }`}>
                                 <InlineCanvas
