@@ -18,6 +18,7 @@ interface ManualViewerProps {
 export default function ManualViewer({ manual, videoFile, onUpdateManual }: ManualViewerProps) {
     // Editor State (Lazy initialized from localStorage — rerender-lazy-init)
     const [isEditMode, setIsEditMode] = useState(false);
+    const [isReorderMode, setIsReorderMode] = useState(false);
     const [activeTool, setActiveTool] = useState<ToolType>('select');
     const [currentColor, setCurrentColor] = useState(() => {
         if (typeof window === 'undefined') return '#ef4444';
@@ -96,11 +97,13 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             onUpdateManual(backupManual);
         }
         setIsEditMode(false);
+        setIsReorderMode(false);
         setBackupManual(null);
     };
 
     const handleSaveAndExit = () => {
         setIsEditMode(false);
+        setIsReorderMode(false);
         setBackupManual(null);
     };
 
@@ -232,10 +235,17 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             <>
                                 <div className="flex items-center justify-between gap-3 mb-4 border-b border-purple-100 pb-4">
                                     <div className="flex items-center gap-3">
-                                        <span className="bg-purple-600 text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm">EDITING</span>
-                                        <span className="text-purple-600/60 text-[10px] font-bold uppercase tracking-widest">タイトルと概要を編集できます</span>
+                                        <span className={`${isReorderMode ? 'bg-amber-500' : 'bg-purple-600'} text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm`}>{isReorderMode ? 'REORDER' : 'EDITING'}</span>
+                                        <span className="text-purple-600/60 text-[10px] font-bold uppercase tracking-widest">{isReorderMode ? 'ドラッグで手順を並び替え' : 'タイトルと概要を編集できます'}</span>
                                     </div>
                                     <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => setIsReorderMode(!isReorderMode)}
+                                            className={`h-10 px-4 rounded-lg font-bold text-xs uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap flex items-center gap-2 ${isReorderMode ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}`}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="3" r="1.5" /><circle cx="11" cy="3" r="1.5" /><circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" /><circle cx="5" cy="13" r="1.5" /><circle cx="11" cy="13" r="1.5" /></svg>
+                                            {isReorderMode ? '編集に戻る' : '並び替え'}
+                                        </button>
                                         <button
                                             onClick={handleCancelEdit}
                                             className="h-10 px-4 rounded-lg text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-100 hover:text-slate-900 transition-all active:scale-95 whitespace-nowrap"
@@ -312,108 +322,136 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             </div>
 
             {/* Steps Section */}
-            {isEditMode ? (
-                /* Edit Mode: Drag & Drop enabled */
+            {isEditMode && isReorderMode ? (
+                /* Reorder Mode: Compact thumbnail cards with drag & drop */
                 <DragDropContext onDragEnd={handleDragEnd}>
                     <Droppable droppableId="steps">
                         {(provided) => (
                             <div
-                                className="mx-auto px-4 py-16 pb-32 steps max-w-4xl space-y-20"
+                                className="mx-auto px-4 py-8 pb-32 max-w-5xl"
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
                             >
-                                {manual.steps.map((step, index) => (
-                                    <Draggable key={step.uid || `step-${index}`} draggableId={step.uid || `step-${index}`} index={index}>
-                                        {(provided, snapshot) => (
-                                            <section
-                                                ref={provided.innerRef}
-                                                {...provided.draggableProps}
-                                                className={`manual__step animate-slide-up transition-shadow ${snapshot.isDragging ? 'shadow-2xl shadow-purple-500/20 ring-2 ring-purple-400 rounded-2xl bg-white p-4' : ''}`}
-                                            >
-                                                <div className="flex items-start gap-6 group opacity-50 hover:opacity-100 transition-opacity mb-6">
-                                                    {/* Drag Handle */}
-                                                    <div
-                                                        {...provided.dragHandleProps}
-                                                        className="flex-shrink-0 w-6 h-10 flex items-center justify-center cursor-grab active:cursor-grabbing text-slate-300 hover:text-purple-500 transition-colors mt-0.5"
-                                                        title="ドラッグして並び替え"
-                                                    >
-                                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                                            <circle cx="5" cy="3" r="1.5" />
-                                                            <circle cx="11" cy="3" r="1.5" />
-                                                            <circle cx="5" cy="8" r="1.5" />
-                                                            <circle cx="11" cy="8" r="1.5" />
-                                                            <circle cx="5" cy="13" r="1.5" />
-                                                            <circle cx="11" cy="13" r="1.5" />
-                                                        </svg>
-                                                    </div>
-                                                    <div className="flex flex-col items-center gap-3">
-                                                        <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    {manual.steps.map((step, index) => (
+                                        <Draggable key={step.uid || `step-${index}`} draggableId={step.uid || `step-${index}`} index={index}>
+                                            {(provided, snapshot) => (
+                                                <div
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    {...provided.dragHandleProps}
+                                                    className={`group cursor-grab active:cursor-grabbing rounded-xl border-2 bg-white overflow-hidden transition-all select-none ${snapshot.isDragging
+                                                        ? 'shadow-2xl shadow-purple-500/20 ring-2 ring-purple-400 scale-105 rotate-1 border-purple-400'
+                                                        : 'border-slate-200 hover:border-purple-300 hover:shadow-lg'
+                                                        }`}
+                                                >
+                                                    {/* Thumbnail */}
+                                                    <div className="aspect-video bg-slate-100 overflow-hidden relative">
+                                                        {step.screenshot ? (
+                                                            <img
+                                                                src={step.screenshot}
+                                                                alt={step.action}
+                                                                className="w-full h-full object-cover"
+                                                                draggable={false}
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                            </div>
+                                                        )}
+                                                        {/* Step number badge */}
+                                                        <div className="absolute top-2 left-2 w-7 h-7 bg-slate-950 text-white rounded-lg flex items-center justify-center text-xs font-black shadow-lg">
                                                             {step.stepNumber}
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleDeleteStep(index)}
-                                                            className="px-3 py-1 bg-rose-50 text-rose-600 rounded-md text-xs font-bold border border-rose-200 hover:bg-rose-600 hover:text-white hover:border-transparent transition-all active:scale-95 flex items-center justify-center w-full whitespace-nowrap"
-                                                            title={`ステップ ${step.stepNumber} を削除`}
-                                                        >
-                                                            削除
-                                                        </button>
+                                                        {/* Drag indicator overlay */}
+                                                        <div className="absolute inset-0 bg-purple-600/0 group-hover:bg-purple-600/5 transition-colors flex items-center justify-center">
+                                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2 shadow-lg">
+                                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="#7c3aed"><circle cx="5" cy="3" r="1.5" /><circle cx="11" cy="3" r="1.5" /><circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" /><circle cx="5" cy="13" r="1.5" /><circle cx="11" cy="13" r="1.5" /></svg>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex flex-col gap-3 py-1 w-full">
-                                                        <input
-                                                            type="text"
-                                                            value={step.action}
-                                                            onChange={(e) => {
-                                                                if (!onUpdateManual) return;
-                                                                const newSteps = [...manual.steps];
-                                                                newSteps[index] = { ...step, action: e.target.value };
-                                                                onUpdateManual({ ...manual, steps: newSteps });
-                                                            }}
-                                                            className="manual__step-title text-3xl font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300"
-                                                            placeholder="手順のタイトル"
-                                                        />
-                                                        <textarea
-                                                            value={step.detail}
-                                                            onChange={(e) => {
-                                                                if (!onUpdateManual) return;
-                                                                const newSteps = [...manual.steps];
-                                                                newSteps[index] = { ...step, detail: e.target.value };
-                                                                onUpdateManual({ ...manual, steps: newSteps });
-                                                            }}
-                                                            className="manual__step-desc text-slate-800 font-bold text-lg leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors min-h-[100px] resize-y placeholder-slate-300"
-                                                            placeholder="手順の詳細説明"
-                                                        />
+                                                    {/* Title */}
+                                                    <div className="p-3">
+                                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">{step.action}</p>
                                                     </div>
                                                 </div>
-
-                                                <div className="manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10">
-                                                    <InlineCanvas
-                                                        canvasId={`step-${step.uid || index}`}
-                                                        imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
-                                                        activeTool={activeTool}
-                                                        currentColor={currentColor}
-                                                        onColorChange={setCurrentColor}
-                                                        strokeWidth={strokeWidth}
-                                                        onStrokeWidthChange={setStrokeWidth}
-                                                        strokeStyle={strokeStyle}
-                                                        onStrokeStyleChange={setStrokeStyle}
-                                                        fontSize={fontSize}
-                                                        onFontSizeChange={setFontSize}
-                                                        stampCount={stampCount}
-                                                        onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
-                                                        onStampUsed={() => setStampCount(prev => prev + 1)}
-                                                        onToolReset={() => setActiveTool('select')}
-                                                        initialData={step.canvasData}
-                                                    />
-                                                </div>
-                                            </section>
-                                        )}
-                                    </Draggable>
-                                ))}
+                                            )}
+                                        </Draggable>
+                                    ))}
+                                </div>
                                 {provided.placeholder}
                             </div>
                         )}
                     </Droppable>
                 </DragDropContext>
+            ) : isEditMode ? (
+                /* Normal Edit Mode: Full InlineCanvas, no drag */
+                <div className="mx-auto px-4 py-16 pb-32 steps max-w-4xl space-y-20">
+                    {manual.steps.map((step, index) => (
+                        <section key={step.uid || `step-${index}`} className="manual__step animate-slide-up">
+                            <div className="flex items-start gap-6 group mb-6">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
+                                        {step.stepNumber}
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeleteStep(index)}
+                                        className="px-3 py-1 bg-rose-50 text-rose-600 rounded-md text-xs font-bold border border-rose-200 hover:bg-rose-600 hover:text-white hover:border-transparent transition-all active:scale-95 flex items-center justify-center w-full whitespace-nowrap"
+                                        title={`ステップ ${step.stepNumber} を削除`}
+                                    >
+                                        削除
+                                    </button>
+                                </div>
+                                <div className="flex flex-col gap-3 py-1 w-full">
+                                    <input
+                                        type="text"
+                                        value={step.action}
+                                        onChange={(e) => {
+                                            if (!onUpdateManual) return;
+                                            const newSteps = [...manual.steps];
+                                            newSteps[index] = { ...step, action: e.target.value };
+                                            onUpdateManual({ ...manual, steps: newSteps });
+                                        }}
+                                        className="manual__step-title text-3xl font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300"
+                                        placeholder="手順のタイトル"
+                                    />
+                                    <textarea
+                                        value={step.detail}
+                                        onChange={(e) => {
+                                            if (!onUpdateManual) return;
+                                            const newSteps = [...manual.steps];
+                                            newSteps[index] = { ...step, detail: e.target.value };
+                                            onUpdateManual({ ...manual, steps: newSteps });
+                                        }}
+                                        className="manual__step-desc text-slate-800 font-bold text-lg leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors min-h-[100px] resize-y placeholder-slate-300"
+                                        placeholder="手順の詳細説明"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10">
+                                <InlineCanvas
+                                    canvasId={`step-${step.uid || index}`}
+                                    imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
+                                    activeTool={activeTool}
+                                    currentColor={currentColor}
+                                    onColorChange={setCurrentColor}
+                                    strokeWidth={strokeWidth}
+                                    onStrokeWidthChange={setStrokeWidth}
+                                    strokeStyle={strokeStyle}
+                                    onStrokeStyleChange={setStrokeStyle}
+                                    fontSize={fontSize}
+                                    onFontSizeChange={setFontSize}
+                                    stampCount={stampCount}
+                                    onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
+                                    onStampUsed={() => setStampCount(prev => prev + 1)}
+                                    onToolReset={() => setActiveTool('select')}
+                                    initialData={step.canvasData}
+                                />
+                            </div>
+                        </section>
+                    ))}
+                </div>
             ) : (
                 /* View Mode: No drag & drop */
                 <div className={`mx-auto px-4 py-12 pb-32 ${isTwoColumn
