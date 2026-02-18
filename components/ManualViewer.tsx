@@ -59,6 +59,25 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         }
     }, [currentColor, strokeWidth, strokeStyle, fontSize, isEditMode]);
 
+    // Determine orientation for all steps
+    const [orientations, setOrientations] = useState<Record<string, boolean>>({});
+    useEffect(() => {
+        manual.steps.forEach((step, index) => {
+            const src = (step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '');
+            if (!src) return;
+            const img = new Image();
+            img.onload = () => {
+                const isP = img.height > img.width;
+                setOrientations(prev => {
+                    const key = step.uid || index;
+                    if (prev[key] === isP) return prev;
+                    return { ...prev, [key]: isP };
+                });
+            };
+            img.src = src;
+        });
+    }, [manual.steps]);
+
     const enterEditMode = () => {
         // Generate stable UIDs for any step that doesn't have one
         const stepsWithUids = manual.steps.map(step => ({
@@ -480,7 +499,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 </div>
                             </div>
 
-                            <div className="manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10">
+                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10 mx-auto ${orientations[step.uid || index] ? 'max-w-xl' : 'max-w-3xl'}`}>
                                 <InlineCanvas
                                     canvasId={`step-${step.uid || index}`}
                                     imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
@@ -498,6 +517,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                     onStampUsed={() => setStampCount(prev => prev + 1)}
                                     onToolReset={() => setActiveTool('select')}
                                     initialData={step.canvasData}
+                                    isPortrait={orientations[step.uid || index]}
                                 />
                             </div>
                         </section>

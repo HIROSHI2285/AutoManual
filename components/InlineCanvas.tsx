@@ -22,6 +22,7 @@ interface InlineCanvasProps {
     onToolReset: () => void;
     initialData?: any;
     compact?: boolean;
+    isPortrait?: boolean;
 }
 
 export default function InlineCanvas({
