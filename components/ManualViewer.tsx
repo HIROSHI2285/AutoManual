@@ -260,7 +260,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 <div className="flex items-center justify-between gap-3 mb-4 border-b border-purple-100 pb-4">
                                     <div className="flex items-center gap-3">
                                         <span className={`${isReorderMode ? 'bg-amber-500' : 'bg-purple-600'} text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest shadow-sm`}>{isReorderMode ? 'REORDER' : 'EDITING'}</span>
-                                        <span className="text-purple-600/60 text-[10px] font-bold uppercase tracking-widest">{isReorderMode ? 'ドラッグで手順を並び替え' : 'タイトルと概要を編集できます'}</span>
+                                        <span className="text-purple-600/60 text-[10px] font-bold uppercase tracking-widest">{isReorderMode ? 'クリックで手順を並び替え' : 'タイトルと概要を編集できます'}</span>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <button
@@ -393,12 +393,12 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                         }`}
                                 >
                                     {/* Thumbnail */}
-                                    <div className="aspect-video bg-slate-100 overflow-hidden relative">
+                                    <div className="aspect-[4/3] bg-slate-100 overflow-hidden relative">
                                         {step.screenshot ? (
                                             <img
                                                 src={step.screenshot}
                                                 alt={step.action}
-                                                className="w-full h-full object-cover"
+                                                className="w-full h-full object-contain"
                                                 draggable={false}
                                             />
                                         ) : (
@@ -428,9 +428,19 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                             </div>
                                         )}
                                     </div>
-                                    {/* Title */}
-                                    <div className="p-3">
-                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">{step.action}</p>
+                                    {/* Title + Delete */}
+                                    <div className="p-3 flex items-start justify-between gap-2">
+                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug flex-1">{step.action}</p>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteStep(index);
+                                            }}
+                                            className="flex-shrink-0 w-7 h-7 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-200 hover:border-transparent transition-all active:scale-90 flex items-center justify-center"
+                                            title={`ステップ ${step.stepNumber} を削除`}
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
                                     </div>
                                 </div>
                             );
@@ -486,28 +496,36 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             </div>
 
                             <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 ${isTwoColumn
-                                ? 'bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1'
+                                ? 'bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1 aspect-[4/3] flex items-center justify-center bg-slate-100'
                                 : 'bg-white shadow-floating border-purple-600/10'
                                 }`}>
-                                <InlineCanvas
-                                    canvasId={`step-${step.uid || index}`}
-                                    imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
-                                    activeTool={activeTool}
-                                    currentColor={currentColor}
-                                    onColorChange={setCurrentColor}
-                                    strokeWidth={strokeWidth}
-                                    onStrokeWidthChange={setStrokeWidth}
-                                    strokeStyle={strokeStyle}
-                                    onStrokeStyleChange={setStrokeStyle}
-                                    fontSize={fontSize}
-                                    onFontSizeChange={setFontSize}
-                                    stampCount={stampCount}
-                                    onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
-                                    onStampUsed={() => setStampCount(prev => prev + 1)}
-                                    onToolReset={() => setActiveTool('select')}
-                                    initialData={step.canvasData}
-                                    compact={isTwoColumn}
-                                />
+                                {isTwoColumn ? (
+                                    <img
+                                        src={step.screenshot}
+                                        alt={`Step ${step.stepNumber}: ${step.action}`}
+                                        className="w-full h-full object-contain"
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    <InlineCanvas
+                                        canvasId={`step-${step.uid || index}`}
+                                        imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
+                                        activeTool={activeTool}
+                                        currentColor={currentColor}
+                                        onColorChange={setCurrentColor}
+                                        strokeWidth={strokeWidth}
+                                        onStrokeWidthChange={setStrokeWidth}
+                                        strokeStyle={strokeStyle}
+                                        onStrokeStyleChange={setStrokeStyle}
+                                        fontSize={fontSize}
+                                        onFontSizeChange={setFontSize}
+                                        stampCount={stampCount}
+                                        onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
+                                        onStampUsed={() => setStampCount(prev => prev + 1)}
+                                        onToolReset={() => setActiveTool('select')}
+                                        initialData={step.canvasData}
+                                    />
+                                )}
                             </div>
                         </section>
                     ))}
