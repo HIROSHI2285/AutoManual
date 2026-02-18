@@ -308,7 +308,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                         )}
                     </div>
 
-                    {/* Right side actions - HIDDEN in Edit Mode */}
+                    {/* Right side actions */}
                     {!isEditMode && (
                         <div className="manual__actions flex items-center gap-3 shrink-0 ml-4">
                             {/* View Toggle */}
@@ -340,6 +340,25 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             <div className="h-8 w-px bg-slate-200 mx-2" />
                             <CopyButton manual={manual} isTwoColumn={isTwoColumn} />
                             <ExportButton manual={manual} />
+                        </div>
+                    )}
+                    {/* Column toggle in edit mode */}
+                    {isEditMode && !isReorderMode && (
+                        <div className="manual__actions flex items-center gap-3 shrink-0 ml-4">
+                            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                                <button
+                                    onClick={() => setIsTwoColumn(false)}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!isTwoColumn ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                                >
+                                    1列
+                                </button>
+                                <button
+                                    onClick={() => setIsTwoColumn(true)}
+                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isTwoColumn ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                                >
+                                    2列
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -419,10 +438,13 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     </div>
                 </div>
             ) : isEditMode ? (
-                /* Normal Edit Mode: Full InlineCanvas, no drag */
-                <div className="mx-auto px-4 py-16 pb-32 steps max-w-4xl space-y-20">
+                /* Normal Edit Mode: Full InlineCanvas */
+                <div className={`mx-auto px-4 py-16 pb-32 ${isTwoColumn
+                    ? 'w-full max-w-[1400px] grid grid-cols-2 gap-6'
+                    : 'steps max-w-4xl space-y-20'
+                    }`}>
                     {manual.steps.map((step, index) => (
-                        <section key={step.uid || `step-${index}`} className="manual__step animate-slide-up">
+                        <section key={step.uid || `step-${index}`} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-4 rounded-2xl border border-purple-100 shadow-sm flex flex-col' : ''}`}>
                             <div className="flex items-start gap-6 group mb-6">
                                 <div className="flex flex-col items-center gap-3">
                                     <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">

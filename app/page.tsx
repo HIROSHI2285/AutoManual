@@ -147,15 +147,19 @@ export default function Home() {
     const [progress, setProgress] = useState(0);
     const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Simulated progress helper: gradually increases progress toward a target
+    // Simulated progress helper: logarithmic curve — fast at start, slows as it approaches target
     const startSimulatedProgress = useCallback((from: number, to: number, durationMs: number) => {
         if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-        let current = from;
-        const step = (to - from) / (durationMs / 200); // update every 200ms
+        const startTime = Date.now();
         progressTimerRef.current = setInterval(() => {
-            current = Math.min(current + step + Math.random() * 0.3, to - 1); // never quite reach target
-            setProgress(Math.round(current));
-        }, 200);
+            const elapsed = Date.now() - startTime;
+            const ratio = Math.min(elapsed / durationMs, 1);
+            // Logarithmic ease-out: fast start, very slow finish
+            // At 50% time elapsed → ~70% progress; at 90% time → ~90% progress
+            const eased = 1 - Math.pow(1 - ratio, 3);
+            const current = from + (to - from) * eased * 0.95; // never fully reach target
+            setProgress(Math.round(Math.min(current, to - 1)));
+        }, 300);
     }, []);
 
     const stopSimulatedProgress = useCallback(() => {
@@ -247,7 +251,7 @@ export default function Home() {
                 // Simulated progress: each video's AI analysis covers (85 / totalVideos)% of the bar
                 const videoProgressStart = Math.round((videoIndex / totalVideos) * 85);
                 const videoProgressEnd = Math.round(((videoIndex + 1) / totalVideos) * 85);
-                startSimulatedProgress(videoProgressStart, videoProgressEnd, 60000); // simulate over ~60s
+                startSimulatedProgress(videoProgressStart, videoProgressEnd, 180000); // simulate over ~3min
 
                 // Compression disabled for accuracy as per user request
                 // const compressedFile = await compressVideoForAnalysis(videoFile);
