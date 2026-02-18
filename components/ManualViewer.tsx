@@ -439,9 +439,9 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                 </div>
             ) : isEditMode ? (
                 /* Normal Edit Mode: Full InlineCanvas */
-                <div className={`mx-auto px-4 py-16 pb-32 ${isTwoColumn
-                    ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8'
-                    : 'steps max-w-4xl space-y-20'
+                <div className={`mx-auto px-4 pb-32 ${isTwoColumn
+                    ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8 py-12'
+                    : 'steps max-w-4xl space-y-20 py-16'
                     }`}>
                     {manual.steps.map((step, index) => (
                         <section key={step.uid || `step-${index}`} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : ''}`}>
@@ -468,7 +468,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                             newSteps[index] = { ...step, action: e.target.value };
                                             onUpdateManual({ ...manual, steps: newSteps });
                                         }}
-                                        className="manual__step-title text-3xl font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300"
+                                        className={`manual__step-title font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300 ${isTwoColumn ? 'text-2xl' : 'text-3xl'}`}
                                         placeholder="手順のタイトル"
                                     />
                                     <textarea
@@ -479,13 +479,16 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                             newSteps[index] = { ...step, detail: e.target.value };
                                             onUpdateManual({ ...manual, steps: newSteps });
                                         }}
-                                        className="manual__step-desc text-slate-800 font-bold text-lg leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors min-h-[100px] resize-y placeholder-slate-300"
+                                        className={`manual__step-desc text-slate-800 font-bold leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors resize-y placeholder-slate-300 ${isTwoColumn ? 'text-base min-h-[60px]' : 'text-lg min-h-[100px]'}`}
                                         placeholder="手順の詳細説明"
                                     />
                                 </div>
                             </div>
 
-                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10 ${isTwoColumn ? 'aspect-[4/3]' : ''}`}>
+                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 ${isTwoColumn
+                                ? 'bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl aspect-[4/3] flex items-center justify-center bg-slate-100'
+                                : 'bg-white shadow-floating border-purple-600/10'
+                                }`}>
                                 <InlineCanvas
                                     canvasId={`step-${step.uid || index}`}
                                     imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
