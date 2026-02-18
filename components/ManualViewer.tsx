@@ -19,6 +19,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     // Editor State (Lazy initialized from localStorage — rerender-lazy-init)
     const [isEditMode, setIsEditMode] = useState(false);
     const [isReorderMode, setIsReorderMode] = useState(false);
+    const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
     const [activeTool, setActiveTool] = useState<ToolType>('select');
     const [currentColor, setCurrentColor] = useState(() => {
         if (typeof window === 'undefined') return '#ef4444';
@@ -98,12 +99,14 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         }
         setIsEditMode(false);
         setIsReorderMode(false);
+        setSelectedSwapIndex(null);
         setBackupManual(null);
     };
 
     const handleSaveAndExit = () => {
         setIsEditMode(false);
         setIsReorderMode(false);
+        setSelectedSwapIndex(null);
         setBackupManual(null);
     };
 
@@ -199,6 +202,27 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         const renumbered = reordered.map((step, i) => ({ ...step, stepNumber: i + 1 }));
         onUpdateManual({ ...manual, steps: renumbered });
     }, [manual, onUpdateManual]);
+
+    const handleSwapClick = useCallback((clickedIndex: number) => {
+        if (!onUpdateManual) return;
+        if (selectedSwapIndex === null) {
+            // First click: select this card
+            setSelectedSwapIndex(clickedIndex);
+        } else if (selectedSwapIndex === clickedIndex) {
+            // Clicked same card: deselect
+            setSelectedSwapIndex(null);
+        } else {
+            // Second click on different card: swap
+            const newSteps = [...manual.steps];
+            const temp = newSteps[selectedSwapIndex];
+            newSteps[selectedSwapIndex] = newSteps[clickedIndex];
+            newSteps[clickedIndex] = temp;
+            // Renumber
+            const renumbered = newSteps.map((step, i) => ({ ...step, stepNumber: i + 1 }));
+            onUpdateManual({ ...manual, steps: renumbered });
+            setSelectedSwapIndex(null);
+        }
+    }, [manual, onUpdateManual, selectedSwapIndex]);
 
     return (
         <div className={`manual min-h-screen transition-all duration-700 ease-in-out ${isEditMode ? 'bg-[#f8fafc] pl-[80px] max-w-none' : 'bg-white'}`}>
@@ -323,67 +347,77 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
 
             {/* Steps Section */}
             {isEditMode && isReorderMode ? (
-                /* Reorder Mode: Compact thumbnail cards with drag & drop */
-                <DragDropContext onDragEnd={handleDragEnd}>
-                    <Droppable droppableId="steps">
-                        {(provided) => (
-                            <div
-                                className="mx-auto px-4 py-8 pb-32 max-w-5xl"
-                                ref={provided.innerRef}
-                                {...provided.droppableProps}
-                            >
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                    {manual.steps.map((step, index) => (
-                                        <Draggable key={step.uid || `step-${index}`} draggableId={step.uid || `step-${index}`} index={index}>
-                                            {(provided, snapshot) => (
-                                                <div
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    {...provided.dragHandleProps}
-                                                    className={`group cursor-grab active:cursor-grabbing rounded-xl border-2 bg-white overflow-hidden transition-all select-none ${snapshot.isDragging
-                                                        ? 'shadow-2xl shadow-purple-500/20 ring-2 ring-purple-400 scale-105 rotate-1 border-purple-400'
-                                                        : 'border-slate-200 hover:border-purple-300 hover:shadow-lg'
-                                                        }`}
-                                                >
-                                                    {/* Thumbnail */}
-                                                    <div className="aspect-video bg-slate-100 overflow-hidden relative">
-                                                        {step.screenshot ? (
-                                                            <img
-                                                                src={step.screenshot}
-                                                                alt={step.action}
-                                                                className="w-full h-full object-cover"
-                                                                draggable={false}
-                                                            />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                            </div>
-                                                        )}
-                                                        {/* Step number badge */}
-                                                        <div className="absolute top-2 left-2 w-7 h-7 bg-slate-950 text-white rounded-lg flex items-center justify-center text-xs font-black shadow-lg">
-                                                            {step.stepNumber}
-                                                        </div>
-                                                        {/* Drag indicator overlay */}
-                                                        <div className="absolute inset-0 bg-purple-600/0 group-hover:bg-purple-600/5 transition-colors flex items-center justify-center">
-                                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2 shadow-lg">
-                                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="#7c3aed"><circle cx="5" cy="3" r="1.5" /><circle cx="11" cy="3" r="1.5" /><circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" /><circle cx="5" cy="13" r="1.5" /><circle cx="11" cy="13" r="1.5" /></svg>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {/* Title */}
-                                                    <div className="p-3">
-                                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">{step.action}</p>
-                                                    </div>
+                /* Reorder Mode: Click-to-swap thumbnail cards */
+                <div className="mx-auto px-4 py-8 pb-32 max-w-5xl">
+                    {/* Instruction */}
+                    <div className="mb-6 text-center">
+                        <p className={`text-sm font-bold transition-colors ${selectedSwapIndex !== null ? 'text-purple-600' : 'text-slate-400'}`}>
+                            {selectedSwapIndex !== null
+                                ? `ステップ ${manual.steps[selectedSwapIndex]?.stepNumber} を選択中 — 入れ替え先をクリック（もう一度クリックで解除）`
+                                : '入れ替えたいステップをクリックしてください'
+                            }
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {manual.steps.map((step, index) => {
+                            const isSelected = selectedSwapIndex === index;
+                            const isTarget = selectedSwapIndex !== null && selectedSwapIndex !== index;
+                            return (
+                                <div
+                                    key={step.uid || `step-${index}`}
+                                    onClick={() => handleSwapClick(index)}
+                                    className={`group cursor-pointer rounded-xl border-2 bg-white overflow-hidden transition-all select-none ${isSelected
+                                        ? 'border-purple-500 ring-4 ring-purple-200 shadow-xl shadow-purple-500/20 scale-[1.03]'
+                                        : isTarget
+                                            ? 'border-amber-300 hover:border-amber-400 hover:shadow-lg hover:scale-[1.02]'
+                                            : 'border-slate-200 hover:border-purple-300 hover:shadow-lg hover:scale-[1.02]'
+                                        }`}
+                                >
+                                    {/* Thumbnail */}
+                                    <div className="aspect-video bg-slate-100 overflow-hidden relative">
+                                        {step.screenshot ? (
+                                            <img
+                                                src={step.screenshot}
+                                                alt={step.action}
+                                                className="w-full h-full object-cover"
+                                                draggable={false}
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                            </div>
+                                        )}
+                                        {/* Step number badge */}
+                                        <div className={`absolute top-2 left-2 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shadow-lg transition-colors ${isSelected ? 'bg-purple-600 text-white' : 'bg-slate-950 text-white'
+                                            }`}>
+                                            {step.stepNumber}
+                                        </div>
+                                        {/* Selected overlay */}
+                                        {isSelected && (
+                                            <div className="absolute inset-0 bg-purple-600/10 flex items-center justify-center">
+                                                <div className="bg-white/95 rounded-full px-3 py-1.5 shadow-lg text-purple-700 text-xs font-black">
+                                                    選択中
                                                 </div>
-                                            )}
-                                        </Draggable>
-                                    ))}
+                                            </div>
+                                        )}
+                                        {/* Target hint overlay */}
+                                        {isTarget && (
+                                            <div className="absolute inset-0 bg-amber-500/0 group-hover:bg-amber-500/10 transition-colors flex items-center justify-center">
+                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 rounded-full px-3 py-1.5 shadow-lg text-amber-600 text-xs font-black">
+                                                    ここに入替
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* Title */}
+                                    <div className="p-3">
+                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">{step.action}</p>
+                                    </div>
                                 </div>
-                                {provided.placeholder}
-                            </div>
-                        )}
-                    </Droppable>
-                </DragDropContext>
+                            );
+                        })}
+                    </div>
+                </div>
             ) : isEditMode ? (
                 /* Normal Edit Mode: Full InlineCanvas, no drag */
                 <div className="mx-auto px-4 py-16 pb-32 steps max-w-4xl space-y-20">
