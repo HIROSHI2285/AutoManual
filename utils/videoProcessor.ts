@@ -11,6 +11,7 @@ export interface VideoFrame {
 
 /**
  * Extract frame from video at specific timestamp
+ * 抽出時の画質を最高設定(1.0)に変更
  */
 export async function extractFrameAtTimestamp(
     videoFile: File,
@@ -55,7 +56,8 @@ export async function extractFrameAtTimestamp(
         video.addEventListener('seeked', () => {
             try {
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = canvas.toDataURL('image/jpeg', 0.9);
+                // 画質を 0.9 -> 1.0 (最高品質) に引き上げ
+                const imageData = canvas.toDataURL('image/jpeg', 1.0);
                 URL.revokeObjectURL(url);
                 resolve(imageData);
             } catch (error) {
@@ -72,14 +74,7 @@ export async function extractFrameAtTimestamp(
 }
 
 /**
- * スマートクロップ：box_2d の座標を元に操作対象を中心にズーム・引きを自動判断
- *
- * ズームの判断基準（box_2d の面積比で決定）：
- *   - 面積比 < 8%  → 小さい要素（ボタン等）→ 2.5倍ズームイン
- *   - 面積比 8〜25% → 中程度の要素 → 1.8倍ズームイン
- *   - 面積比 > 25% → 広い範囲 → そのまま表示（引き不要）
- *
- * クロップ後は元の解像度にリサイズして出力する。
+ * スマートクロップ：最高品質の補間と無劣化出力を適用
  */
 export function smartCropFrame(
     imageData: string,
@@ -124,20 +119,26 @@ export function smartCropFrame(
             const cropX = Math.max(0, Math.min(centerX - cropW / 2, imgW - cropW));
             const cropY = Math.max(0, Math.min(centerY - cropH / 2, imgH - cropH));
 
-            // キャンバスに元解像度で描画（クロップ範囲を拡大）
             const canvas = document.createElement('canvas');
             canvas.width = imgW;
             canvas.height = imgH;
+
             const ctx = canvas.getContext('2d');
             if (!ctx) { resolve(imageData); return; }
 
+            // --- 画質向上のための追加設定 ---
+            // 補完品質を「高」に設定することでボヤけを抑制
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
             ctx.drawImage(
                 img,
-                cropX, cropY, cropW, cropH, // ソース：クロップ範囲
-                0, 0, imgW, imgH            // 出力：元サイズにリサイズ
+                cropX, cropY, cropW, cropH,
+                0, 0, imgW, imgH
             );
 
-            resolve(canvas.toDataURL('image/jpeg', 0.92));
+            // クロップ後の保存も最高品質(1.0)に設定
+            resolve(canvas.toDataURL('image/jpeg', 1.0));
         };
         img.onerror = () => reject(new Error('Image load failed'));
         img.src = imageData;
