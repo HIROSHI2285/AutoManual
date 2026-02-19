@@ -1,54 +1,27 @@
 import { ManualData } from '@/app/page';
 
-// FIX: Generate SVG for perfect centering (html2canvas safe)
+/**
+ * 紺色の円形ナンバリングSVG
+ * ブラウザごとのレンダリング差異を吸収する絶対中央配置
+ */
 function createStepNumberSvg(number: number): string {
-    const size = 28;
-    const radius = size / 2;
-    const fontSize = 15;
-    const color = '#6366f1';
+    const size = 32;
+    const color = '#1e1b4b'; // 深みのある紺色
 
     const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <circle cx="${radius}" cy="${radius}" r="${radius}" fill="${color}" />
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="${color}" />
         <text 
             x="50%" 
             y="50%" 
-            dy="1" 
             dominant-baseline="central" 
+            alignment-baseline="middle" 
             text-anchor="middle" 
             fill="white" 
-            font-family="Arial, sans-serif" 
+            font-family="'Helvetica Neue', Arial, sans-serif" 
             font-weight="bold" 
-            font-size="${fontSize}px"
+            font-size="16px"
         >${number}</text>
-    </svg>`;
-
-    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
-}
-
-// FIX: Generate SVG for section header to ensuring perfect vertical centering
-function createSectionHeaderSvg(text: string): string {
-    const width = 800;
-    const height = 44;
-    const fontSize = 18;
-    const backgroundColor = '#f4f4f4';
-    const textColor = '#333333';
-    const borderRadius = 4;
-
-    const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-        <rect x="0" y="0" width="${width}" height="${height}" rx="${borderRadius}" ry="${borderRadius}" fill="${backgroundColor}" />
-        <text 
-            x="12" 
-            y="50%" 
-            dy="1" 
-            dominant-baseline="central" 
-            text-anchor="start" 
-            fill="${textColor}" 
-            font-family="Arial, 'Helvetica Neue', Helvetica, sans-serif" 
-            font-weight="bold" 
-            font-size="${fontSize}px"
-        >${text}</text>
     </svg>`;
 
     return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
@@ -57,244 +30,210 @@ function createSectionHeaderSvg(text: string): string {
 export function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'single'): string {
     const isTwoCol = layout === 'two-column';
 
-    let html = `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${manual.title}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
-        font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-        max-width: 800px; 
-        margin: 0 auto; 
-        padding: 20px; 
-        line-height: 1.6; 
-        color: #333; 
-        background: #fff; 
-        font-weight: 500;
-    }
-    h1 { font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    .overview { margin-bottom: 30px; font-size: 14px; color: #666; white-space: pre-wrap; }
-    h2 { margin: 30px 0 15px; display: block; border: none; background: none; padding: 0; }
-    .section-header-img { width: 100%; height: 44px; display: block; }
-    
-    /* Table Layout for 2-Column strict alignment */
-    .steps-table {
-        width: 100%;
-        border-collapse: separate; 
-        border-spacing: 0 15px;
-        table-layout: fixed;
-    }
-    tbody {
-        page-break-inside: avoid;
-    }
-    .step-cell {
-        width: 48%;
-        padding: 15px 15px 5px 15px;
+        font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+        color: #000000; 
+        line-height: 1.5;
         background: #fff;
-        border-left: 1px solid #eee;
-        border-right: 1px solid #eee;
-        vertical-align: top;
     }
-    .text-cell {
-        border-top: 1px solid #eee;
-        border-bottom: none;
-        border-radius: 8px 8px 0 0;
-        height: auto; 
-    }
-    .image-cell {
-        border-bottom: 1px solid #eee;
-        border-top: none;
-        border-radius: 0 0 8px 8px;
-        padding-top: 0;
-        padding-bottom: 15px;
-        height: 100%; 
-        vertical-align: bottom; 
-    }
-    .empty-cell {
-        border: none;
-        background: transparent;
-    }
-    .spacer-cell {
-        width: 4%;
-    }
-
-    .step-content {
+    
+    /* --- プロフェッショナルな表紙デザイン --- */
+    .cover-page {
+        height: 1100px; /* A4比率に合わせた高さ */
         display: flex;
         flex-direction: column;
-        height: 100%;
+        padding: 100px 80px;
+        page-break-after: always;
+        border-top: 16px solid #1e1b4b; /* 上部の重厚な紺ライン */
     }
-
-    .step-header { 
-        display: table;
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 10px;
+    .cover-header {
+        font-size: 14px;
+        font-weight: bold;
+        color: #1e1b4b;
+        letter-spacing: 0.1em;
+        margin-bottom: 120px;
     }
-    
-    .step-number-cell {
-        display: table-cell;
-        width: 38px;
-        vertical-align: middle;
-        padding: 0;
+    .cover-main {
+        flex-grow: 1;
     }
-
-    .step-number-img {
-        width: 28px;
-        height: 28px;
-        display: block;
+    .cover-label {
+        display: inline-block;
+        background: #f1f5f9;
+        color: #475569;
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 24px;
+        border-radius: 2px;
     }
-    
-    .step-action-cell {
-        display: table-cell;
-        vertical-align: middle;
-        font-weight: bold; 
+    .cover-title {
+        font-size: 40px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+        margin-bottom: 40px;
+    }
+    .cover-overview {
         font-size: 15px;
+        color: #334155;
+        max-width: 520px;
+        line-height: 1.8;
+        white-space: pre-wrap;
+    }
+    .cover-footer {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 30px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        color: #64748b;
+    }
+
+    /* --- 本文コンテンツ --- */
+    .content-area {
+        padding: 60px 50px;
+    }
+    .doc-header {
+        border-bottom: 2px solid #1e1b4b;
+        margin-bottom: 40px;
+        padding-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+    .doc-header-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #1e1b4b;
+    }
+
+    /* ステップレイアウト */
+    .steps-container {
+        display: grid;
+        grid-template-columns: ${isTwoCol ? '1fr 1fr' : '1fr'};
+        column-gap: 40px;
+        row-gap: 50px;
+    }
+
+    /* 分断を徹底的に防ぐステップカード */
+    .step-card { 
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        display: block;
+        width: 100%;
+    }
+
+    .step-row {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+    }
+
+    .num-icon {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+    }
+
+    .step-body {
+        flex: 1;
+    }
+
+    .action-text { 
+        font-size: 16px; 
+        font-weight: 800; 
+        color: #1e1b4b;
+        margin-bottom: 8px;
         line-height: 1.4;
     }
 
-    .step-text-wrapper {
-        flex-grow: 1;
-        margin-bottom: 15px;
-    }
-
-    .step-detail { 
-        margin-left: 38px; 
+    .detail-text { 
         font-size: 13px; 
-        color: #555; 
-        margin-bottom: 5px; 
+        color: #000000; 
+        margin-bottom: 16px;
         white-space: pre-wrap;
+        text-align: justify;
     }
     
-    .step-image-wrapper {
-        margin-left: 38px;
-        text-align: center;
-        background: #fdfdfd;
-        border: 1px solid #f0f0f0;
+    /* 画像コンテナの改善 */
+    .img-frame { 
+        background: #fcfcfc;
+        border: 1px solid #f1f5f9;
         border-radius: 4px;
-        padding: 4px;
-        display: flex; 
-        align-items: flex-end; 
-        justify-content: center;
-        min-height: 150px; 
-    }
-
-    .step-image img { 
-        max-width: 100%; 
-        max-height: 320px;
-        object-fit: contain; 
-        display: block; 
-        margin: 0 auto;
-    }
-    
-    /* Single Column Fallback Style */
-    .step-single {
-        margin-bottom: 30px;
-        background: #fff;
-        border: 1px solid #eee;
-        padding: 15px;
-        border-radius: 8px;
+        padding: 6px;
+        overflow: hidden;
         page-break-inside: avoid;
     }
 
-    .step-single .step-image {
-        margin-top: 20px;
+    /* シングルカラム（1列）：見やすさ重視のサイズ抑制 */
+    .single-layout .img-frame {
+        max-width: 60%; /* 横幅を60%に制限 */
+        margin-top: 8px;
+    }
+    .single-layout .img-frame img {
+        max-height: 250px; /* 高さを大幅に抑制 */
+    }
+
+    /* 2カラム（2列）：左右の高さとラインを完璧に揃える */
+    .two-col-layout .img-frame { 
+        height: 180px; /* 高さを固定 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    img { 
+        max-width: 100%; 
+        object-fit: contain; 
+        display: block;
     }
   </style>
 </head>
-<body>
-  <h1>${manual.title}</h1>
-  <p class="overview">${manual.overview}</p>
-  
-  <h2><img src="${createSectionHeaderSvg('手順')}" class="section-header-img" alt="手順" /></h2>
-`;
+<body class="${isTwoCol ? 'two-col-layout' : 'single-layout'}">
+  <div class="cover-page">
+    <div class="cover-header">AutoManual System Document</div>
+    <div class="cover-main">
+        <span class="cover-label">OPERATION MANUAL</span>
+        <h1 class="cover-title">${manual.title}</h1>
+        <p class="cover-overview">${manual.overview}</p>
+    </div>
+    <div class="cover-footer">
+        <span>&copy; 2026 AutoManual Professional Edition</span>
+        <span>Date: 2026-02-19</span>
+    </div>
+  </div>
 
-    if (isTwoCol) {
-        html += `<table class="steps-table">`;
-        for (let i = 0; i < manual.steps.length; i += 2) {
-            const step1 = manual.steps[i];
-            const step2 = manual.steps[i + 1];
-            const iconSrc1 = createStepNumberSvg(step1.stepNumber);
-
-            html += `<tbody>`;
-
-            html += `<tr>`;
-            html += `<td class="step-cell text-cell">
-                    <div class="step-content">
-                        <div class="step-header">
-                            <div class="step-number-cell"><img src="${iconSrc1}" class="step-number-img" /></div>
-                            <div class="step-action-cell">${step1.action}</div>
-                        </div>
-                        <p class="step-detail">${step1.detail}</p>
-                    </div>
-                </td>`;
-
-            html += `<td class="spacer-cell"></td>`;
-
-            if (step2) {
-                const iconSrc2 = createStepNumberSvg(step2.stepNumber);
-                html += `<td class="step-cell text-cell">
-                        <div class="step-content">
-                            <div class="step-header">
-                                <div class="step-number-cell"><img src="${iconSrc2}" class="step-number-img" /></div>
-                                <div class="step-action-cell">${step2.action}</div>
-                            </div>
-                            <p class="step-detail">${step2.detail}</p>
-                        </div>
-                    </td>`;
-            } else {
-                html += `<td class="step-cell empty-cell"></td>`;
-            }
-            html += `</tr>`;
-
-            html += `<tr>`;
-
-            html += `<td class="step-cell image-cell">
-                    ${step1.screenshot ? `
-                    <div class="step-image-wrapper">
-                        <div class="step-image"><img src="${step1.screenshot}" /></div>
-                    </div>` : '<div style="height: 10px;"></div>'}
-                </td>`;
-
-            html += `<td class="spacer-cell"></td>`;
-
-            if (step2) {
-                html += `<td class="step-cell image-cell">
-                        ${step2.screenshot ? `
-                        <div class="step-image-wrapper">
-                            <div class="step-image"><img src="${step2.screenshot}" /></div>
-                        </div>` : '<div style="height: 10px;"></div>'}
-                    </td>`;
-            } else {
-                html += `<td class="step-cell empty-cell"></td>`;
-            }
-
-            html += `</tr>`;
-
-            html += `</tbody>`;
-        }
-        html += `</table>`;
-    } else {
-        manual.steps.forEach((step) => {
-            const iconSrc = createStepNumberSvg(step.stepNumber);
-            html += `<div class="step-single">
-                <div class="step-header">
-                    <div class="step-number-cell"><img src="${iconSrc}" class="step-number-img" /></div>
-                    <div class="step-action-cell">${step.action}</div>
-                </div>
-                <p class="step-detail">${step.detail}</p>
-                ${step.screenshot ? `<div class="step-image"><img src="${step.screenshot}" /></div>` : ''}
-            </div>`;
-        });
-    }
-
-    html += `
+  <div class="content-area">
+    <div class="doc-header">
+        <div class="doc-header-title">${manual.title}</div>
+    </div>
+    
+    <div class="steps-container">
+      ${manual.steps.map(step => `
+        <div class="step-card">
+          <div class="step-row">
+            <img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" />
+            <div class="step-body">
+                <div class="action-text">${step.action}</div>
+                <div class="detail-text">${step.detail}</div>
+                ${step.screenshot ? `
+                <div class="img-frame">
+                    <img src="${step.screenshot}" />
+                </div>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
 </body>
 </html>`;
-
-    return html;
 }
 
 export async function generateAndDownloadPdf(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
@@ -304,11 +243,12 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
     document.body.appendChild(container);
 
     const opt = {
-        margin: [10, 10, 15, 10] as [number, number, number, number],
+        margin: [0, 0, 0, 0],
         filename: `${safeTitle}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'px', format: [900, 1272], hotfixes: ['px_scaling'] },
+        pagebreak: { mode: ['avoid-all', 'css'] } // ステップ単位での分断を防止
     };
 
     const worker = html2pdf().from(container).set(opt).toPdf();
@@ -320,14 +260,10 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
 
     for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
-        pdf.setFontSize(10);
+        pdf.setFontSize(9);
         pdf.setTextColor(150);
-        pdf.text(
-            `${i}`,
-            pageWidth - 10,
-            pageHeight - 8,
-            { align: 'right' }
-        );
+        // フッター右下にシンプルなページ番号
+        pdf.text(`${i}`, pageWidth - 40, pageHeight - 30, { align: 'right' });
     }
 
     await worker.save();

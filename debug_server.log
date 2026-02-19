@@ -621,3 +621,118 @@
       284,
     ...
 [2026-02-18T14:56:40.201Z] POST /api/analyze-video completed successfully
+[2026-02-19T00:47:52.202Z] POST /api/analyze-video started
+[2026-02-19T00:47:58.962Z] Received file: オフライン起動手順.MOV, size: 211376663
+[2026-02-19T00:48:01.252Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771462080789_オフライン起動手順.MOV
+[2026-02-19T00:48:01.254Z] Normalized MIME type: video/quicktime -> video/mov
+[2026-02-19T00:48:01.258Z] Uploading to Gemini via REST API...
+[2026-02-19T00:52:31.807Z] POST /api/analyze-video started
+[2026-02-19T00:52:35.858Z] Received file: オフライン起動手順.MOV, size: 211376663
+[2026-02-19T00:52:36.318Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771462356099_オフライン起動手順.MOV
+[2026-02-19T00:52:36.320Z] Normalized MIME type: video/quicktime -> video/mov
+[2026-02-19T00:52:36.323Z] Uploading to Gemini via REST API...
+[2026-02-19T00:52:41.493Z] Unexpected error in API logic: fetch failed
+Stack: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15422:13
+    at async POST (webpack-internal:///(rsc)/./app/api/analyze-video/route.ts:97:36)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:53446
+    at async e_.execute (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:44747)
+    at async e_.handle (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:54700)
+    at async doRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1377:42)
+    at async cacheEntry.responseCache.get.routeKind (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1599:28)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1507:28)
+    at async DevServer.renderPageComponent (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1962:32)
+    at async DevServer.pipeImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:816:17)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:174:21)
+    at async handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:353:24)
+    at async requestHandlerImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:377:13)
+    at async Server.requestListener (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\start-server.js:141:13)
+[2026-02-19T00:52:41.557Z] Unexpected error in API logic: fetch failed
+Stack: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15422:13
+    at async POST (webpack-internal:///(rsc)/./app/api/analyze-video/route.ts:97:36)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:53446
+    at async e_.execute (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:44747)
+    at async e_.handle (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:54700)
+    at async doRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1377:42)
+    at async cacheEntry.responseCache.get.routeKind (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1599:28)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1507:28)
+    at async DevServer.renderPageComponent (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1962:32)
+    at async DevServer.pipeImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:816:17)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:174:21)
+    at async handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:353:24)
+    at async requestHandlerImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:377:13)
+    at async Server.requestListener (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\start-server.js:141:13)
+[2026-02-19T00:52:54.071Z] POST /api/analyze-video started
+[2026-02-19T00:52:56.922Z] Received file: オフライン起動手順.MOV, size: 211376663
+[2026-02-19T00:52:57.356Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771462377081_オフライン起動手順.MOV
+[2026-02-19T00:52:57.358Z] Normalized MIME type: video/quicktime -> video/mov
+[2026-02-19T00:52:57.361Z] Uploading to Gemini via REST API...
+[2026-02-19T00:58:03.343Z] Unexpected error in API logic: fetch failed
+Stack: TypeError: fetch failed
+    at node:internal/deps/undici/undici:15422:13
+    at async POST (webpack-internal:///(rsc)/./app/api/analyze-video/route.ts:97:36)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:53446
+    at async e_.execute (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:44747)
+    at async e_.handle (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\compiled\next-server\app-route.runtime.dev.js:6:54700)
+    at async doRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1377:42)
+    at async cacheEntry.responseCache.get.routeKind (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1599:28)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1507:28)
+    at async DevServer.renderPageComponent (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1924:24)
+    at async DevServer.renderToResponseImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:1962:32)
+    at async DevServer.pipeImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:920:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\base-server.js:816:17)
+    at async C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:174:21)
+    at async handleRequest (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:353:24)
+    at async requestHandlerImpl (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\router-server.js:377:13)
+    at async Server.requestListener (C:\Users\pc\Desktop\anitigravity\AutoManual\node_modules\next\dist\server\lib\start-server.js:141:13)
+[2026-02-19T01:10:13.028Z] POST /api/analyze-video started
+[2026-02-19T01:10:17.134Z] Received file: オフライン起動手順.MOV, size: 211376663
+[2026-02-19T01:10:17.570Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1771463417389_オフライン起動手順.MOV
+[2026-02-19T01:10:17.572Z] Normalized MIME type: video/quicktime -> video/mov
+[2026-02-19T01:10:17.574Z] Starting Resumable Upload to Gemini...
+[2026-02-19T01:10:18.158Z] Upload session initiated. URL obtained.
+[2026-02-19T01:11:08.829Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/9scskyl20n9k (files/9scskyl20n9k)
+[2026-02-19T01:11:08.846Z] Processing video...
+[2026-02-19T01:11:09.599Z] Processing video...
+[2026-02-19T01:11:10.384Z] Processing video...
+[2026-02-19T01:11:11.160Z] Processing video...
+[2026-02-19T01:11:11.951Z] Processing video...
+[2026-02-19T01:11:12.720Z] Processing video...
+[2026-02-19T01:11:13.492Z] Processing video...
+[2026-02-19T01:11:14.263Z] Processing video...
+[2026-02-19T01:11:15.045Z] Processing video...
+[2026-02-19T01:11:15.831Z] Processing video...
+[2026-02-19T01:11:16.543Z] Processing video...
+[2026-02-19T01:11:17.384Z] Processing video...
+[2026-02-19T01:11:18.140Z] Processing video...
+[2026-02-19T01:11:18.852Z] Processing video...
+[2026-02-19T01:11:19.621Z] Processing video...
+[2026-02-19T01:11:20.333Z] Processing video...
+[2026-02-19T01:11:21.112Z] Processing video...
+[2026-02-19T01:11:21.886Z] Video Ready. Generating content...
+[2026-02-19T01:12:10.640Z] Response received: [
+  {
+    "timestamp": "00:01",
+    "action": "電源スイッチを押します",
+    "box_2d": [
+      265,
+      305,
+ ...
+[2026-02-19T01:12:13.236Z] POST /api/analyze-video completed successfully

@@ -75,44 +75,65 @@ export async function POST(request: NextRequest) {
         await log(`Normalized MIME type: ${file.type} -> ${mimeType}`);
 
         try {
-            // 1. Upload File (Initial Resumable Request or Simple Upload)
-            // For simplicity with typically small files (< 200MB verified in this context), 
-            // we will use the Media Upload (multipart/related or simple raw).
-            // Actually, for "upload/v1beta/files", the simplest is to send JSON metadata + raw data, 
-            // but standard fetch makes multipart hard.
-            // Let's use the standard "upload, get URI" flow which usually requires two steps if using resumable, 
-            // or one step if strictly following the guide.
-            //
-            // Valid approach: POST to /upload/v1beta/files?key=KEY
-            // Headers: X-Goog-Upload-Protocol: raw, X-Goog-Upload-File-Name: ..., Content-Type: ...
-            // Body: Raw binary
+            // 1. Upload File using Resumable Upload Protocol (v1beta)
+            // This is more robust for large files than the simple upload.
+            await log('Starting Resumable Upload to Gemini...');
 
-            await log('Uploading to Gemini via REST API...');
-
-            // Sanitize filename for headers (must be ASCII)
             const safeFileName = `upload_${Date.now()}${ext}`;
+            const numBytes = buffer.length;
 
-            const uploadResponse = await fetch(`${UPLOAD_URL}?key=${API_KEY}`, {
+            // Step 1: Initiate upload session
+            const initialHeaders = {
+                'X-Goog-Upload-Protocol': 'resumable',
+                'X-Goog-Upload-Command': 'start',
+                'X-Goog-Upload-Header-Content-Length': numBytes.toString(),
+                'X-Goog-Upload-Header-Content-Type': mimeType,
+                'Content-Type': 'application/json',
+            };
+
+            const initResponse = await fetch(`${UPLOAD_URL}?key=${API_KEY}`, {
                 method: 'POST',
-                headers: {
-                    'X-Goog-Upload-Protocol': 'raw',
-                    'X-Goog-Upload-Command': 'start, upload, finalize',
-                    'X-Goog-Upload-Header-Content-Length': file.size.toString(),
-                    'X-Goog-Upload-File-Name': safeFileName, // Use ASCII name
-                    'Content-Type': mimeType,
-                },
-                body: buffer
+                headers: initialHeaders,
+                body: JSON.stringify({ file: { display_name: safeFileName } }),
+            });
+
+            if (!initResponse.ok) {
+                const errText = await initResponse.text();
+                await log(`Resumable upload init failed: ${initResponse.status} ${errText}`);
+                throw new Error(`Resumable upload init failed: ${initResponse.status} ${errText}`);
+            }
+
+            const uploadUrl = initResponse.headers.get('x-goog-upload-url');
+            if (!uploadUrl) {
+                await log('Error: No x-goog-upload-url header in response');
+                throw new Error('No upload URL received from Gemini');
+            }
+
+            await log(`Upload session initiated. URL obtained.`);
+
+            // Step 2: Upload the actual bytes
+            const uploadHeaders = {
+                'Content-Length': numBytes.toString(),
+                'X-Goog-Upload-Offset': '0',
+                'X-Goog-Upload-Command': 'upload, finalize',
+            };
+
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'POST', // The protocol says POST for the actual content transfer in this flow
+                headers: uploadHeaders,
+                body: buffer,
             });
 
             if (!uploadResponse.ok) {
                 const errText = await uploadResponse.text();
-                await log(`Upload failed: ${uploadResponse.status} ${errText}`);
-                throw new Error(`Upload failed: ${uploadResponse.status} ${errText}`);
+                await log(`File content upload failed: ${uploadResponse.status} ${errText}`);
+                throw new Error(`File content upload failed: ${uploadResponse.status} ${errText}`);
             }
 
             const uploadData = await uploadResponse.json();
             const fileUri = uploadData.file.uri;
             const fileName = uploadData.file.name; // "files/..."
+
 
             await log(`Uploaded: ${fileUri} (${fileName})`);
 
