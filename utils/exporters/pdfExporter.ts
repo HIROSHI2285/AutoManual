@@ -31,10 +31,11 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     /* --- 表紙 --- */
     .cover-page {
-        height: 270mm; /* A4高さ 297mm より小さく設定して余白ページを防止 */
+        height: 1050px; /* 1000px→1050pxに調整 */
         display: flex; flex-direction: column; justify-content: center;
         padding: 0 20mm;
         border-top: 5mm solid #1e1b4b;
+        page-break-after: always !important; /* !important追加 */
     }
     .cover-title { font-size: 32pt; font-weight: 800; margin-bottom: 10mm; line-height: 1.2; }
     .cover-overview { font-size: 12pt; border-left: 1mm solid #1e1b4b; padding-left: 5mm; white-space: pre-wrap; color: #333; }
@@ -44,9 +45,14 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 
     .step-row {
         display: flex; gap: 8mm; margin-bottom: 12mm;
-        page-break-inside: avoid; break-inside: avoid;
+        page-break-inside: avoid !important; 
+        break-inside: avoid-page !important; /* avoid→avoid-pageに強化 */
     }
-    .step-card { flex: 1; min-width: 0; }
+    .step-card { 
+        flex: 1; min-width: 0; 
+        page-break-inside: avoid !important;
+        break-inside: avoid-page !important; /* カード単位でも禁止 */
+    }
     
     .step-header { display: flex; gap: 4mm; align-items: flex-start; margin-bottom: 3mm; }
     .num-icon { width: 8mm; height: 8mm; flex-shrink: 0; }
@@ -115,9 +121,12 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
     margin: [10, 10, 10, 10], // mm単位の余白
     filename: `${safeTitle}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 3, useCORS: true }, // スケールを上げて鮮明に
+    html2canvas: { scale: 3, useCORS: true }, // scale: 2→3に向上
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'] }
+    pagebreak: {
+      mode: ['avoid-all', 'css'],
+      after: '.cover-page' // 表紙直後で必ず改ページ
+    }
   };
 
   const worker = html2pdf().from(container).set(opt).toPdf();
