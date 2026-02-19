@@ -28,57 +28,65 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     body { 
         font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
         color: #000000; 
-        line-height: 1.6;
+        line-height: 1.5;
         background: #fff;
     }
     
-    /* --- クールでスタイリッシュな表紙 --- */
+    /* --- スタイリッシュな表紙 (クール・ネイビーライン) --- */
     .cover-page {
         height: 1120px;
         display: flex;
         flex-direction: column;
-        justify-content: flex-end;
-        padding: 120px 80px;
+        padding: 0;
         page-break-after: always;
-        position: relative;
-        background-color: #1e1b4b; /* ダークネイビー背景 */
-        background-image: linear-gradient(135deg, rgba(255,255,255,0.05) 25%, transparent 25%), linear-gradient(225deg, rgba(255,255,255,0.05) 25%, transparent 25%), linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%), linear-gradient(315deg, rgba(255,255,255,0.05) 25%, #1e1b4b 25%);
-        background-size: 60px 60px;
-        color: #fff;
-        overflow: hidden;
+        background: #fff;
     }
-    .cover-accent {
-        position: absolute;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
-        background: linear-gradient(to bottom right, transparent 40%, rgba(99, 102, 241, 0.2) 100%);
-        pointer-events: none;
+    .cover-top-bar {
+        height: 180px;
+        background: #1e1b4b;
+        display: flex;
+        align-items: center;
+        padding: 0 80px;
+    }
+    .cover-header-text {
+        color: rgba(255,255,255,0.6);
+        font-size: 12px;
+        letter-spacing: 0.5em;
+        font-weight: bold;
+    }
+    .cover-body {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 80px;
     }
     .cover-label {
+        color: #1e1b4b;
         font-weight: bold;
         font-size: 14px;
-        letter-spacing: 0.4em;
-        margin-bottom: 32px;
-        text-transform: uppercase;
-        color: #6366f1; /* アクセントカラー */
+        letter-spacing: 0.2em;
+        margin-bottom: 24px;
+        border-bottom: 2px solid #1e1b4b;
+        display: inline-block;
+        width: fit-content;
     }
     .cover-title {
-        font-size: 52px;
+        font-size: 48px;
         font-weight: 900;
-        line-height: 1.1;
+        color: #0f172a;
+        line-height: 1.2;
         margin-bottom: 40px;
     }
     .cover-overview {
-        font-size: 18px;
-        color: #cbd5e1;
-        max-width: 600px;
+        font-size: 16px;
+        color: #475569;
+        max-width: 550px;
         line-height: 1.8;
         white-space: pre-wrap;
-        border-left: 4px solid #6366f1;
-        padding-left: 24px;
     }
 
-    /* --- 本文レイアウト --- */
+    /* --- 本文レイアウト (Gridへの刷新) --- */
     .content-area { padding: 60px 50px; }
     .doc-header {
         border-bottom: 2px solid #1e1b4b;
@@ -87,18 +95,21 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
     .doc-title { font-size: 18px; font-weight: bold; color: #1e1b4b; }
 
+    /* tableを廃止し、Gridを採用 */
     .steps-container {
         display: grid;
         grid-template-columns: ${isTwoCol ? '1fr 1fr' : '1fr'};
         column-gap: 40px;
         row-gap: 50px;
+        width: 100%;
     }
 
-    /* カードの分断防止（二重ロック） */
+    /* 改ページで絶対に切れないようにする設定 */
     .step-card { 
-        page-break-inside: avoid;
-        break-inside: avoid;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
         display: block;
+        width: 100%;
     }
 
     .step-row {
@@ -115,11 +126,12 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         font-weight: 800; 
         color: #1e1b4b;
         margin-bottom: 8px;
+        line-height: 1.4;
     }
 
     .detail-text { 
         font-size: 14px; 
-        color: #000000; /* 黒 */
+        color: #000000; 
         margin-bottom: 16px;
         white-space: pre-wrap;
     }
@@ -130,19 +142,22 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         border-radius: 6px;
         padding: 8px;
         overflow: hidden;
-        page-break-inside: avoid; /* 画像コンテナ自体も分断防止 */
+        page-break-inside: avoid;
     }
 
-    /* シングルカラム画像の大幅抑制 */
+    /* シングルカラム画像サイズ制限 (絶対) */
     .single-layout .img-frame {
         max-width: 60%;
         margin-top: 10px;
     }
-    .single-layout .img-frame img { max-height: 280px; }
+    .single-layout .img-frame img { 
+        max-height: 250px; /* 巨大化防止 */
+        width: auto;
+    }
 
-    /* 2カラム画像高さ揃え（絶対固定） */
+    /* 2カラム画像高さ揃え (絶対固定) */
     .two-col-layout .img-frame { 
-        height: 200px;
+        height: 180px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -153,10 +168,14 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 </head>
 <body class="${isTwoCol ? 'two-col-layout' : 'single-layout'}">
   <div class="cover-page">
-    <div class="cover-accent"></div>
-    <div class="cover-label">Operational Standard</div>
-    <h1 class="cover-title">${manual.title}</h1>
-    <p class="cover-overview">${manual.overview}</p>
+    <div class="cover-top-bar">
+        <div class="cover-header-text">SYSTEM OPERATIONAL STANDARD</div>
+    </div>
+    <div class="cover-body">
+        <div class="cover-label">OFFICIAL MANUAL</div>
+        <h1 class="cover-title">${manual.title}</h1>
+        <p class="cover-overview">${manual.overview}</p>
+    </div>
   </div>
 
   <div class="content-area">
@@ -196,9 +215,9 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
         margin: [0, 0, 0, 0],
         filename: `${safeTitle}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'px', format: [900, 1272], hotfixes: ['px_scaling'] },
-        pagebreak: { mode: ['avoid-all', 'css'] } // 物理的な分断防止
+        pagebreak: { mode: ['avoid-all', 'css'] } // ステップ単位で改ページ
     };
 
     const worker = html2pdf().from(container).set(opt).toPdf();
@@ -208,9 +227,8 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // ページ番号：表紙を飛ばし、2枚目から「1」と振る
     for (let i = 1; i <= totalPages; i++) {
-        if (i === 1) continue;
+        if (i === 1) continue; // 表紙は番号なし
         pdf.setPage(i);
         pdf.setFontSize(10);
         pdf.setTextColor(150);
