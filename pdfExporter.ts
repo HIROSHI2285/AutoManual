@@ -26,20 +26,6 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         color: #000; line-height: 1.6; background: #fff;
     }
     
-    /* --- ヘッダー用テンプレート (画面外に配置し、JSでキャプチャしてスタンプ化する) --- */
-    #header-template {
-        position: absolute; top: -9999px; left: 0; width: 800px; /* 固定幅でレンダリング */
-        padding: 0 40px; background: #fff;
-    }
-    .header-content {
-        border-bottom: 2px solid #1e1b4b;
-        padding-bottom: 5px;
-        margin-bottom: 10px;
-    }
-    .header-title {
-        font-size: 14px; font-weight: bold; color: #1e1b4b;
-    }
-
     /* --- 表紙 --- */
     .cover-page {
         height: 1100px; display: flex; flex-direction: column;
@@ -60,15 +46,37 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         white-space: pre-wrap; border-left: 4px solid #cbd5e1; padding-left: 24px; 
     }
 
-    /* --- 本文エリア --- */
-    /* 
-       ヘッダーはPDF生成後に画像スタンプとして上書きされるため、
-       その分のスペースを物理的なpaddingで空けておく。
-       Padding-Top: 70px (ヘッダー用)
-    */
-    .content-area { padding: 70px 50px 30px; }
+    /* --- ページヘッダー（HTML要素として実装） --- */
+    .page-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 50px;
+        background: white;
+        border-bottom: 2px solid #1e1b4b;
+        display: flex;
+        align-items: center;
+        padding: 0 40px;
+        z-index: 1000;
+    }
+    .page-header-title {
+        font-size: 14px;
+        font-weight: bold;
+        color: #1e1b4b;
+    }
+    
+    /* 表紙ではヘッダーを非表示 */
+    .cover-page ~ .page-header {
+        display: none;
+    }
 
-    /* コンテナ: Grid Layout */
+    /* --- 本文エリア --- */
+    .content-area { 
+        padding: 70px 50px 30px; /* 上部にヘッダー分の余白を追加 */
+    }
+
+    /* コンテナレイアウト: Grid */
     .steps-container {
         display: grid;
         grid-template-columns: ${isTwoCol ? '1fr 1fr' : '1fr'};
@@ -77,7 +85,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 100%;
     }
 
-    /* ステップカード */
+    /* ステップカード (分断絶対禁止) */
     .step-card { 
         page-break-inside: avoid !important;
         break-inside: avoid !important;
@@ -95,7 +103,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         line-height: 1.4; padding-top: 2px; 
     }
 
-    /* インデント固定 */
+    /* インデント固定 (32px + 12px = 44px) */
     .detail-text { 
         font-size: 14px; color: #000; 
         margin-left: 44px; margin-bottom: 12px; 
@@ -111,30 +119,35 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         height: ${isTwoCol ? '240px' : '380px'}; 
     }
 
+    /* 画像スタイル: アスペクト比絶対死守 */
     .image-frame img { 
-        width: auto; height: auto;
-        max-width: 100%; max-height: 100%;
-        object-fit: contain; 
+        width: auto;
+        height: auto;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
         display: block;
     }
 
-    .two-col-layout .detail-text, .two-col-layout .image-frame { margin-left: 44px; }
+    /* 2カラム時の微調整 */
+    .two-col-layout .detail-text, 
+    .two-col-layout .image-frame { 
+        margin-left: 44px; 
+    }
   </style>
 </head>
 <body class="${isTwoCol ? 'two-col-layout' : 'single-layout'}">
-  <!-- ヘッダーキャプチャ用要素 (不可視) -->
-  <div id="header-template">
-    <div class="header-content">
-        <div class="header-title">${manual.title}</div>
-    </div>
-  </div>
-
   <div class="cover-page">
     <div class="cover-body">
         <div class="cover-label">OPERATION MANUAL</div>
         <h1 class="cover-title">${manual.title}</h1>
-        <p class="cover-overview">${manual.overview}</p>
+        <p class="cover-overview">${manual.overview || ''}</p>
     </div>
+  </div>
+
+  <!-- ページヘッダー（2ページ目以降に表示） -->
+  <div class="page-header">
+    <div class="page-header-title">${manual.title}</div>
   </div>
 
   <div class="content-area">
@@ -160,39 +173,20 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 
 export async function generateAndDownloadPdf(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
-  const html2canvas = (await import('html2canvas')).default; // html2canvasを明示的にインポート
-
   const container = document.createElement('div');
   container.innerHTML = generateHTML(manual, layout);
   document.body.appendChild(container);
 
-  // 1. ヘッダーを画像として生成 (文字化け回避策)
-  const headerEl = container.querySelector('#header-template') as HTMLElement;
-  let headerImgData: string | null = null;
-  let headerWidth = 0;
-  let headerHeight = 0;
-
-  if (headerEl) {
-    try {
-      // 一時的に表示させてキャプチャ
-      headerEl.style.top = '0';
-      const canvas = await html2canvas(headerEl, { scale: 2, backgroundColor: null });
-      headerImgData = canvas.toDataURL('image/png');
-      headerWidth = canvas.width / 2;  // scale:2 なので調整
-      headerHeight = canvas.height / 2;
-      headerEl.style.display = 'none'; // キャプチャ終わったら消す
-    } catch (e) {
-      console.error("Header capture failed", e);
-    }
-  }
-
-  // 2. PDF生成設定
-  // マージンを最小限にし、コンテンツパディングでレイアウト制御
+  // PDF生成設定
   const opt = {
-    margin: [10, 0, 10, 0],
+    margin: [10, 0, 10, 0], // マージンを最小限に（ヘッダーはHTML要素で実装）
     filename: `${safeTitle}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    },
     jsPDF: { unit: 'px', format: [900, 1272], hotfixes: ['px_scaling'] },
     pagebreak: { mode: ['avoid-all', 'css'] }
   };
@@ -204,26 +198,14 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
-  // 3. 全ページにヘッダー画像とページ番号を刻印
+  // ページ番号のみをjsPDFで描画（フッター）
   for (let i = 1; i <= totalPages; i++) {
     pdf.setPage(i);
-    if (i > 1) { // 表紙(1)以外
-      // --- ヘッダー画像のスタンプ ---
-      if (headerImgData) {
-        const marginX = 40;
-        const headerY = 20; // ページ上部
-        // 画像のアスペクト比を維持して描画 (幅をページ幅-80pxに合わせる)
-        const pdfHeaderWidth = pageWidth - (marginX * 2);
-        const pdfHeaderHeight = (headerHeight * pdfHeaderWidth) / headerWidth;
-
-        pdf.addImage(headerImgData, 'PNG', marginX, headerY, pdfHeaderWidth, pdfHeaderHeight);
-      }
-
-      // --- ページ番号 ---
+    if (i > 1) { // 表紙以外
       pdf.setFontSize(9);
       pdf.setTextColor(150);
-      // 日本語フォント不要な数字のみなので safe
-      pdf.text(`${i - 1}`, pageWidth - 40, pageHeight - 30, { align: 'right' });
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`${i - 1}`, pageWidth - 40, pageHeight - 15, { align: 'right' });
     }
   }
 
