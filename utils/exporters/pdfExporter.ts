@@ -1,27 +1,21 @@
 import { ManualData } from '@/app/page';
 
-/**
- * 紺色の円形ナンバリングSVG（中心ズレを徹底排除）
- */
+// 紺色の円形ナンバリングSVG（中心ズレを完璧に抑えた設計）
 function createStepNumberSvg(number: number): string {
-    const size = 32;
-    const color = '#1e1b4b';
-
-    // SVG内のテキスト配置を微調整
-    const svg = `
+  const size = 32;
+  const color = '#1e1b4b'; // ネイビー
+  const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="${color}" />
         <text x="50%" y="54%" dominant-baseline="central" alignment-baseline="middle" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="16px">${number}</text>
     </svg>`;
-    // y="54%" で垂直方向の視覚的中心を調整
-
-    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
 
 export function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'single'): string {
-    const isTwoCol = layout === 'two-column';
+  const isTwoCol = layout === 'two-column';
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -29,137 +23,97 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
         font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
-        color: #000000; line-height: 1.5; background: #fff;
+        color: #000; line-height: 1.5; background: #fff;
     }
     
-    /* --- クールな表紙デザイン (Wallpaper無し・紺ラインVer) --- */
+    /* --- クール・スタイリッシュな表紙 (紺帯ミニマルVer) --- */
     .cover-page {
-        height: 1120px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        padding: 0 80px;
-        page-break-after: always;
-        background: #fff;
-        border-top: 15px solid #1e1b4b; /* 上部の重厚な紺ライン */
+        height: 1100px; display: flex; flex-direction: column;
+        padding: 0; page-break-after: always; background: #fff;
     }
-    .cover-label {
-        color: #1e1b4b;
-        font-weight: bold;
-        font-size: 14px;
-        letter-spacing: 0.3em;
-        margin-bottom: 20px;
-        text-transform: uppercase;
-        border-bottom: 2px solid #1e1b4b;
-        display: inline-block;
-        width: fit-content;
+    .cover-header-bar {
+        height: 180px; background: #1e1b4b; display: flex;
+        align-items: center; padding: 0 80px;
     }
-    .cover-title {
-        font-size: 44px;
-        font-weight: 800;
-        color: #0f172a;
-        line-height: 1.2;
-        margin-bottom: 40px;
-    }
-    .cover-overview {
-        font-size: 16px;
-        color: #334155;
-        max-width: 550px;
-        line-height: 1.8;
-        white-space: pre-wrap;
-        border-left: 4px solid #1e1b4b;
-        padding-left: 24px;
-    }
+    .cover-header-text { color: rgba(255,255,255,0.4); font-size: 11px; letter-spacing: 0.6em; font-weight: bold; }
+    .cover-body { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 80px; }
+    .cover-label { color: #1e1b4b; font-weight: bold; font-size: 14px; letter-spacing: 0.2em; margin-bottom: 24px; border-bottom: 3px solid #1e1b4b; display: inline-block; width: fit-content; }
+    .cover-title { font-size: 48px; font-weight: 900; color: #0f172a; line-height: 1.2; margin-bottom: 40px; }
+    .cover-overview { font-size: 16px; color: #334155; max-width: 550px; line-height: 1.8; white-space: pre-wrap; border-left: 4px solid #cbd5e1; padding-left: 24px; }
 
-    /* --- 本文エリア --- */
-    .content-area { padding: 60px 50px; }
-    .doc-header {
-        border-bottom: 2px solid #1e1b4b;
-        margin-bottom: 40px;
-        padding-bottom: 12px;
-    }
+    /* --- 本文レイアウト (Grid/Boxモデル) --- */
+    .content-area { padding: 60px 40px; }
+    .doc-header { border-bottom: 2px solid #1e1b4b; margin-bottom: 40px; padding-bottom: 12px; }
     .doc-title { font-size: 18px; font-weight: bold; color: #1e1b4b; }
 
-    /* Gridによる強固なレイアウト */
+    /* ステップコンテナ：テーブルを廃止しGridを採用 */
     .steps-container {
-        display: grid;
-        grid-template-columns: ${isTwoCol ? '1fr 1fr' : '1fr'};
-        column-gap: 40px;
-        row-gap: 50px;
-        width: 100%;
+        display: grid; 
+        grid-template-columns: ${isTwoCol ? '1fr 1fr' : '1fr'}; 
+        column-gap: 30px; row-gap: 40px; width: 100%;
     }
 
-    /* 改ページで絶対に切れないようにする設定 */
+    /* 改ページでの分断を徹底防止 */
     .step-card { 
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-        display: block;
-        width: 100%;
+        page-break-inside: avoid !important; break-inside: avoid !important;
+        display: block; width: 100%;
     }
 
-    .step-row { display: flex; gap: 14px; align-items: flex-start; }
+    .step-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; }
     .num-icon { width: 32px; height: 32px; flex-shrink: 0; }
-    .step-body { flex: 1; }
+    .action-text { font-size: 17px; font-weight: 800; color: #1e1b4b; line-height: 1.4; padding-top: 2px; }
 
-    .action-text { 
-        font-size: 17px; font-weight: 800; color: #1e1b4b;
-        margin-bottom: 8px; line-height: 1.4;
-    }
-
+    /* タイトルの開始位置と垂直に揃える */
     .detail-text { 
-        font-size: 14px; color: #000000; 
-        margin-bottom: 16px; white-space: pre-wrap;
-        text-align: justify;
+        font-size: 14px; color: #000; margin-left: 44px; /* 32px + 12px gap */
+        margin-bottom: 16px; white-space: pre-wrap; text-align: justify;
     }
     
-    .img-frame { 
-        background: #fcfcfc; border: 1px solid #f1f5f9;
-        border-radius: 6px; padding: 8px; overflow: hidden;
-        page-break-inside: avoid;
-    }
-
-    /* シングルカラム画像サイズ制限 */
-    .single-layout .img-frame {
-        max-width: 60%;
-        margin-top: 10px;
-    }
-    .single-layout .img-frame img { max-height: 250px; }
-
-    /* 2カラム画像高さ揃え */
-    .two-col-layout .img-frame { 
-        height: 180px; 
+    /* 画像を閉じ込めるための固定ボックスフレーム */
+    .image-frame { 
+        margin-left: 44px;
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        border-radius: 6px; overflow: hidden;
         display: flex; align-items: center; justify-content: center;
+        /* 絶対的な高さ制限（巨大化防止） */
+        height: ${isTwoCol ? '180px' : '300px'}; 
     }
 
-    img { max-width: 100%; object-fit: contain; display: block; }
+    .image-frame img { 
+        width: 100%; height: 100%; 
+        object-fit: contain; /* 枠一杯まで広げるが、はみ出さない */
+        display: block;
+    }
+
+    /* 2カラム時はインデントをリセットして幅を確保、画像のMarginもリセット */
+    .two-col-layout .detail-text { margin-left: 0; }
+    .two-col-layout .image-frame { margin-left: 0; }
   </style>
 </head>
 <body class="${isTwoCol ? 'two-col-layout' : 'single-layout'}">
   <div class="cover-page">
-    <div class="cover-label">Operational Standard</div>
-    <h1 class="cover-title">${manual.title}</h1>
-    <p class="cover-overview">${manual.overview}</p>
+    <div class="cover-header-bar"><div class="cover-header-text">SYSTEM OPERATIONAL DOCUMENT</div></div>
+    <div class="cover-body">
+        <div class="cover-label">OPERATION MANUAL</div>
+        <h1 class="cover-title">${manual.title}</h1>
+        <p class="cover-overview">${manual.overview}</p>
+    </div>
   </div>
 
   <div class="content-area">
-    <div class="doc-header">
-        <div class="doc-title">${manual.title}</div>
-    </div>
-    
+    <div class="doc-header"><div class="doc-title">${manual.title}</div></div>
     <div class="steps-container">
       ${manual.steps.map(step => `
         <div class="step-card">
-          <div class="step-row">
+          <div class="step-header">
             <img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" />
-            <div class="step-content">
-                <div class="action-text">${step.action}</div>
-                <div class="detail-text">${step.detail}</div>
-                ${step.screenshot ? `
-                <div class="img-frame">
-                    <img src="${step.screenshot}" />
-                </div>` : ''}
-            </div>
+            <div class="action-text">${step.action}</div>
           </div>
+          <div class="detail-text">${step.detail}</div>
+          ${step.screenshot ? `
+          <div class="image-frame">
+            <img src="${step.screenshot}" />
+          </div>` : ''}
         </div>
       `).join('')}
     </div>
@@ -169,36 +123,36 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 }
 
 export async function generateAndDownloadPdf(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
-    const html2pdf = (await import('html2pdf.js')).default;
-    const container = document.createElement('div');
-    container.innerHTML = generateHTML(manual, layout);
-    document.body.appendChild(container);
+  const html2pdf = (await import('html2pdf.js')).default;
+  const container = document.createElement('div');
+  container.innerHTML = generateHTML(manual, layout);
+  document.body.appendChild(container);
 
-    const opt = {
-        margin: [0, 0, 0, 0],
-        filename: `${safeTitle}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'px', format: [900, 1272], hotfixes: ['px_scaling'] },
-        pagebreak: { mode: ['avoid-all', 'css'] }
-    };
+  const opt = {
+    margin: [0, 0, 0, 0],
+    filename: `${safeTitle}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'px', format: [900, 1272], hotfixes: ['px_scaling'] },
+    pagebreak: { mode: ['avoid-all', 'css'] }
+  };
 
-    const worker = html2pdf().from(container).set(opt).toPdf();
-    const pdf = await worker.get('pdf');
+  const worker = html2pdf().from(container).set(opt).toPdf();
+  const pdf = await worker.get('pdf');
 
-    const totalPages = pdf.internal.getNumberOfPages();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
+  const totalPages = pdf.internal.getNumberOfPages();
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // ページ番号：表紙を飛ばし、2枚目から「1」と振る
-    for (let i = 1; i <= totalPages; i++) {
-        if (i === 1) continue;
-        pdf.setPage(i);
-        pdf.setFontSize(10);
-        pdf.setTextColor(150);
-        pdf.text(`${i - 1}`, pageWidth - 40, pageHeight - 30, { align: 'right' });
-    }
+  // ページ番号：表紙を飛ばし、2枚目から「1」と振る
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1) continue;
+    pdf.setPage(i);
+    pdf.setFontSize(10);
+    pdf.setTextColor(150);
+    pdf.text(`${i - 1}`, pageWidth - 40, pageHeight - 30, { align: 'right' });
+  }
 
-    await worker.save();
-    document.body.removeChild(container);
+  await worker.save();
+  document.body.removeChild(container);
 }
