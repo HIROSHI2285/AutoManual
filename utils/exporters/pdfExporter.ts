@@ -1,15 +1,12 @@
 import { ManualData } from '@/app/page';
 
-/**
- * ナンバリング用SVG（紺丸）
- */
+// 紺色のナンバリングSVG（サイズをmm基準で設計）
 function createStepNumberSvg(number: number): string {
   const size = 32;
-  const color = '#1e1b4b';
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="${color}" />
-        <text x="50%" y="54%" dominant-baseline="central" alignment-baseline="middle" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="16px">${number}</text>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="#1e1b4b" />
+        <text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="16px">${number}</text>
     </svg>`;
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
@@ -22,139 +19,87 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 <head>
   <meta charset="UTF-8">
   <style>
-    /* 全ての余白・サイズ計算を固定 */
+    /* 全てミリメートルで制御 */
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    
     body { 
-        font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
-        color: #000; line-height: 1.5; background: #fff;
-        width: 794px; /* A4 width (px at 96dpi) to match PDF width */
-        margin: 0 auto; /* Center in the PDF canvas if margin-left is 0 */
-    }
-
-    /* --- ヘッダータイトル用 (文字化け対策) --- */
-    #header-source {
-        position: absolute; top: -9999px; left: 0;
-        width: 600px; 
-        font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
-    }
-    .header-source-text {
-        font-size: 14px; font-weight: bold; color: #1e1b4b; /* Navy */
-        line-height: 1.2;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        width: 190mm; /* A4幅 210mm - 左右マージン20mm */
+        margin: 0 auto;
+        color: #000;
+        background: #fff;
     }
     
-    /* --- 表紙デザイン --- */
+    /* --- 表紙 --- */
     .cover-page {
-        /* A4 height approx 1123px. 
-           PDF margin will push this down, so we subtract safe margin if possible, 
-           or just accept the margin as standard document padding. */
-        height: 1000px; 
+        height: 270mm; /* A4高さ 297mm より小さく設定して余白ページを防止 */
         display: flex; flex-direction: column; justify-content: center;
-        padding: 0 80px; page-break-after: always;
-        border-top: 15px solid #1e1b4b;
+        padding: 0 20mm;
+        border-top: 5mm solid #1e1b4b;
     }
-    .cover-label { color: #1e1b4b; font-weight: bold; font-size: 14px; letter-spacing: 0.2em; margin-bottom: 24px; border-bottom: 2px solid #1e1b4b; display: inline-block; width: fit-content; }
-    .cover-title { font-size: 42px; font-weight: 800; color: #0f172a; line-height: 1.2; margin-bottom: 40px; }
-    .cover-overview { font-size: 16px; color: #334155; max-width: 550px; line-height: 1.8; white-space: pre-wrap; border-left: 4px solid #1e1b4b; padding-left: 24px; }
+    .cover-title { font-size: 32pt; font-weight: 800; margin-bottom: 10mm; line-height: 1.2; }
+    .cover-overview { font-size: 12pt; border-left: 1mm solid #1e1b4b; padding-left: 5mm; white-space: pre-wrap; color: #333; }
 
-    /* --- 本文エリア --- */
-    /* マージンはPDF設定(opt.margin)に任せるため、ここではパディング不要 */
-    .content-area { 
-        padding: 20px 40px; 
-    }
+    /* --- 本文 --- */
+    .content-area { padding-top: 15mm; } /* ヘッダー分の空き */
 
-    /* 2カラム・レイアウト崩れ防止 (Row管理) */
     .step-row {
-        display: flex; gap: 20px; width: 100%; margin-bottom: 40px;
-        page-break-inside: avoid; break-inside: avoid; /* 行単位で改ページを禁止 */
+        display: flex; gap: 8mm; margin-bottom: 12mm;
+        page-break-inside: avoid; break-inside: avoid;
     }
-
-    .step-card { 
-        flex: 1; display: flex; flex-direction: column;
-    }
-    .step-card.empty { visibility: hidden; }
-
-    .step-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; }
-    .num-icon { width: 32px; height: 32px; flex-shrink: 0; }
-    .action-text { font-size: 16px; font-weight: 800; color: #1e1b4b; line-height: 1.4; padding-top: 4px; }
-
-    .detail-text { 
-        font-size: 13.5px; color: #000; margin-left: 44px;
-        margin-bottom: 15px; white-space: pre-wrap;
-    }
+    .step-card { flex: 1; min-width: 0; }
     
-    .image-frame { 
-        margin-left: ${isTwoCol ? '0' : '44px'};
-        background: #fcfcfc; border: 1px solid #f1f5f9;
-        border-radius: 4px; overflow: hidden;
-        display: flex; align-items: center; justify-content: center;
-        height: ${isTwoCol ? '240px' : '380px'}; 
+    .step-header { display: flex; gap: 4mm; align-items: flex-start; margin-bottom: 3mm; }
+    .num-icon { width: 8mm; height: 8mm; flex-shrink: 0; }
+    .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; padding-top: 1mm; }
+    
+    .detail-text { margin-left: 12mm; font-size: 10pt; margin-bottom: 4mm; white-space: pre-wrap; }
+    
+    .img-box { 
+        margin-left: ${isTwoCol ? '0' : '12mm'};
+        background: #fcfcfc; border: 0.3mm solid #eee; border-radius: 2mm;
+        height: ${isTwoCol ? '50mm' : '80mm'};
+        display: flex; align-items: center; justify-content: center; overflow: hidden;
     }
-    .image-frame img { 
-        max-width: 100%; max-height: 100%; 
-        object-fit: contain; display: block;
-    }
-
-    /* 2カラム時の微調整 */
-    .two-col-layout .detail-text { margin-left: 0; }
+    img { max-width: 100%; max-height: 100%; object-fit: contain; }
   </style>
 </head>
-<body class="${isTwoCol ? 'two-col-layout' : 'single-layout'}">
-  <!-- ヘッダーキャプチャ用 -->
-  <div id="header-source">
-    <div class="header-source-text">${manual.title}</div>
-  </div>
-
+<body>
   <div class="cover-page">
-    <div class="cover-label">Operational Standard</div>
     <h1 class="cover-title">${manual.title}</h1>
     <p class="cover-overview">${manual.overview}</p>
   </div>
-
   <div class="content-area">
-    ${(() => {
-      let html = '';
-      const steps = manual.steps;
-      if (isTwoCol) {
-        for (let i = 0; i < steps.length; i += 2) {
-          const s1 = steps[i];
-          const s2 = steps[i + 1];
-          html += `
-                <div class="step-row">
+    ${manual.steps.reduce((acc, step, i) => {
+    if (isTwoCol) {
+      if (i % 2 === 0) {
+        const s1 = step;
+        const s2 = manual.steps[i + 1];
+        acc += `<div class="step-row">
                     <div class="step-card">
-                        <div class="step-header">
-                            <img src="${createStepNumberSvg(s1.stepNumber)}" class="num-icon" />
-                            <div class="action-text">${s1.action}</div>
-                        </div>
+                        <div class="step-header"><img src="${createStepNumberSvg(s1.stepNumber)}" class="num-icon" /><div class="action-text">${s1.action}</div></div>
                         <div class="detail-text">${s1.detail}</div>
-                        ${s1.screenshot ? `<div class="image-frame"><img src="${s1.screenshot}" /></div>` : ''}
+                        ${s1.screenshot ? `<div class="img-box"><img src="${s1.screenshot}" /></div>` : ''}
                     </div>
-                    ${s2 ? `
-                    <div class="step-card">
-                        <div class="step-header">
-                            <img src="${createStepNumberSvg(s2.stepNumber)}" class="num-icon" />
-                            <div class="action-text">${s2.action}</div>
-                        </div>
+                    <div class="step-card" style="${s2 ? '' : 'visibility:hidden'}">
+                        ${s2 ? `
+                        <div class="step-header"><img src="${createStepNumberSvg(s2.stepNumber)}" class="num-icon" /><div class="action-text">${s2.action}</div></div>
                         <div class="detail-text">${s2.detail}</div>
-                        ${s2.screenshot ? `<div class="image-frame"><img src="${s2.screenshot}" /></div>` : ''}
-                    </div>` : '<div class="step-card empty"></div>'}
-                </div>`;
-        }
-      } else {
-        html += steps.map(s => `
-                <div class="step-row">
-                    <div class="step-card">
-                        <div class="step-header">
-                            <img src="${createStepNumberSvg(s.stepNumber)}" class="num-icon" />
-                            <div class="action-text">${s.action}</div>
-                        </div>
-                        <div class="detail-text">${s.detail}</div>
-                        ${s.screenshot ? `<div class="image-frame"><img src="${s.screenshot}" /></div>` : ''}
+                        ${s2.screenshot ? `<div class="img-box"><img src="${s2.screenshot}" /></div>` : ''}
+                        ` : ''}
                     </div>
-                </div>`).join('');
+                </div>`;
       }
-      return html;
-    })()}
+    } else {
+      acc += `<div class="step-row">
+                <div class="step-card">
+                    <div class="step-header"><img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" /><div class="action-text">${step.action}</div></div>
+                    <div class="detail-text">${step.detail}</div>
+                    ${step.screenshot ? `<div class="img-box"><img src="${step.screenshot}" /></div>` : ''}
+                </div>
+            </div>`;
+    }
+    return acc;
+  }, '')}
   </div>
 </body>
 </html>`;
@@ -162,69 +107,39 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 
 export async function generateAndDownloadPdf(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
-  const html2canvas = (await import('html2canvas')).default;
-
   const container = document.createElement('div');
   container.innerHTML = generateHTML(manual, layout);
   document.body.appendChild(container);
 
-  // 1. ヘッダーテキストを画像化 (Mojibake対策)
-  const headerEl = container.querySelector('#header-source') as HTMLElement;
-  let headerImgData: string | null = null;
-  let headerAspectRatio = 0;
-
-  if (headerEl) {
-    try {
-      headerEl.style.top = '0';
-      const canvas = await html2canvas(headerEl, { scale: 3, backgroundColor: null });
-      headerImgData = canvas.toDataURL('image/png');
-      headerAspectRatio = canvas.width / canvas.height;
-      headerEl.style.display = 'none';
-    } catch (e) {
-      console.error("Header capture failed", e);
-    }
-  }
-
-  // 2. 余白設定 (重要: 本文の開始位置を物理的に下げる)
-  // Top: 25mm (ヘッダー用), Bottom: 15mm (ページ番号用)
   const opt = {
-    margin: [25, 0, 15, 0],
+    margin: [10, 10, 10, 10], // mm単位の余白
     filename: `${safeTitle}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false, width: 794 },
+    html2canvas: { scale: 3, useCORS: true }, // スケールを上げて鮮明に
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css'] }
+    pagebreak: { mode: ['css', 'legacy'] }
   };
 
   const worker = html2pdf().from(container).set(opt).toPdf();
   const pdf = await worker.get('pdf');
-
   const totalPages = pdf.internal.getNumberOfPages();
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
 
   for (let i = 1; i <= totalPages; i++) {
     pdf.setPage(i);
-    // Header/Footer Loop (表紙以外)
     if (i > 1) {
-      // --- Header Area (Top Margin: 25mm) ---
-      // ライン: y=15mm (余白内)
+      // シンプルなラインヘッダー
       pdf.setDrawColor(30, 27, 75);
-      pdf.setLineWidth(0.3);
-      pdf.line(10, 15, pageWidth - 10, 15);
+      pdf.setLineWidth(0.2);
+      pdf.line(10, 12, 200, 12);
 
-      // タイトル画像: y=10~14nm付近
-      if (headerImgData) {
-        const imgHeight = 4; // 4mm
-        const imgWidth = imgHeight * headerAspectRatio;
-        // Line(15)の少し上に配置 -> y=10あたり
-        pdf.addImage(headerImgData, 'PNG', 10, 10, imgWidth, imgHeight);
-      }
-
-      // --- Footer Area (Bottom Margin: 15mm) ---
       pdf.setFontSize(9);
+      pdf.setTextColor(30, 27, 75);
+      pdf.text(manual.title, 10, 10);
+
+      // ページ番号
+      pdf.setFontSize(8);
       pdf.setTextColor(150, 150, 150);
-      pdf.text(`${i - 1}`, pageWidth - 10, pageHeight - 10, { align: 'right' });
+      pdf.text(`${i - 1}`, 200, 287, { align: 'right' });
     }
   }
 
