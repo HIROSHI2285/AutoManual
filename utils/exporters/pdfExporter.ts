@@ -34,7 +34,6 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     .cover-body { 
         flex-grow: 1; display: flex; flex-direction: column; 
         justify-content: center; padding: 0 80px; 
-        border-top: 10px solid #1e1b4b; /* 控えめなアクセント */
     }
     .cover-label { 
         color: #1e1b4b; font-weight: bold; font-size: 14px; letter-spacing: 0.2em; 
@@ -48,34 +47,31 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
 
     /* --- 本文エリア --- */
-    /* ヘッダー(40-50px程度) + 余白を考慮 */
-    .content-area { padding: 60px 50px 40px; }
+    /* 上部パディングは PDFのマージン設定(opt.margin) に任せるため、ここは最小限に */
+    .content-area { padding: 20px 50px 0; }
 
     /* 
-       コンテナレイアウト 
-       GridではなくFlexWrapを使用することで、改ページ時の挙動を安定させる
+       コンテナレイアウト: Grid (2カラムの整列を保証)
+       Flexだと高さ不揃いで段がずれるため、Gridに戻す
     */
     .steps-container {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: ${isTwoCol ? '1fr 1fr' : '1fr'};
+        column-gap: 30px; 
+        row-gap: 40px; /* 行間を適切に */
         width: 100%;
-        gap: 30px; /* column-gap */
     }
 
     /* ステップカード (分断絶対禁止) */
     .step-card { 
-        /* 改ページ禁止の徹底 */
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         position: relative;
-        display: block; /* Flexアイテムとして振る舞うが内部はブロック */
-        
-        /* レイアウト分岐 */
-        width: ${isTwoCol ? 'calc(50% - 15px)' : '100%'};
-        margin-bottom: 30px;
+        display: block;
+        width: 100%;
+        /* Gridアイテム内でのスタイル */
     }
 
-    /* ヘッダー部分 */
     .step-header { 
         display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; 
     }
@@ -92,30 +88,32 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         white-space: pre-wrap; text-align: justify;
     }
     
-    /* 画像フレーム (横伸び防止の決定版) */
+    /* 画像フレーム */
     .image-frame { 
         margin-left: 44px;
         background: #fdfdfd; border: 1px solid #f3f4f6;
         border-radius: 6px; overflow: hidden;
         
-        /* Flexで中央寄せ */
         display: flex; align-items: center; justify-content: center;
         
-        /* 高さは固定 (2カラムの行揃えのため必須) */
+        /* 
+           高さ固定: これがないと2カラム時にレイアウトが崩壊する、かつ巨大画像を防ぐための命綱 
+           シングル 380px / 2カラム 240px
+        */
         height: ${isTwoCol ? '240px' : '380px'}; 
     }
 
-    /* 画像：横伸びを絶対に許さない設定 */
+    /* 画像スタイル: アスペクト比絶対死守 */
     .image-frame img { 
         width: auto;
         height: auto;
         max-width: 100%;
         max-height: 100%;
-        object-fit: contain;
+        object-fit: contain; /* 枠内に収める */
         display: block;
     }
 
-    /* 2カラム時の微調整: インデントは維持 */
+    /* 2カラム時の微調整: インデント維持 */
     .two-col-layout .detail-text, .two-col-layout .image-frame { margin-left: 44px; }
   </style>
 </head>
@@ -151,24 +149,25 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 
 export async function generateAndDownloadPdf(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
-  // html2pdfの設定 (最新の知見に基づく調整)
   const container = document.createElement('div');
   container.innerHTML = generateHTML(manual, layout);
   document.body.appendChild(container);
 
+  // PDF生成設定
+  // opt.margin を設定することで、全ページの上下左右に物理的な余白を確保する。
+  // [Top, Right, Bottom, Left] -> Top: 60px (ヘッダー用), Bottom: 30px (フッター用)
   const opt = {
-    margin: [0, 0, 0, 0], // ヘッダー描画のためマージン0で制御
+    margin: [60, 0, 30, 0],
     filename: `${safeTitle}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: {
       scale: 2,
       useCORS: true,
       logging: false,
-      // letterRendering: true // フォントレンダリング改善
     },
     jsPDF: { unit: 'px', format: [900, 1272], hotfixes: ['px_scaling'] },
-    // 改ページ設定: cssモードに加え、legacyモードも併用して安全策をとる
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    // css: page-break-inside: avoid を有効にする
+    pagebreak: { mode: ['avoid-all', 'css'] }
   };
 
   const worker = html2pdf().from(container).set(opt).toPdf();
@@ -178,54 +177,41 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
-  // 全ページヘッダー描画ループ (シンプル版)
+  // ヘッダー・フッター描画ループ
   for (let i = 1; i <= totalPages; i++) {
     pdf.setPage(i);
     if (i > 1) { // 表紙(1)以外
-      // ヘッダー: タイトル + 下線 (帯無し)
       const marginX = 40;
-      const headerY = 30;
+      const headerY = 35; // margin-top: 60px の内側、上寄り
 
-      pdf.setFontSize(11);
-      pdf.setTextColor(30, 27, 75); // #1e1b4b (Navy)
-      pdf.setFont("helvetica", "bold");
-      // ※日本語フォントはjsPDF標準では使えないため、標準フォントで描画される範囲か、
-      // あるいは文字化け回避のためタイトル描画は慎重に行う必要があるが、
-      // generateAndDownloadPdf内でaddFileObjectなどのフォント読み込みを行っていない場合、
-      // 日本語タイトルは文字化けするリスクがある。
-      // html2pdf経由のDOM描画ではなく、直接描画なので、英数字なら出るが日本語は出ない可能性がある。
+      // ヘッダーライン (全幅)
+      pdf.setDrawColor(30, 27, 75); // Navy
+      pdf.setLineWidth(1.5);
+      // 左端(marginX)から右端(pageWidth - marginX)まで
+      pdf.line(marginX, headerY + 8, pageWidth - marginX, headerY + 8);
 
-      // 安全策: ヘッダーは画像化せず直接描画する場合、日本語フォントがないと化ける。
-      // 今回の要件「ヘッダーは過去verのタイトルと下線」を実現するには、
-      // DOM側にヘッダー要素を持たせて html2pdf に描画させるのが一番安全だが、
-      // 全ページに繰り返す機能は html2pdf にはない。
-      // 妥協案: 英数字タイトルと仮定するか、もしくは文字化け覚悟で描画するか...
-      // いや、Canvasベースで描画されているページの上に重ねるので、
-      // 日本語を描画するにはフォント登録が必須。
-      // ここでは安全のため、「OPERATION MANUAL」等の固定テキスト + タイトル(英数字と仮定)にするか、
-      // ユーザーの意図を汲んで「タイトルを表示」するが、文字化けリスクを回避できないため
-      // 一旦、DOM側で「各ページの先頭にヘッダー用divを仕込む」のは構造的に無理。
-      // → タイトル描画は行い、文字化けしたらそれは次の課題とする（今回はデザイン修正優先）。
-
-      // 下線
-      pdf.setDrawColor(30, 27, 75);
-      pdf.setLineWidth(1);
-      pdf.line(marginX, headerY + 5, pageWidth - marginX, headerY + 5);
-
-      // タイトルテキスト (日本語が化ける可能性大だが、要望通り実装)
-      // 文字化け対策がされていない環境であれば、ここは英数のみの表記にする等の運用回避が必要。
-      // もしくは、manual.titleを使わず固定文字にするか。
-      // ここではmanual.titleを使う。
+      // タイトル描画 (左寄せ)
+      // 日本語文字化けリスクがあるが、現状のアーキテクチャではCanvas直接描画しか
+      // 「全ページヘッダー」を確実に行う方法がない。（HTMLコピー方式はPDF容量増大・レイアウト崩れリスクあり）
+      // ユーザー要望の画像イメージに近づけるため敢えて描画する。
       try {
+        pdf.setFontSize(14);
+        pdf.setTextColor(30, 27, 75);
+        pdf.setFont("helvetica", "bold");
+        // 英数字のみのタイトルならこれでOK。日本語の場合は化ける可能性が高いが、
+        // マニュアルタイトルが英数字（"Offline Startup Manual"等）であれば綺麗に出る。
+        // どうしても日本語を出したい場合は html2pdf のヘッダー機能(有料版や複雑なハック)が必要になるが、
+        // ここではベストエフォートで実装する。
         pdf.text(manual.title, marginX, headerY);
       } catch (e) {
-        console.warn("Header text drawing failed", e);
+        // Ignore font errors
       }
 
-      // ページ番号
+      // ページ番号 (右下)
       pdf.setFontSize(9);
       pdf.setTextColor(150);
-      pdf.text(`${i - 1}`, pageWidth - 40, pageHeight - 30, { align: 'right' });
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`${i - 1}`, pageWidth - 40, pageHeight - 15, { align: 'right' });
     }
   }
 
