@@ -126,6 +126,8 @@ function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) 
     });
 }
 
+// ... (ライブラリインポートと定数定義)
+
 /**
  * スライドに手順を追加
  */
@@ -133,37 +135,31 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
     const NAVY = '1E1B4B';
     const cardWidth = isTwoCol ? 4.3 : 9.0;
 
-    // ナンバリング（紺色の円）
-    slide.addShape(pptx.ShapeType.ellipse, {
-        x: xPos, y: 1.2, w: 0.4, h: 0.4,
-        fill: { color: NAVY }
-    });
-    slide.addText(step.stepNumber.toString(), {
-        x: xPos, y: 1.2, w: 0.4, h: 0.4,
-        fontSize: 14, color: 'FFFFFF', bold: true, align: 'center', valign: 'middle'
-    });
+    // ナンバリング
+    slide.addShape(pptx.ShapeType.ellipse, { x: xPos, y: 1.2, w: 0.35, h: 0.35, fill: { color: NAVY } });
+    slide.addText(step.stepNumber.toString(), { x: xPos, y: 1.2, w: 0.35, h: 0.35, fontSize: 12, color: 'FFFFFF', bold: true, align: 'center', valign: 'middle' });
 
-    // アクション
+    // アクション (高さを少し抑えて隙間を詰める)
     slide.addText(step.action, {
-        x: xPos + 0.5, y: 1.2, w: cardWidth - 0.5, h: 0.4,
-        fontSize: 13, color: NAVY, bold: true, valign: 'middle'
+        x: xPos + 0.4, y: 1.2, w: cardWidth - 0.4, h: 0.35,
+        fontSize: 14, color: NAVY, bold: true, valign: 'middle'
     });
 
-    // 詳細テキスト (開始位置を y:1.7 から y:1.55 に引き上げ)
+    // 詳細 (yを 1.7 から 1.5 へ引き上げ、Actionとの隙間を最小化)
     slide.addText(step.detail, {
-        x: xPos + 0.5, y: 1.55, w: cardWidth - 0.5, h: 1.0,
+        x: xPos + 0.4, y: 1.5, w: cardWidth - 0.4, h: 0.8,
         fontSize: 10, color: '000000', valign: 'top', breakLine: true
     });
 
-    // 画像 (中央寄せ)
+    // 画像 (yを 2.8 から 2.4 へ引き上げ、テキストとの間隔を1行分程度に)
     if (step.screenshot) {
         const imgWidth = isTwoCol ? 4.0 : 6.0;
-        const imgHeight = isTwoCol ? 3.0 : 4.0;
+        const imgHeight = isTwoCol ? 2.5 : 3.5;
         const imgX = isTwoCol ? xPos + 0.15 : (10 - imgWidth) / 2;
 
         slide.addImage({
             data: step.screenshot,
-            x: imgX, y: 2.8, w: imgWidth, h: imgHeight,
+            x: imgX, y: 2.4, w: imgWidth, h: imgHeight,
             sizing: { type: 'contain', w: imgWidth, h: imgHeight }
         });
     }
