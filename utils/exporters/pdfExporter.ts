@@ -1,15 +1,17 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 紺色の円形ナンバリング（中心ズレを完璧に抑え、広大な余白で削れを防止）
+ * 紺色の円形ナンバリング（円を少し小さくし、巨大な余白で削れを完全に防止）
  */
 function createStepNumberSvg(number: number): string {
-  const size = 64;
-  const radius = 24;
+  // キャンバスを128に拡大し、半径20の円を中央に配置。
+  // 周囲に広大な透明バッファを確保することで、後半ページの座標ズレを完全に許容します。
+  const size = 128;
+  const radius = 20; // 少し小さく調整
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="24px">${number}</text>
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="18px">${number}</text>
     </svg>`;
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
@@ -47,12 +49,9 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 180mm; margin: 0 auto; background: #fff; color: #000;
     }
     
-    /* 表紙: ハミ出しを防止するため高さを 240mm に固定 */
     .cover-page {
         height: 240mm; display: flex; flex-direction: column; justify-content: center;
-        padding: 0 20mm;
-        border-top: 2.5mm solid #1e1b4b;
-        border-bottom: 2.5mm solid #1e1b4b;
+        padding: 0 20mm; border-top: 2.5mm solid #1e1b4b; border-bottom: 2.5mm solid #1e1b4b;
         page-break-after: always;
     }
     .cover-label { font-size: 14pt; color: #1e1b4b; font-weight: bold; margin-bottom: 5mm; }
@@ -68,36 +67,31 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     .overview-text { font-size: 10.5pt; color: #334155; line-height: 1.8; white-space: pre-wrap; }
 
     .step-row {
-        display: flex; gap: 8mm; margin-bottom: 25mm; /* Increased margin bottom to ensure it forces a page break before hitting the footer */
+        display: flex; gap: 8mm; margin-bottom: 15mm;
         page-break-inside: avoid; break-inside: avoid;
     }
-    /* 左右で高さを揃えるためのFlex設定 */
-    .step-card { 
-        flex: 1; min-width: 0; 
-        display: flex; flex-direction: column; 
-    }
+    .step-card { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     
     .step-header { display: flex; gap: 4mm; align-items: center; margin-bottom: 4mm; }
+    
+    /* 広大なSVGを収容するため wrapper の設定を強化 */
     .num-icon-wrapper { 
         width: 15mm; height: 15mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
-        overflow: visible;
+        overflow: visible !important; /* はみ出しを許容 */
     }
-    .num-icon { width: 100%; height: 100%; display: block; }
-    .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; }
+    .num-icon { 
+        width: 100%; height: 100%; display: block; 
+        object-fit: contain; 
+    }
     
-    /* 詳細テキストを伸ばして、画像をカードの下部に押し下げる */
-    .detail-text { 
-        margin-left: 19mm; font-size: 10.5pt; margin-bottom: 5mm; 
-        white-space: pre-wrap; color: #000; flex-grow: 1; 
-    }
+    .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; }
+    .detail-text { margin-left: 19mm; font-size: 10.5pt; margin-bottom: 5mm; white-space: pre-wrap; color: #000; flex-grow: 1; }
     
     .img-box { 
-        align-self: center; /* Forces horizontal centering inside the flex column */
-        margin-top: auto; /* Pushes to bottom of card */
+        align-self: center; margin-top: auto;
         background: #fcfcfc; border: 0.3mm solid #eee; border-radius: 2mm;
-        height: ${isTwoCol ? '65mm' : '95mm'};
-        width: 100%; /* Take full width and use object-fit for centering image */
+        height: ${isTwoCol ? '65mm' : '95mm'}; width: 100%;
         display: flex; align-items: center; justify-content: center; overflow: hidden;
         flex-shrink: 0;
     }
