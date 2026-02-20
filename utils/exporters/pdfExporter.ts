@@ -15,7 +15,7 @@ function createStepNumberSvg(number: number): string {
 }
 
 /**
- * 日本語タイトルの文字化け回避用画像生成
+ * 文字化け回避用：Canvasでテキストを画像化
  */
 function createTextAsImage(text: string, fontSize: number, color: string): string {
   if (typeof document === 'undefined') return '';
@@ -47,37 +47,40 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 180mm; margin: 0 auto; background: #fff; color: #000;
     }
     
+    /* 1. 空白ページを作らないための高さ調整 */
     .cover-page {
-        height: 275mm; display: flex; flex-direction: column; justify-content: center;
+        height: 245mm; 
+        display: flex; flex-direction: column; justify-content: center;
         padding: 0 20mm; border-top: 5mm solid #1e1b4b;
+        break-after: page;
     }
     .cover-label { font-size: 14pt; color: #1e1b4b; font-weight: bold; margin-bottom: 5mm; }
     .cover-title { font-size: 38pt; font-weight: 800; color: #0f172a; line-height: 1.2; }
 
+    /* 2. 本文エリアの開始位置を調整 */
     .content-area { padding-top: 10mm; }
     
     .manual-overview-section {
-        margin-bottom: 20mm; padding: 6mm; background: #f8fafc;
+        margin-bottom: 15mm; padding: 6mm; background: #f8fafc;
         border-radius: 2mm; border-left: 2mm solid #1e1b4b;
     }
     .overview-label { font-size: 11pt; font-weight: bold; color: #1e1b4b; margin-bottom: 3mm; display: block; }
     .overview-text { font-size: 10.5pt; color: #334155; line-height: 1.8; white-space: pre-wrap; }
 
     .step-row {
-        display: flex; gap: 8mm; margin-bottom: 15mm;
-        page-break-inside: avoid; break-inside: avoid;
+        display: flex; gap: 8mm; margin-bottom: 12mm;
     }
-    .step-card { flex: 1; min-width: 0; }
+
+    /* 3. ナンバリングがページを跨がないようブロック化 */
+    .step-card { 
+        flex: 1; min-width: 0; 
+        break-inside: avoid; page-break-inside: avoid;
+        display: block; 
+    }
     
     .step-header { display: flex; gap: 4mm; align-items: center; margin-bottom: 4mm; }
-    
-    .num-icon-wrapper { 
-        width: 12mm; height: 12mm; flex-shrink: 0; 
-        display: flex; align-items: center; justify-content: center;
-        overflow: visible;
-    }
+    .num-icon-wrapper { width: 12mm; height: 12mm; flex-shrink: 0; overflow: visible; }
     .num-icon { width: 100%; height: 100%; display: block; }
-    
     .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; }
     
     .detail-text { margin-left: 16mm; font-size: 10.5pt; margin-bottom: 5mm; white-space: pre-wrap; color: #000; }
@@ -153,7 +156,7 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 3, useCORS: true },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'] }
+    pagebreak: { mode: ['css', 'legacy', 'avoid-all'] }
   };
 
   const worker = html2pdf().from(container).set(opt).toPdf();
@@ -163,7 +166,7 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
   for (let i = 1; i <= totalPages; i++) {
     pdf.setPage(i);
     if (i > 1) {
-      // ヘッダー
+      // ヘッダー線と画像
       pdf.setDrawColor(30, 27, 75);
       pdf.setLineWidth(0.3);
       pdf.line(15, 15, 195, 15);
@@ -173,7 +176,7 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
         pdf.addImage(titleImageData, 'PNG', 15, 8, imgWidth, 5);
       }
 
-      // フッター
+      // フッター線
       pdf.setDrawColor(30, 27, 75);
       pdf.setLineWidth(0.2);
       pdf.line(15, 282, 195, 282);
