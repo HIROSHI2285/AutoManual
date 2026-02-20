@@ -93,7 +93,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
     
     .img-box { 
-        margin: 0 auto 5mm ${isTwoCol ? '0' : 'auto'};
+        margin: 0 auto 5mm auto;
         background: #fcfcfc; border: 0.3mm solid #eee; border-radius: 2mm;
         height: ${isTwoCol ? '65mm' : '95mm'};
         display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -159,7 +159,7 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
   const titleImageData = createTextAsImage(manual.title, 32, '#1e1b4b');
 
   const opt = {
-    margin: [20, 15, 20, 15] as [number, number, number, number],
+    margin: [20, 15, 23, 15] as [number, number, number, number], // Increased bottom margin from 15 to 23 to prevent footer numbering getting cut off
     filename: `${safeTitle}.pdf`,
     image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
     html2canvas: { scale: 3, useCORS: true },
