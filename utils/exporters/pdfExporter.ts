@@ -1,18 +1,17 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 紺色の円形ナンバリング（超広域バッファを確保し、後半ページの見切れを物理的に根絶）
+ * 紺色の円形ナンバリング（中心ズレを完璧に抑え、広大な余白で削れを防止）
  */
 function createStepNumberSvg(number: number): string {
-  // キャンバスを200まで拡大。
-  // 円の半径を45にすることで、周囲に約55pxの透明なセーフティゾーンを設けます。
-  // これにより、変換時の累積誤差で描画位置がズレても、円が削れることは物理的にあり得ません。
-  const size = 200;
-  const radius = 45;
+  // サイズを128に拡大し、半径32の円を配置。
+  // 周囲の広大な透明エリアが、PDF変換時の座標計算ズレをすべて吸収します。
+  const size = 128;
+  const radius = 32;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="40px">${number}</text>
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="28px">${number}</text>
     </svg>`;
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
@@ -73,21 +72,27 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
     .step-card { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     
-    .step-header { display: flex; gap: 4mm; align-items: center; margin-bottom: 0mm; }
-    
-    /* 巨大化したSVGを収容し、かつ見切れを防ぐためのwrapper調整 */
+    /* ActionとDetailの間を限界まで狭める */
+    .step-header { 
+        display: flex; gap: 4mm; align-items: center; 
+        margin-bottom: 0mm !important; /* 隙間をゼロに */
+    }
     .num-icon-wrapper { 
-        width: 18mm; height: 18mm; flex-shrink: 0; 
+        width: 15mm; height: 15mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
         overflow: visible !important;
     }
-    .num-icon { 
-        width: 100%; height: 100%; display: block; 
-        object-fit: contain; 
-    }
+    .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
     
-    .action-text { font-size: 14pt; font-weight: 800; color: #1e1b4b; }
-    .detail-text { margin-left: 22mm; font-size: 10.5pt; margin-bottom: 5mm; white-space: pre-wrap; color: #000; }
+    .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; line-height: 1.1; }
+    
+    /* Detailと画像の間を1行分(約5mm)あける */
+    .detail-text { 
+        margin-left: 19mm; font-size: 10.5pt; 
+        margin-top: 2px; /* Actionとの微調整 */
+        margin-bottom: 5mm !important; /* 1行分の間隔 */
+        white-space: pre-wrap; color: #000; 
+    }
     
     .img-box { 
         align-self: center;
