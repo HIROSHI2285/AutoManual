@@ -72,10 +72,9 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
     .step-card { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     
-    /* ActionとDetailの間を限界まで狭める */
     .step-header { 
         display: flex; gap: 4mm; align-items: center; 
-        margin-bottom: 0mm !important; /* 隙間をゼロに */
+        margin-bottom: 0mm !important; 
     }
     .num-icon-wrapper { 
         width: 15mm; height: 15mm; flex-shrink: 0; 

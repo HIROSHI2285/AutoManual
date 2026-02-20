@@ -139,28 +139,28 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
     slide.addShape(pptx.ShapeType.ellipse, { x: xPos, y: 1.2, w: 0.35, h: 0.35, fill: { color: NAVY } });
     slide.addText(step.stepNumber.toString(), { x: xPos, y: 1.2, w: 0.35, h: 0.35, fontSize: 12, color: 'FFFFFF', bold: true, align: 'center', valign: 'middle' });
 
-    // アクション (高さを少し抑えて隙間を詰める)
+    // 1. アクション (y: 1.2, h: 0.35)
     slide.addText(step.action, {
-        x: xPos + 0.4, y: 1.2, w: cardWidth - 0.4, h: 0.35,
+        x: xPos + 0.5, y: 1.2, w: cardWidth - 0.5, h: 0.35,
         fontSize: 14, color: NAVY, bold: true, valign: 'middle'
     });
 
-    // 詳細 (yを 1.7 から 1.5 へ引き上げ、Actionとの隙間を最小化)
+    // 2. 詳細 (y: 1.5 に引き上げ、Actionに密着させる)
     slide.addText(step.detail, {
-        x: xPos + 0.4, y: 1.5, w: cardWidth - 0.4, h: 0.8,
+        x: xPos + 0.5, y: 1.5, w: cardWidth - 0.5, h: 0.8,
         fontSize: 10, color: '000000', valign: 'top', breakLine: true
     });
 
-    // 画像 (yを 2.8 から 2.4 へ引き上げ、テキストとの間隔を1行分程度に)
+    // 3. 画像 (y: 2.4 に引き上げ。詳細テキストから約1行分あけて配置)
     if (step.screenshot) {
         const imgWidth = isTwoCol ? 4.0 : 6.0;
         const imgHeight = isTwoCol ? 2.5 : 3.5;
-        const imgX = isTwoCol ? xPos + 0.15 : (10 - imgWidth) / 2;
+        const imgX = isTwoCol ? xPos + 0.15 : (11.69 - imgWidth) / 2;
 
         slide.addImage({
             data: step.screenshot,
             x: imgX, y: 2.4, w: imgWidth, h: imgHeight,
-            sizing: { type: 'contain', w: imgWidth, h: imgHeight }
+            sizing: { type: 'contain' }
         });
     }
 }
