@@ -48,8 +48,10 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 break;
             }
             case 'pptx': {
-                const { generateAndDownloadPptx } = await import('@/utils/exporters/pptxExporter');
-                await generateAndDownloadPptx(manual, layout);
+                try {
+                    const { generateAndDownloadPptx } = await import('@/utils/exporters/pptxExporter');
+                    await generateAndDownloadPptx(manual, layout, safeTitle);
+                } catch (e) { console.error(e); }
                 break;
             }
             case 'pdf': {
