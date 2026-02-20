@@ -74,14 +74,17 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     /* 1. ActionとDetailの間を極限まで詰める (0.5mm) */
     .step-header { 
-        display: flex; gap: 4mm; align-items: flex-start; /* items-center から flex-start へ変更 */
-        margin-bottom: 2mm !important; 
+        display: flex; gap: 4mm; 
+        /* 2カラムは元のcenter、1カラムはテキストの1行目に合わせるため flex-start */
+        align-items: ${isTwoCol ? 'center' : 'flex-start'}; 
+        margin-bottom: 0.5mm !important; 
     }
     .num-icon-wrapper { 
-        width: 12mm; height: 12mm; flex-shrink: 0; 
+        width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
-        margin-top: 0.5mm; /* 見出し1行目の高さに合わせる調整値 */
         overflow: visible !important;
+        /* 1カラム時のみ、円が上にズレて見えるのを防ぐため 1.5mm 下げる */
+        ${!isTwoCol ? 'margin-top: 1.5mm;' : ''}
     }
     .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
     
@@ -93,13 +96,14 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         display: flex; flex-direction: column;
     }
 
-    /* 画像との間隔を2カラム時は維持(2.5mm)、1カラムは大幅に下げる。左端を完全に揃える。 */
+    /* 画像との間隔を2カラム時は維持(2.5mm)、1カラムは大幅に下げる(15mm) */
     .detail-text { 
-        margin-left: 16mm; /* ナンバリングの幅(12mm) + gap(4mm) に合わせる */
+        /* 18mmのインデントを維持することで、1カラム時もテキストの左端がピシッと揃います */
+        margin-left: 18mm; 
         font-size: 10.5pt; 
         margin-top: 0mm !important; 
-        margin-bottom: ${isTwoCol ? '2.5mm' : '10mm'} !important; 
-        white-space: pre-wrap; color: #334155; 
+        margin-bottom: ${isTwoCol ? '2.5mm' : '15mm'} !important; 
+        white-space: pre-wrap; color: #000; 
     }
     
     .img-box { 
