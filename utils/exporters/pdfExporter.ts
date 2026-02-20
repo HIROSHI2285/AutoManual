@@ -83,8 +83,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
         overflow: visible !important;
-        /* 1カラム時のみ、円が上にズレて見えるのを防ぐため 1.5mm 下げる */
-        ${!isTwoCol ? 'margin-top: 1.5mm;' : ''}
+        /* 1カラム時のみナンバリングを1.2mm下げてセンターを一致させる */
+        ${!isTwoCol ? 'margin-top: 1.2mm;' : ''}
     }
     .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
     
@@ -98,11 +98,11 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 
     /* 画像との間隔を2カラム時は維持(2.5mm)、1カラムは大幅に下げる(15mm) */
     .detail-text { 
-        /* 18mmのインデントを維持することで、1カラム時もテキストの左端がピシッと揃います */
         margin-left: 18mm; 
         font-size: 10.5pt; 
         margin-top: 0mm !important; 
-        margin-bottom: ${isTwoCol ? '2.5mm' : '15mm'} !important; 
+        /* 見切れ防止：1カラムの余白を15mmから8mmに詰め、ページ内に収まりやすくする */
+        margin-bottom: ${isTwoCol ? '2.5mm' : '8mm'} !important; 
         white-space: pre-wrap; color: #000; 
     }
     
@@ -166,7 +166,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
                 </div>`;
       }
     } else {
-      acc += `<div class="step-row" style="page-break-inside: avoid; padding-bottom: 5mm;"><div class="step-card">${stepHtml}</div></div>`;
+      /* 見切れの原因となっていた重複 padding-bottom: 5mm を削除 */
+      acc += `<div class="step-row" style="page-break-inside: avoid;"><div class="step-card">${stepHtml}</div></div>`;
     }
     return acc;
   }, '')}
