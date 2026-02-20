@@ -1,13 +1,11 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 紺色の円形ナンバリング（後半ページの座標ズレ対策として広大なバッファを確保）
+ * 紺色の円形ナンバリング（累積座標誤差による削れを防止するため、広大なバッファを確保）
  */
 function createStepNumberSvg(number: number): string {
-  // サイズを64に拡大。円の周囲に大きな余白(バッファ)を持たせることで、
-  // html2canvasの累積計算誤差による後半ページでの「削れ」を物理的に回避します。
   const size = 64;
-  const radius = 18; 
+  const radius = 18;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
@@ -49,13 +47,14 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 180mm; margin: 0 auto; background: #fff; color: #000;
     }
     
-    /* 表紙: ラインの太さを2.5mmに変更し、強制改ページを追加 */
+    /* 1. 表紙: 上下グラデーションライン & ハミ出し防止の高さ調整 */
     .cover-page {
-        height: 257mm; display: flex; flex-direction: column; justify-content: center;
-        padding: 0 20mm; 
-        border-top: 2.5mm solid #1e1b4b;
-        border-bottom: 2.5mm solid #1e1b4b;
-        page-break-after: always;
+        height: 250mm; display: flex; flex-direction: column; justify-content: center;
+        padding: 0 20mm;
+        border-top: 2.5mm solid;
+        border-bottom: 2.5mm solid;
+        border-image: linear-gradient(to right, #1e1b4b, #4f46e5) 1;
+        break-after: page;
     }
     .cover-label { font-size: 14pt; color: #1e1b4b; font-weight: bold; margin-bottom: 5mm; }
     .cover-title { font-size: 38pt; font-weight: 800; color: #0f172a; line-height: 1.2; }
@@ -73,28 +72,34 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         display: flex; gap: 8mm; margin-bottom: 15mm;
         page-break-inside: avoid; break-inside: avoid;
     }
-    .step-card { flex: 1; min-width: 0; }
+
+    /* 2. 左右で画像高さを揃えるためのFlex設定 */
+    .step-card { 
+        flex: 1; min-width: 0; 
+        display: flex; flex-direction: column; 
+    }
     
     .step-header { display: flex; gap: 4mm; align-items: center; margin-bottom: 4mm; }
-    
-    /* ナンバリング見切れ防止: コンテナを拡大し、はみ出しを許容 */
     .num-icon-wrapper { 
-        width: 16mm; height: 16mm; flex-shrink: 0; 
+        width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
-        overflow: visible !important;
+        overflow: visible;
     }
     .num-icon { width: 100%; height: 100%; display: block; }
-    
     .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; }
     
-    .detail-text { margin-left: 20mm; font-size: 10.5pt; margin-bottom: 5mm; white-space: pre-wrap; color: #000; }
+    /* テキストの長さに応じて伸びるようにし、画像を押し下げる */
+    .detail-text { 
+        margin-left: 18mm; font-size: 10.5pt; margin-bottom: 5mm; 
+        white-space: pre-wrap; color: #000; flex-grow: 1; 
+    }
     
-    /* 画像の中央配置修正: シングルカラム時は auto マージンで中央寄せ */
     .img-box { 
-        margin: 0 auto 5mm ${isTwoCol ? '0' : 'auto'};
+        margin-left: ${isTwoCol ? '0' : '18mm'};
         background: #fcfcfc; border: 0.3mm solid #eee; border-radius: 2mm;
         height: ${isTwoCol ? '65mm' : '95mm'};
         display: flex; align-items: center; justify-content: center; overflow: hidden;
+        flex-shrink: 0; /* 高さを固定し、潰れないようにする */
     }
     img { max-width: 100%; max-height: 100%; object-fit: contain; }
   </style>
@@ -153,7 +158,6 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
   container.innerHTML = generateHTML(manual, layout);
   document.body.appendChild(container);
 
-  // ヘッダータイトルのサイズを拡大(32px)
   const titleImageData = createTextAsImage(manual.title, 32, '#1e1b4b');
 
   const opt = {
@@ -176,10 +180,9 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
       pdf.setLineWidth(0.3);
       pdf.line(15, 15, 195, 15);
       if (titleImageData) {
-        const imgProps = pdf.getImageProperties(titleImageData);
-        // ヘッダーの高さを8mmに拡大
+        const props = pdf.getImageProperties(titleImageData);
         const headerH = 8;
-        const imgWidth = (imgProps.width * headerH) / imgProps.height;
+        const imgWidth = (props.width * headerH) / props.height;
         pdf.addImage(titleImageData, 'PNG', 15, 6, imgWidth, headerH);
       }
 
@@ -187,9 +190,8 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
       pdf.setLineWidth(0.2);
       pdf.line(15, 282, 195, 282);
 
-      // ページ番号の紺色化と配置調整
-      pdf.setFontSize(10);
-      pdf.setTextColor(30, 27, 75); 
+      pdf.setFontSize(9);
+      pdf.setTextColor(30, 27, 75);
       pdf.text(`${i - 1}`, 195, 289, { align: 'right' });
     }
   }
