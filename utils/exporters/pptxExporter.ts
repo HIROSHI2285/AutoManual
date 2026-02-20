@@ -149,9 +149,9 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
         fontSize: 13, color: NAVY, bold: true, valign: 'middle'
     });
 
-    // 詳細テキスト
+    // 詳細テキスト (開始位置を y:1.7 から y:1.55 に引き上げ)
     slide.addText(step.detail, {
-        x: xPos + 0.5, y: 1.7, w: cardWidth - 0.5, h: 1.0,
+        x: xPos + 0.5, y: 1.55, w: cardWidth - 0.5, h: 1.0,
         fontSize: 10, color: '000000', valign: 'top', breakLine: true
     });
 

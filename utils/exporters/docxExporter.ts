@@ -34,7 +34,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
 
     const createStepElements = async (step: any) => {
         const elements: any[] = [];
-        elements.push(new Paragraph({ children: [new TextRun({ text: `${getCircledNumber(step.stepNumber)} ${step.action}`, bold: true, size: 28, font: RF })], spacing: { before: isTwoCol ? 0 : 300, after: 100 } }));
+        elements.push(new Paragraph({ children: [new TextRun({ text: `${getCircledNumber(step.stepNumber)} ${step.action}`, bold: true, size: 28, font: RF })], spacing: { before: isTwoCol ? 0 : 300, after: 40 } }));
         if (step.detail && step.detail !== step.action) {
             const lines = step.detail.split('\n');
             elements.push(new Paragraph({ children: lines.map((line: string, index: number) => new TextRun({ text: line, size: 22, font: RF, break: index > 0 ? 1 : 0 })), spacing: { after: 120 } }));

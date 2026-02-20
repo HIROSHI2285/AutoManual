@@ -73,7 +73,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
     .step-card { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     
-    .step-header { display: flex; gap: 4mm; align-items: center; margin-bottom: 4mm; }
+    .step-header { display: flex; gap: 4mm; align-items: center; margin-bottom: 1mm; /* 4mm から 1mm に短縮 */ }
     
     /* 巨大化したSVGを収容し、かつ見切れを防ぐためのwrapper調整 */
     .num-icon-wrapper { 
@@ -87,10 +87,10 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
     
     .action-text { font-size: 14pt; font-weight: 800; color: #1e1b4b; }
-    .detail-text { margin-left: 22mm; font-size: 10.5pt; margin-bottom: 5mm; white-space: pre-wrap; color: #000; flex-grow: 1; }
+    .detail-text { margin-left: 22mm; font-size: 10.5pt; margin-bottom: 5mm; white-space: pre-wrap; color: #000; flex-grow: 1; /* 余白をここで吸収 */ }
     
     .img-box { 
-        align-self: center; margin-top: auto;
+        align-self: center; margin-top: auto; /* 画像位置を最下部に固定 */
         background: #fcfcfc; border: 0.3mm solid #eee; border-radius: 2mm;
         height: ${isTwoCol ? '65mm' : '95mm'}; width: 100%;
         display: flex; align-items: center; justify-content: center; overflow: hidden;
