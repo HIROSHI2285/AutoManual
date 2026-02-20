@@ -151,15 +151,18 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
         fontSize: 10, color: '000000', valign: 'top', breakLine: true
     });
 
-    // 3. 画像 (y: 2.2 に配置。詳細テキストの下に約1行分の空きを作る)
+    // 3. 画像 (2カラム時は y: 2.2 から 2.0 へ引き上げ、間隔を半減)
     if (step.screenshot) {
         const imgWidth = isTwoCol ? 4.0 : 6.0;
         const imgHeight = isTwoCol ? 2.8 : 3.8;
         const imgX = isTwoCol ? xPos + 0.15 : (11.69 - imgWidth) / 2;
 
+        // 1カラム時は y: 2.2 を維持、2カラム時は y: 2.0 に接近
+        const imgY = isTwoCol ? 2.0 : 2.2;
+
         slide.addImage({
             data: step.screenshot,
-            x: imgX, y: 2.2, w: imgWidth, h: imgHeight,
+            x: imgX, y: imgY, w: imgWidth, h: imgHeight,
             sizing: { type: 'contain' }
         });
     }

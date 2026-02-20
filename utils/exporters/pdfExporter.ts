@@ -86,17 +86,17 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; line-height: 1.1; }
     
-    /* 2. 1カラム時も画像が張り付かないよう最低高さを確保 */
+    /* 1. 2カラム時の高さを半分 (22mm -> 11mm) に凝縮 */
     .text-container {
-        min-height: ${isTwoCol ? '22mm' : '15mm'}; 
+        min-height: ${isTwoCol ? '11mm' : '15mm'}; 
         display: flex; flex-direction: column;
     }
 
-    /* 3. Detailと画像の間を正確に1行分 (5mm) あける */
+    /* 2. 2カラム時の画像への間隔を半分 (5mm -> 2.5mm) に設定 */
     .detail-text { 
         margin-left: 18mm; font-size: 10.5pt; 
         margin-top: 0mm !important; 
-        margin-bottom: 5mm !important; /* 画像への1行分の余白 */
+        margin-bottom: ${isTwoCol ? '2.5mm' : '5mm'} !important; 
         white-space: pre-wrap; color: #000; 
     }
     
