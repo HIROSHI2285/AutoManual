@@ -67,12 +67,12 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     .overview-text { font-size: 10.5pt; color: #334155; line-height: 1.8; white-space: pre-wrap; }
 
     .step-row {
-        display: flex; gap: 8mm; margin-bottom: 15mm;
+        display: flex; gap: 8mm; margin-bottom: 12mm; /* 15mmから短縮 */
         page-break-inside: avoid; break-inside: avoid;
     }
     .step-card { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     
-    /* 1. ActionとDetailの間を完全に密着させる */
+    /* 1. ActionとDetailの間を完全に密着 (0mm) */
     .step-header { 
         display: flex; 
         gap: 4mm; 
@@ -80,7 +80,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         margin-bottom: 0mm !important; /* 隙間をゼロに固定 */
     }
     .num-icon-wrapper { 
-        width: 15mm; height: 15mm; flex-shrink: 0; 
+        width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
         overflow: visible !important;
     }
@@ -88,19 +88,19 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; line-height: 1.1; }
     
-    /* テキストエリアの高さ固定 (2カラム時の画像位置同期のため) */
+    /* 2. 画像の高さを揃えるためのテキストエリアを半分以下に短縮 (35mm -> 22mm) */
     .text-container {
-        min-height: ${isTwoCol ? '35mm' : 'auto'}; 
+        min-height: ${isTwoCol ? '22mm' : 'auto'}; 
         display: flex; flex-direction: column;
     }
 
-    /* 2. Detailと画像のトップの間を1行分 (5mm) に固定 */
+    /* 3. Detailと画像の間隔を半分以下に (5mm -> 2mm) */
     .detail-text { 
-        margin-left: 19mm; 
+        margin-left: 18mm; 
         font-size: 10.5pt; 
         line-height: 1.6;
         margin-top: 0mm !important;    /* Actionとの隙間を消す */
-        margin-bottom: 5mm !important; /* 画像との間隔を1行分確保 */
+        margin-bottom: 2mm !important; /* 画像への余白 */
         white-space: pre-wrap; 
         color: #000;
     }
