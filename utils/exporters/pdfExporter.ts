@@ -7,11 +7,11 @@ function createStepNumberSvg(number: number): string {
   // サイズを128に拡大し、半径32の円を配置。
   // 周囲の広大な透明エリアが、PDF変換時の座標計算ズレをすべて吸収します。
   const size = 128;
-  const radius = 32;
+  const radius = 40;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="28px">${number}</text>
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="36px">${number}</text>
     </svg>`;
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
@@ -88,6 +88,12 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; line-height: 1.1; }
     
+    /* テキストエリアの高さ固定 (2カラム時の画像位置同期のため) */
+    .text-container {
+        min-height: ${isTwoCol ? '35mm' : 'auto'}; 
+        display: flex; flex-direction: column;
+    }
+
     /* 2. Detailと画像のトップの間を1行分 (5mm) に固定 */
     .detail-text { 
         margin-left: 19mm; 
@@ -128,33 +134,38 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     </div>
 
     ${manual.steps.reduce((acc, step, i) => {
+    const stepHtml = `
+      <div class="step-header">
+          <div class="num-icon-wrapper"><img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" /></div>
+          <div class="action-text">${step.action}</div>
+      </div>
+      <div class="text-container">
+          <div class="detail-text">${step.detail}</div>
+      </div>
+      ${step.screenshot ? `<div class="img-box"><img src="${step.screenshot}" /></div>` : ''}
+    `;
+
     if (isTwoCol) {
       if (i % 2 === 0) {
-        const s1 = step;
-        const s2 = manual.steps[i + 1];
+        const nextStep = manual.steps[i + 1];
         acc += `<div class="step-row">
-                    <div class="step-card">
-                        <div class="step-header"><div class="num-icon-wrapper"><img src="${createStepNumberSvg(s1.stepNumber)}" class="num-icon" /></div><div class="action-text">${s1.action}</div></div>
-                        <div class="detail-text">${s1.detail}</div>
-                        ${s1.screenshot ? `<div class="img-box"><img src="${s1.screenshot}" /></div>` : ''}
-                    </div>
-                    <div class="step-card" style="${s2 ? '' : 'visibility:hidden'}">
-                        ${s2 ? `
-                        <div class="step-header"><div class="num-icon-wrapper"><img src="${createStepNumberSvg(s2.stepNumber)}" class="num-icon" /></div><div class="action-text">${s2.action}</div></div>
-                        <div class="detail-text">${s2.detail}</div>
-                        ${s2.screenshot ? `<div class="img-box"><img src="${s2.screenshot}" /></div>` : ''}
+                    <div class="step-card">${stepHtml}</div>
+                    <div class="step-card" style="${nextStep ? '' : 'visibility:hidden'}">
+                        ${nextStep ? `
+                          <div class="step-header">
+                              <div class="num-icon-wrapper"><img src="${createStepNumberSvg(nextStep.stepNumber)}" class="num-icon" /></div>
+                              <div class="action-text">${nextStep.action}</div>
+                          </div>
+                          <div class="text-container">
+                              <div class="detail-text">${nextStep.detail}</div>
+                          </div>
+                          ${nextStep.screenshot ? `<div class="img-box"><img src="${nextStep.screenshot}" /></div>` : ''}
                         ` : ''}
                     </div>
                 </div>`;
       }
     } else {
-      acc += `<div class="step-row" style="page-break-inside: avoid; padding-bottom: 5mm;">
-                <div class="step-card">
-                    <div class="step-header"><div class="num-icon-wrapper"><img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" /></div><div class="action-text">${step.action}</div></div>
-                    <div class="detail-text">${step.detail}</div>
-                    ${step.screenshot ? `<div class="img-box"><img src="${step.screenshot}" /></div>` : ''}
-                </div>
-            </div>`;
+      acc += `<div class="step-row" style="page-break-inside: avoid; padding-bottom: 5mm;"><div class="step-card">${stepHtml}</div></div>`;
     }
     return acc;
   }, '')}
