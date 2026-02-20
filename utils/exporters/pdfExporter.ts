@@ -1,17 +1,18 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 紺色の円形ナンバリング（円のサイズを大きくし、かつ広大な余白で削れを防止）
+ * 紺色の円形ナンバリング（超広域バッファを確保し、後半ページの見切れを物理的に根絶）
  */
 function createStepNumberSvg(number: number): string {
-  // キャンバスサイズは128を維持して座標ズレを吸収
-  const size = 128;
-  // 円の半径を40に拡大し、力強い表示に変更
-  const radius = 40;
+  // キャンバスを200まで拡大。
+  // 円の半径を45にすることで、周囲に約55pxの透明なセーフティゾーンを設けます。
+  // これにより、変換時の累積誤差で描画位置がズレても、円が削れることは物理的にあり得ません。
+  const size = 200;
+  const radius = 45;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="36px">${number}</text>
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="40px">${number}</text>
     </svg>`;
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
@@ -74,19 +75,19 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     .step-header { display: flex; gap: 4mm; align-items: center; margin-bottom: 4mm; }
     
-    /* 広大なSVGを収容するため wrapper の設定を強化 */
+    /* 巨大化したSVGを収容し、かつ見切れを防ぐためのwrapper調整 */
     .num-icon-wrapper { 
-        width: 15mm; height: 15mm; flex-shrink: 0; 
+        width: 18mm; height: 18mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
-        overflow: visible !important; /* はみ出しを許容 */
+        overflow: visible !important;
     }
     .num-icon { 
         width: 100%; height: 100%; display: block; 
         object-fit: contain; 
     }
     
-    .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; }
-    .detail-text { margin-left: 19mm; font-size: 10.5pt; margin-bottom: 5mm; white-space: pre-wrap; color: #000; flex-grow: 1; }
+    .action-text { font-size: 14pt; font-weight: 800; color: #1e1b4b; }
+    .detail-text { margin-left: 22mm; font-size: 10.5pt; margin-bottom: 5mm; white-space: pre-wrap; color: #000; flex-grow: 1; }
     
     .img-box { 
         align-self: center; margin-top: auto;
