@@ -338,7 +338,7 @@ export default function Home() {
             <div className="container">
                 {/* Header */}
                 <header className="header">
-                    {/* onClick={handleReset} を削除し、ロゴクリックでの意図しないリセットを防止 */}
+                    {/* onClick={handleReset} を削除し、意図しない全削除を防止 */}
                     <div className="header__brand cursor-pointer">
                         <div className="header__icon text-purple-600">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

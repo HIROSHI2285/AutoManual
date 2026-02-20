@@ -1,15 +1,15 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 紺色の円形ナンバリング（累積座標誤差による削れを防止するため、広大なバッファを確保）
+ * 紺色の円形ナンバリング（中心ズレを完璧に抑え、広大な余白で削れを防止）
  */
 function createStepNumberSvg(number: number): string {
   const size = 64;
-  const radius = 18;
+  const radius = 24;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="20px">${number}</text>
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="24px">${number}</text>
     </svg>`;
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
@@ -47,15 +47,19 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 180mm; margin: 0 auto; background: #fff; color: #000;
     }
     
-    /* 1. 表紙: 上下グラデーションライン & ハミ出し防止の高さ調整 */
+    /* 表紙: ハミ出しを防止するため高さを 240mm に固定 */
     .cover-page {
-        height: 250mm; display: flex; flex-direction: column; justify-content: center;
-        padding: 0 20mm;
-        border-top: 2.5mm solid;
-        border-bottom: 2.5mm solid;
-        border-image: linear-gradient(to right, #1e1b4b, #4f46e5) 1;
-        break-after: page;
+        height: 240mm; display: flex; flex-direction: column; justify-content: center;
+        padding: 0 20mm; position: relative;
     }
+    /* グラデーションライン（右に向かって消える） */
+    .grad-line {
+        position: absolute; left: 20mm; right: 20mm; height: 2.5mm;
+        background: linear-gradient(to right, #1e1b4b, #ffffff); /* PDF用に白背景へ溶け込ませる */
+    }
+    .line-top { top: 0; }
+    .line-bottom { bottom: 0; }
+
     .cover-label { font-size: 14pt; color: #1e1b4b; font-weight: bold; margin-bottom: 5mm; }
     .cover-title { font-size: 38pt; font-weight: 800; color: #0f172a; line-height: 1.2; }
 
@@ -72,8 +76,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         display: flex; gap: 8mm; margin-bottom: 15mm;
         page-break-inside: avoid; break-inside: avoid;
     }
-
-    /* 2. 左右で画像高さを揃えるためのFlex設定 */
+    /* 左右で高さを揃えるためのFlex設定 */
     .step-card { 
         flex: 1; min-width: 0; 
         display: flex; flex-direction: column; 
@@ -81,33 +84,35 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     .step-header { display: flex; gap: 4mm; align-items: center; margin-bottom: 4mm; }
     .num-icon-wrapper { 
-        width: 14mm; height: 14mm; flex-shrink: 0; 
+        width: 15mm; height: 15mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
         overflow: visible;
     }
     .num-icon { width: 100%; height: 100%; display: block; }
     .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; }
     
-    /* テキストの長さに応じて伸びるようにし、画像を押し下げる */
+    /* 詳細テキストを伸ばして、画像をカードの下部に押し下げる */
     .detail-text { 
-        margin-left: 18mm; font-size: 10.5pt; margin-bottom: 5mm; 
+        margin-left: 19mm; font-size: 10.5pt; margin-bottom: 5mm; 
         white-space: pre-wrap; color: #000; flex-grow: 1; 
     }
     
     .img-box { 
-        margin-left: ${isTwoCol ? '0' : '18mm'};
+        margin: 0 auto 5mm ${isTwoCol ? '0' : 'auto'};
         background: #fcfcfc; border: 0.3mm solid #eee; border-radius: 2mm;
         height: ${isTwoCol ? '65mm' : '95mm'};
         display: flex; align-items: center; justify-content: center; overflow: hidden;
-        flex-shrink: 0; /* 高さを固定し、潰れないようにする */
+        flex-shrink: 0;
     }
     img { max-width: 100%; max-height: 100%; object-fit: contain; }
   </style>
 </head>
 <body>
   <div class="cover-page">
+    <div class="grad-line line-top"></div>
     <div class="cover-label">OPERATIONAL STANDARD</div>
     <h1 class="cover-title">${manual.title}</h1>
+    <div class="grad-line line-bottom"></div>
   </div>
 
   <div class="content-area">
@@ -176,20 +181,23 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
   for (let i = 1; i <= totalPages; i++) {
     pdf.setPage(i);
     if (i > 1) {
+      // ヘッダー
       pdf.setDrawColor(30, 27, 75);
       pdf.setLineWidth(0.3);
       pdf.line(15, 15, 195, 15);
       if (titleImageData) {
         const props = pdf.getImageProperties(titleImageData);
-        const headerH = 8;
+        const headerH = 10;
         const imgWidth = (props.width * headerH) / props.height;
-        pdf.addImage(titleImageData, 'PNG', 15, 6, imgWidth, headerH);
+        pdf.addImage(titleImageData, 'PNG', 15, 4, imgWidth, headerH);
       }
 
+      // フッター（ラインのみ、タイトルなし）
       pdf.setDrawColor(30, 27, 75);
       pdf.setLineWidth(0.2);
       pdf.line(15, 282, 195, 282);
 
+      // ページ番号 (9pt、紺色)
       pdf.setFontSize(9);
       pdf.setTextColor(30, 27, 75);
       pdf.text(`${i - 1}`, 195, 289, { align: 'right' });
