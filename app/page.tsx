@@ -163,9 +163,8 @@ export default function Home() {
     const [manual, setManual] = useState<ManualData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Persistence: Load from localStorage on mount
+    // 永続化: 初回のみlocalStorageから復元
     useEffect(() => {
-        // Use 'am_current_manual' KEY (Matches Original)
         const saved = localStorage.getItem('am_current_manual');
         if (saved) {
             try {
@@ -176,14 +175,10 @@ export default function Home() {
         }
     }, []);
 
-    // Persistence: Save to localStorage whenever manual changes
+    // 永続化: manualが更新されるたびに保存
     useEffect(() => {
         if (manual) {
-            try {
-                localStorage.setItem('am_current_manual', JSON.stringify(manual));
-            } catch (e) {
-                console.warn('Failed to save manual to localStorage (Quota Exceeded):', e);
-            }
+            localStorage.setItem('am_current_manual', JSON.stringify(manual));
         }
     }, [manual]);
 
@@ -199,34 +194,15 @@ export default function Home() {
         setManual(null);
     }, []);
 
-    const handleReset = useCallback(() => {
-        setVideoFiles([]);
-        setManual(null);
-        setError(null);
-        setIsLoading(false);
-
-        // FORCE RESET: Clear persistence (Clean Reset)
-        localStorage.removeItem('am_current_manual');
-        // Clear old keys if any
-        localStorage.removeItem('am_manual_data');
-
-        // Clear canvas states if needed
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('am_canvas_state_')) {
-                localStorage.removeItem(key);
-            }
-        });
-    }, []);
-
-    const handleClearData = useCallback(() => {
-        if (confirm("全てのデータを削除して初期状態に戻しますか？")) {
-            setManual(null);
+    // リセット（データクリア）
+    const handleResetData = useCallback(() => {
+        if (confirm("入力データを完全に消去してリセットしますか？")) {
             setVideoFiles([]);
+            setManual(null);
             localStorage.removeItem('am_current_manual');
             window.location.reload();
         }
     }, []);
-
 
     const handleGenerate = async () => {
         if (videoFiles.length === 0) return;
@@ -377,7 +353,7 @@ export default function Home() {
                     <div className="flex items-center gap-4">
                         {manual && (
                             <button
-                                onClick={handleClearData}
+                                onClick={handleResetData}
                                 className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
                             >
                                 データをクリア
