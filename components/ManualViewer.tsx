@@ -538,15 +538,19 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                         return (
                             <section key={index} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : `mx-auto w-full ${isPortrait ? 'max-w-[576px]' : 'max-w-[768px]'}`}`}>
                                 <div className={`flex items-start gap-6 group ${isTwoColumn ? 'flex-grow mb-4' : 'mb-6'}`}>
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
+                                    {/* 1. ナンバリング：見出し1行目とセンターを合わせるため mt-1 を追加 */}
+                                    <div className="flex-shrink-0">
+                                        <div className={`manual__step-number w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform ${!isTwoColumn ? 'mt-1' : ''}`}>
                                             {step.stepNumber}
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-3 py-1 w-full">
+
+                                    {/* 2. テキストエリア：ここが垂直に揃うコンテナになります */}
+                                    <div className="flex flex-col gap-2 w-full">
                                         <h3 className="manual__step-title text-2xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
                                             {step.action}
                                         </h3>
+                                        {/* 詳細説明：見出しの左端と揃うように配置 */}
                                         <p className="manual__step-desc text-slate-800 font-bold text-base leading-relaxed">
                                             {step.detail}
                                         </p>
