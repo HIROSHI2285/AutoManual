@@ -178,7 +178,11 @@ export default function Home() {
     // 永続化: manualが更新されるたびに保存
     useEffect(() => {
         if (manual) {
-            localStorage.setItem('am_current_manual', JSON.stringify(manual));
+            try {
+                localStorage.setItem('am_current_manual', JSON.stringify(manual));
+            } catch (e) {
+                console.warn('Failed to save manual to localStorage (Quota Exceeded):', e);
+            }
         }
     }, [manual]);
 
@@ -334,11 +338,8 @@ export default function Home() {
             <div className="container">
                 {/* Header */}
                 <header className="header">
-                    {/* 
-                      FIX: Logo does NOT trigger handleReset anymore. 
-                      It's a simple link to reload/go home.
-                    */}
-                    <a href="/" className="header__brand" style={{ textDecoration: 'none' }}>
+                    {/* onClick={handleReset} を削除し、ロゴクリックでの意図しないリセットを防止 */}
+                    <div className="header__brand cursor-pointer">
                         <div className="header__icon text-purple-600">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polygon points="12 2 2 7 12 12 22 7 12 2" />
@@ -349,11 +350,18 @@ export default function Home() {
                         <h1 className="header__title">
                             AutoManual <span className="header__title-sub text-purple-600 font-black">Studio</span>
                         </h1>
-                    </a>
+                    </div>
                     <div className="flex items-center gap-4">
                         {manual && (
                             <button
-                                onClick={handleResetData}
+                                onClick={() => {
+                                    // ユーザーが明示的にボタンを押した時のみ localStorage を削除
+                                    if (confirm("入力したマニュアルデータを完全に消去しますか？")) {
+                                        localStorage.removeItem('am_current_manual');
+                                        handleResetData();
+                                        window.location.reload(); // 確実に初期状態に戻す
+                                    }
+                                }}
                                 className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
                             >
                                 データをクリア
