@@ -133,14 +133,6 @@ async function compressVideoForAnalysis(
 export default function Home() {
     // Multi-file support
     const [videoFiles, setVideoFiles] = useState<File[]>([]);
-    // Preview URL for the *first* video (or we could manage a list, but VideoUploader handles list UI now)
-    // We only need this if we want to show a preview player here, but VideoUploader shows the list.
-    // ManualViewer needs a video file for some operations? It takes `videoFile`.
-    // Let's keep `videoPreviewUrls` if we need them, but currently VideoUploader doesn't ask for them for the list,
-    // it just shows names.
-    // However, `handleReset` revokes them. Let's store them if we create them.
-    // Actually, `VideoUploader` doesn't need preview URLs for the list mode we implemented.
-    // But `ManualViewer` might need `videoFile`.
 
     const [isLoading, setIsLoading] = useState(false);
     const [loadingStage, setLoadingStage] = useState<string>('動画を分析中...');
@@ -171,9 +163,9 @@ export default function Home() {
     const [manual, setManual] = useState<ManualData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Persistence: Load from localStorage on mount (must use useEffect, not lazy init,
-    // because `manual` controls conditional rendering — lazy init would cause hydration mismatch)
+    // Persistence: Load from localStorage on mount
     useEffect(() => {
+        // Use 'am_current_manual' KEY (Matches Original)
         const saved = localStorage.getItem('am_current_manual');
         if (saved) {
             try {
@@ -213,20 +205,28 @@ export default function Home() {
         setError(null);
         setIsLoading(false);
 
-        // FORCE RESET: Clear all persistence
+        // FORCE RESET: Clear persistence (Clean Reset)
         localStorage.removeItem('am_current_manual');
+        // Clear old keys if any
         localStorage.removeItem('am_manual_data');
-        localStorage.removeItem('am_editor_color_v2');
-        localStorage.removeItem('am_editor_stroke_v2');
-        localStorage.removeItem('am_editor_fontSize_v2');
 
-        // Clear all canvas states
+        // Clear canvas states if needed
         Object.keys(localStorage).forEach(key => {
             if (key.startsWith('am_canvas_state_')) {
                 localStorage.removeItem(key);
             }
         });
     }, []);
+
+    const handleClearData = useCallback(() => {
+        if (confirm("全てのデータを削除して初期状態に戻しますか？")) {
+            setManual(null);
+            setVideoFiles([]);
+            localStorage.removeItem('am_current_manual');
+            window.location.reload();
+        }
+    }, []);
+
 
     const handleGenerate = async () => {
         if (videoFiles.length === 0) return;
@@ -358,7 +358,11 @@ export default function Home() {
             <div className="container">
                 {/* Header */}
                 <header className="header">
-                    <div className="header__brand" onClick={handleReset}>
+                    {/* 
+                      FIX: Logo does NOT trigger handleReset anymore. 
+                      It's a simple link to reload/go home.
+                    */}
+                    <a href="/" className="header__brand" style={{ textDecoration: 'none' }}>
                         <div className="header__icon text-purple-600">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polygon points="12 2 2 7 12 12 22 7 12 2" />
@@ -369,14 +373,11 @@ export default function Home() {
                         <h1 className="header__title">
                             AutoManual <span className="header__title-sub text-purple-600 font-black">Studio</span>
                         </h1>
-                    </div>
+                    </a>
                     <div className="flex items-center gap-4">
                         {manual && (
                             <button
-                                onClick={() => {
-                                    localStorage.removeItem('am_current_manual');
-                                    handleReset();
-                                }}
+                                onClick={handleClearData}
                                 className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
                             >
                                 データをクリア
