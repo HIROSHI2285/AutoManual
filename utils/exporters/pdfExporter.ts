@@ -1,17 +1,17 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 紺色の円形ナンバリング（円を少し小さくし、巨大な余白で削れを完全に防止）
+ * 紺色の円形ナンバリング（円のサイズを大きくし、かつ広大な余白で削れを防止）
  */
 function createStepNumberSvg(number: number): string {
-  // キャンバスを128に拡大し、半径20の円を中央に配置。
-  // 周囲に広大な透明バッファを確保することで、後半ページの座標ズレを完全に許容します。
+  // キャンバスサイズは128を維持して座標ズレを吸収
   const size = 128;
-  const radius = 20; // 少し小さく調整
+  // 円の半径を40に拡大し、力強い表示に変更
+  const radius = 40;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="18px">${number}</text>
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="36px">${number}</text>
     </svg>`;
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
