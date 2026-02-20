@@ -50,16 +50,11 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     /* 表紙: ハミ出しを防止するため高さを 240mm に固定 */
     .cover-page {
         height: 240mm; display: flex; flex-direction: column; justify-content: center;
-        padding: 0 20mm; position: relative;
+        padding: 0 20mm;
+        border-top: 2.5mm solid #1e1b4b;
+        border-bottom: 2.5mm solid #1e1b4b;
+        page-break-after: always;
     }
-    /* グラデーションライン（右に向かって消える） */
-    .grad-line {
-        position: absolute; left: 20mm; right: 20mm; height: 2.5mm;
-        background: linear-gradient(to right, #1e1b4b, #ffffff); /* PDF用に白背景へ溶け込ませる */
-    }
-    .line-top { top: 0; }
-    .line-bottom { bottom: 0; }
-
     .cover-label { font-size: 14pt; color: #1e1b4b; font-weight: bold; margin-bottom: 5mm; }
     .cover-title { font-size: 38pt; font-weight: 800; color: #0f172a; line-height: 1.2; }
 
@@ -109,10 +104,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 </head>
 <body>
   <div class="cover-page">
-    <div class="grad-line line-top"></div>
     <div class="cover-label">OPERATIONAL STANDARD</div>
     <h1 class="cover-title">${manual.title}</h1>
-    <div class="grad-line line-bottom"></div>
   </div>
 
   <div class="content-area">
@@ -166,7 +159,7 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
   const titleImageData = createTextAsImage(manual.title, 32, '#1e1b4b');
 
   const opt = {
-    margin: [20, 15, 20, 15],
+    margin: [20, 15, 20, 15] as [number, number, number, number],
     filename: `${safeTitle}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 3, useCORS: true },
