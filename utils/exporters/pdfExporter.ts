@@ -72,12 +72,10 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
     .step-card { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     
-    /* 1. ActionとDetailの間を完全に密着 (0mm) */
+    /* 1. ActionとDetailの間を極限まで詰める (0.5mm) */
     .step-header { 
-        display: flex; 
-        gap: 4mm; 
-        align-items: center; 
-        margin-bottom: 0mm !important; /* 隙間をゼロに固定 */
+        display: flex; gap: 4mm; align-items: center; 
+        margin-bottom: 0.5mm !important; 
     }
     .num-icon-wrapper { 
         width: 14mm; height: 14mm; flex-shrink: 0; 
@@ -88,21 +86,18 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; line-height: 1.1; }
     
-    /* 2. 画像の高さを揃えるためのテキストエリアを半分以下に短縮 (35mm -> 22mm) */
+    /* 2. 1カラム時も画像が張り付かないよう最低高さを確保 */
     .text-container {
-        min-height: ${isTwoCol ? '22mm' : 'auto'}; 
+        min-height: ${isTwoCol ? '22mm' : '15mm'}; 
         display: flex; flex-direction: column;
     }
 
-    /* 3. Detailと画像の間隔を半分以下に (5mm -> 2mm) */
+    /* 3. Detailと画像の間を正確に1行分 (5mm) あける */
     .detail-text { 
-        margin-left: 18mm; 
-        font-size: 10.5pt; 
-        line-height: 1.6;
-        margin-top: 0mm !important;    /* Actionとの隙間を消す */
-        margin-bottom: 2mm !important; /* 画像への余白 */
-        white-space: pre-wrap; 
-        color: #000;
+        margin-left: 18mm; font-size: 10.5pt; 
+        margin-top: 0mm !important; 
+        margin-bottom: 5mm !important; /* 画像への1行分の余白 */
+        white-space: pre-wrap; color: #000; 
     }
     
     .img-box { 

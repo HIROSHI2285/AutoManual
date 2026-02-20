@@ -139,19 +139,19 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
     slide.addShape(pptx.ShapeType.ellipse, { x: xPos, y: 1.2, w: 0.35, h: 0.35, fill: { color: NAVY } });
     slide.addText(step.stepNumber.toString(), { x: xPos, y: 1.2, w: 0.35, h: 0.35, fontSize: 12, color: 'FFFFFF', bold: true, align: 'center', valign: 'middle' });
 
-    // 1. アクション (y: 1.2)
+    // 1. アクション (y: 1.2, h: 0.3) -> 1.5まで
     slide.addText(step.action, {
         x: xPos + 0.5, y: 1.2, w: cardWidth - 0.5, h: 0.3,
         fontSize: 14, color: NAVY, bold: true, valign: 'middle'
     });
 
-    // 2. 詳細 (y: 1.45 に引き上げ、Actionに密着)
+    // 2. 詳細 (y: 1.5 に配置。Actionとほぼ密着) -> 1.95まで
     slide.addText(step.detail, {
-        x: xPos + 0.5, y: 1.45, w: cardWidth - 0.5, h: 0.45,
+        x: xPos + 0.5, y: 1.5, w: cardWidth - 0.5, h: 0.45,
         fontSize: 10, color: '000000', valign: 'top', breakLine: true
     });
 
-    // 3. 画像 (y: 1.95 に引き上げ。左右の高さを揃えるため位置を固定)
+    // 3. 画像 (y: 2.2 に配置。詳細テキストの下に約1行分の空きを作る)
     if (step.screenshot) {
         const imgWidth = isTwoCol ? 4.0 : 6.0;
         const imgHeight = isTwoCol ? 2.8 : 3.8;
@@ -159,7 +159,7 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
 
         slide.addImage({
             data: step.screenshot,
-            x: imgX, y: 1.95, w: imgWidth, h: imgHeight,
+            x: imgX, y: 2.2, w: imgWidth, h: imgHeight,
             sizing: { type: 'contain' }
         });
     }
