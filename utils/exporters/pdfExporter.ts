@@ -92,11 +92,11 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         display: flex; flex-direction: column;
     }
 
-    /* 画像との間隔を2カラム時はよりタイトに (2.5mm) */
+    /* 画像との間隔を2カラム時は維持(2.5mm)、1カラムは大幅に下げる(15mm) */
     .detail-text { 
         margin-left: 18mm; font-size: 10.5pt; 
         margin-top: 0mm !important; 
-        margin-bottom: ${isTwoCol ? '2.5mm' : '5mm'} !important; 
+        margin-bottom: ${isTwoCol ? '2.5mm' : '15mm'} !important; 
         white-space: pre-wrap; color: #000; 
     }
     

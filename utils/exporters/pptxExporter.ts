@@ -157,8 +157,8 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
         const imgHeight = isTwoCol ? 2.8 : 3.8;
         const imgX = isTwoCol ? xPos + 0.15 : (11.69 - imgWidth) / 2;
 
-        // 2カラム時は y: 2.1 に引き上げ、テキストとの隙間を凝縮
-        const imgY = isTwoCol ? 2.1 : 2.2;
+        // 2カラム時は y: 2.1 を維持、シングルカラムのみ y: 3.2 へ下げる
+        const imgY = isTwoCol ? 2.1 : 3.2;
 
         slide.addImage({
             data: step.screenshot,
