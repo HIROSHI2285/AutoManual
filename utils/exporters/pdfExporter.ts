@@ -6,12 +6,12 @@ import { ManualData } from '@/app/page';
 function createStepNumberSvg(number: number): string {
   // サイズを128に拡大し、半径32の円を配置。
   // 周囲の広大な透明エリアが、PDF変換時の座標計算ズレをすべて吸収します。
-  const size = 128;
-  const radius = 40;
+  const size = 128; // 広域バッファ
+  const radius = 32;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="36px">${number}</text>
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="28px">${number}</text>
     </svg>`;
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
@@ -86,13 +86,13 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; line-height: 1.1; }
     
-    /* 1. 2カラム時の高さを半分 (22mm -> 11mm) に凝縮 */
+    /* 画像の高さを揃えるためのテキストコンテナ (18mmで同期を安定化) */
     .text-container {
-        min-height: ${isTwoCol ? '11mm' : '15mm'}; 
+        min-height: ${isTwoCol ? '18mm' : 'auto'}; 
         display: flex; flex-direction: column;
     }
 
-    /* 2. 2カラム時の画像への間隔を半分 (5mm -> 2.5mm) に設定 */
+    /* 画像との間隔を2カラム時はよりタイトに (2.5mm) */
     .detail-text { 
         margin-left: 18mm; font-size: 10.5pt; 
         margin-top: 0mm !important; 

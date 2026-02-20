@@ -139,26 +139,26 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
     slide.addShape(pptx.ShapeType.ellipse, { x: xPos, y: 1.2, w: 0.35, h: 0.35, fill: { color: NAVY } });
     slide.addText(step.stepNumber.toString(), { x: xPos, y: 1.2, w: 0.35, h: 0.35, fontSize: 12, color: 'FFFFFF', bold: true, align: 'center', valign: 'middle' });
 
-    // 1. アクション (y: 1.2, h: 0.3) -> 1.5まで
+    // 1. アクション (y: 1.2, h: 0.3)
     slide.addText(step.action, {
         x: xPos + 0.5, y: 1.2, w: cardWidth - 0.5, h: 0.3,
         fontSize: 14, color: NAVY, bold: true, valign: 'middle'
     });
 
-    // 2. 詳細 (y: 1.5 に配置。Actionとほぼ密着) -> 1.95まで
+    // 2. 詳細 (y: 1.5 に配置。Actionに密着)
     slide.addText(step.detail, {
-        x: xPos + 0.5, y: 1.5, w: cardWidth - 0.5, h: 0.45,
+        x: xPos + 0.5, y: 1.5, w: cardWidth - 0.5, h: 0.5,
         fontSize: 10, color: '000000', valign: 'top', breakLine: true
     });
 
-    // 3. 画像 (2カラム時は y: 2.2 から 2.0 へ引き上げ、間隔を半減)
+    // 3. 画像 (y: 2.1 に固定配置することで、左右の高さ不揃いを物理的に解消)
     if (step.screenshot) {
         const imgWidth = isTwoCol ? 4.0 : 6.0;
         const imgHeight = isTwoCol ? 2.8 : 3.8;
         const imgX = isTwoCol ? xPos + 0.15 : (11.69 - imgWidth) / 2;
 
-        // 1カラム時は y: 2.2 を維持、2カラム時は y: 2.0 に接近
-        const imgY = isTwoCol ? 2.0 : 2.2;
+        // 2カラム時は y: 2.1 に引き上げ、テキストとの隙間を凝縮
+        const imgY = isTwoCol ? 2.1 : 2.2;
 
         slide.addImage({
             data: step.screenshot,
