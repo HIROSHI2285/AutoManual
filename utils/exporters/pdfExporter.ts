@@ -68,7 +68,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     .overview-text { font-size: 10.5pt; color: #334155; line-height: 1.8; white-space: pre-wrap; }
 
     .step-row {
-        display: flex; gap: 8mm; margin-bottom: 15mm;
+        display: flex; gap: 8mm; margin-bottom: 25mm; /* Increased margin bottom to ensure it forces a page break before hitting the footer */
         page-break-inside: avoid; break-inside: avoid;
     }
     /* 左右で高さを揃えるためのFlex設定 */
@@ -93,9 +93,11 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     }
     
     .img-box { 
-        margin: 0 auto 5mm auto;
+        align-self: center; /* Forces horizontal centering inside the flex column */
+        margin-top: auto; /* Pushes to bottom of card */
         background: #fcfcfc; border: 0.3mm solid #eee; border-radius: 2mm;
         height: ${isTwoCol ? '65mm' : '95mm'};
+        width: 100%; /* Take full width and use object-fit for centering image */
         display: flex; align-items: center; justify-content: center; overflow: hidden;
         flex-shrink: 0;
     }
@@ -135,7 +137,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
                 </div>`;
       }
     } else {
-      acc += `<div class="step-row">
+      acc += `<div class="step-row" style="page-break-inside: avoid; padding-bottom: 5mm;">
                 <div class="step-card">
                     <div class="step-header"><div class="num-icon-wrapper"><img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" /></div><div class="action-text">${step.action}</div></div>
                     <div class="detail-text">${step.detail}</div>
