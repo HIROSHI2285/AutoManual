@@ -7,8 +7,9 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const pptxgen = (await import('pptxgenjs')).default;
     const pptx = new pptxgen();
 
-    // A4横サイズに設定
-    pptx.layout = 'LAYOUT_A4';
+    // UNKNOWN-LAYOUT エラーを解消するため、カスタムレイアウト(A4横)を定義
+    pptx.defineLayout({ name: 'A4_LANDSCAPE', width: 11.69, height: 8.27 });
+    pptx.layout = 'A4_LANDSCAPE';
 
     const NAVY = '1E1B4B';
     const GRAY_BG = 'F8FAFC';

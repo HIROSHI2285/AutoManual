@@ -11,6 +11,7 @@
   "dependencies": {
     "@google/genai": "^1.0.0",
     "@hello-pangea/dnd": "^18.0.1",
+    "dexie": "^4.3.0",
     "docx": "^9.5.3",
     "fabric": "^6.9.1",
     "html2canvas": "^1.4.1",

@@ -161,11 +161,11 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
   const opt = {
     margin: [20, 15, 20, 15] as [number, number, number, number],
     filename: `${safeTitle}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
+    image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
     html2canvas: { scale: 3, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
     pagebreak: { mode: ['css', 'legacy'] }
-  };
+  } as any;
 
   const worker = html2pdf().from(container).set(opt).toPdf();
   const pdf = await worker.get('pdf');

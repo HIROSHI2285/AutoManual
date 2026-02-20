@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import VideoUploader from '@/components/VideoUploader';
 import ManualViewer from '@/components/ManualViewer';
+import { db } from '@/utils/db';
 import { extractFrameAtTimestamp, smartCropFrame } from '@/utils/videoProcessor';
 
 // Hoisted RegExp (js-hoist-regexp: compiled once at module level)
@@ -163,26 +164,27 @@ export default function Home() {
     const [manual, setManual] = useState<ManualData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // 永続化: 初回のみlocalStorageから復元
+    // 永続化: 初回のみDexieから復元
     useEffect(() => {
-        const saved = localStorage.getItem('am_current_manual');
-        if (saved) {
+        const loadData = async () => {
             try {
-                setManual(JSON.parse(saved));
+                const saved = await db.manuals.get('current');
+                if (saved && saved.data) {
+                    setManual(saved.data);
+                }
             } catch (e) {
-                console.error('Failed to load manual from localStorage');
+                console.error('Failed to load manual from Dexie', e);
             }
-        }
+        };
+        loadData();
     }, []);
 
-    // 永続化: manualが更新されるたびに保存
+    // 永続化: manualが更新されるたびにDexieに保存
     useEffect(() => {
         if (manual) {
-            try {
-                localStorage.setItem('am_current_manual', JSON.stringify(manual));
-            } catch (e) {
-                console.warn('Failed to save manual to localStorage (Quota Exceeded):', e);
-            }
+            db.manuals.put({ id: 'current', data: manual }).catch(e => {
+                console.warn('Failed to save manual to Dexie:', e);
+            });
         }
     }, [manual]);
 
@@ -199,11 +201,11 @@ export default function Home() {
     }, []);
 
     // リセット（データクリア）
-    const handleResetData = useCallback(() => {
+    const handleResetData = useCallback(async () => {
         if (confirm("入力データを完全に消去してリセットしますか？")) {
             setVideoFiles([]);
             setManual(null);
-            localStorage.removeItem('am_current_manual');
+            await db.manuals.delete('current');
             window.location.reload();
         }
     }, []);
