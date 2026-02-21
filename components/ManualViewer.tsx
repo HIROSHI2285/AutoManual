@@ -539,8 +539,8 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                             <section key={index} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : `mx-auto w-full ${isPortrait ? 'max-w-[576px]' : 'max-w-[768px]'}`}`}>
                                 <div className={`flex items-start gap-6 group ${isTwoColumn ? 'flex-grow mb-4' : 'mb-6'}`}>
                                     <div className="flex flex-col items-center gap-3">
-                                        {/* 1カラム時のみ mt-[6px] を追加。これで円の中心が見出し1行目（漢字）のど真ん中に重なります */}
-                                        <div className={`manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform ${!isTwoColumn ? 'mt-[6px]' : ''}`}>
+                                        {/* 1カラム時のみ mt-[12px] を適用して大幅に下げ、漢字の中心に合わせます。2カラムは変更なし */}
+                                        <div className={`manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform ${!isTwoColumn ? 'mt-[12px]' : ''}`}>
                                             {step.stepNumber}
                                         </div>
                                     </div>

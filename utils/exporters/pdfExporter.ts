@@ -83,8 +83,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
         overflow: visible !important;
-        /* 1カラム時のみ、円を 1.3mm 下げて中心を一致させる */
-        ${!isTwoCol ? 'margin-top: 1.3mm;' : ''}
+        /* ナンバリングを 4mm 下げて中心を完全に合わせます */
+        ${!isTwoCol ? 'margin-top: 4mm;' : ''}
     }
     .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
     
@@ -105,15 +105,15 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         white-space: pre-wrap; color: #000; 
     }
     
-    /* 【見切れ対策】1カラム時の画像ボックスの高さを fixed(95mm) から auto に変更 */
+    /* 【絶対見切れない対策】画像ボックスの高さを固定から可変に変更 */
     .img-box { 
         align-self: center;
         background: #fcfcfc; 
         border: 0.3mm solid #eee; 
         border-radius: 2mm;
-        /* 2カラムは元の 65mm 固定、1カラムは可変(最大100mm)にすることで、ページ末尾での見切れを防止 */
+        /* 1カラムは height: auto にすることで、ページ末尾で画像がカットされるのを防ぎます */
         height: ${isTwoCol ? '65mm' : 'auto'};
-        max-height: ${isTwoCol ? '65mm' : '100mm'};
+        max-height: ${isTwoCol ? '65mm' : '95mm'};
         width: 100%;
         display: flex; 
         align-items: center; 
