@@ -120,7 +120,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         max-height: ${isTwoCol ? '65mm' : '95mm'};
         width: 100%;
         display: flex; 
-        align-items: center; 
+        /* 2カラム時は flex-start で上寄せに、シングルは元の center を維持 */
+        align-items: ${isTwoCol ? 'flex-start' : 'center'}; 
         justify-content: center; 
         overflow: hidden;
         flex-shrink: 0;
