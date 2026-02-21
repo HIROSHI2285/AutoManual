@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
+import * as https from 'https';
+import { URL } from 'url';
 
 export const config = {
     api: {
@@ -118,19 +120,44 @@ export async function POST(request: NextRequest) {
                 'X-Goog-Upload-Command': 'upload, finalize',
             };
 
-            const uploadResponse = await fetch(uploadUrl, {
-                method: 'POST', // The protocol says POST for the actual content transfer in this flow
-                headers: uploadHeaders,
-                body: buffer,
+            const uploadData = await new Promise<any>((resolve, reject) => {
+                const urlObj = new URL(uploadUrl);
+                const options = {
+                    method: 'POST',
+                    hostname: urlObj.hostname,
+                    path: urlObj.pathname + urlObj.search,
+                    headers: uploadHeaders,
+                    timeout: 0, // No timeout to prevent 5-minute undici fetch failures
+                };
+
+                const req = https.request(options, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => {
+                        data += chunk;
+                    });
+                    res.on('end', () => {
+                        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                            try {
+                                resolve(JSON.parse(data));
+                            } catch (e) {
+                                reject(new Error('Failed to parse upload response'));
+                            }
+                        } else {
+                            reject(new Error(`File content upload failed: ${res.statusCode} ${data}`));
+                        }
+                    });
+                });
+
+                req.on('error', (e) => reject(e));
+                req.on('timeout', () => {
+                    req.destroy();
+                    reject(new Error('Upload request timed out'));
+                });
+
+                req.write(buffer);
+                req.end();
             });
 
-            if (!uploadResponse.ok) {
-                const errText = await uploadResponse.text();
-                await log(`File content upload failed: ${uploadResponse.status} ${errText}`);
-                throw new Error(`File content upload failed: ${uploadResponse.status} ${errText}`);
-            }
-
-            const uploadData = await uploadResponse.json();
             const fileUri = uploadData.file.uri;
             const fileName = uploadData.file.name; // "files/..."
 
