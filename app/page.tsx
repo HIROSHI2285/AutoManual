@@ -5,6 +5,7 @@ import VideoUploader from '@/components/VideoUploader';
 import ManualViewer from '@/components/ManualViewer';
 import { db } from '@/utils/db';
 import { extractFrameAtTimestamp, smartCropFrame } from '@/utils/videoProcessor';
+import { createProxyVideo } from '@/utils/videoDownsampler';
 
 // Hoisted RegExp (js-hoist-regexp: compiled once at module level)
 const RE_FILE_EXT = /\.[^/.]+$/;
@@ -31,108 +32,7 @@ export interface ManualData {
 
 
 // ============================================================
-// 動画圧縮関数 (現在は精度優先のため未使用だが、将来のために保持)
-// ============================================================
-async function compressVideoForAnalysis(
-    file: File,
-    onProgress?: (percent: number) => void
-): Promise<File> {
-    return new Promise((resolve) => {
-        if (typeof MediaRecorder === 'undefined') {
-            console.warn('[compress] MediaRecorder not available, using original file');
-            resolve(file);
-            return;
-        }
-
-        const video = document.createElement('video');
-        const objectUrl = URL.createObjectURL(file);
-        video.src = objectUrl;
-        video.muted = true;
-        video.playsInline = true;
-
-        video.onloadedmetadata = () => {
-            const targetWidth = 854;
-            const targetHeight = Math.round(video.videoHeight * (targetWidth / video.videoWidth));
-
-            const canvas = document.createElement('canvas');
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-            const ctx = canvas.getContext('2d')!;
-
-            const stream = (canvas as any).captureStream(10);
-            const chunks: Blob[] = [];
-
-            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-                ? 'video/webm;codecs=vp9'
-                : MediaRecorder.isTypeSupported('video/webm')
-                    ? 'video/webm'
-                    : '';
-
-            if (!mimeType) {
-                console.warn('[compress] No supported codec, using original file');
-                URL.revokeObjectURL(objectUrl);
-                resolve(file);
-                return;
-            }
-
-            const recorder = new MediaRecorder(stream, {
-                mimeType,
-                videoBitsPerSecond: 500_000,
-            });
-
-            recorder.ondataavailable = (e) => {
-                if (e.data.size > 0) chunks.push(e.data);
-            };
-
-            recorder.onstop = () => {
-                URL.revokeObjectURL(objectUrl);
-                const blob = new Blob(chunks, { type: mimeType });
-
-                if (blob.size >= file.size) {
-                    console.log(`[compress] Compressed(${blob.size}) >= Original(${file.size}), using original`);
-                    resolve(file);
-                    return;
-                }
-
-                console.log(`[compress] ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(blob.size / 1024 / 1024).toFixed(1)}MB (${Math.round(blob.size / file.size * 100)}%)`);
-                resolve(new File([blob], file.name.replace(RE_FILE_EXT, '.webm'), { type: mimeType }));
-            };
-
-            recorder.start(100);
-
-            const duration = video.duration;
-            let lastProgress = 0;
-
-            const drawFrame = () => {
-                if (video.ended || video.paused) {
-                    recorder.stop();
-                    return;
-                }
-                ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-
-                const progress = Math.round((video.currentTime / duration) * 100);
-                if (progress !== lastProgress) {
-                    lastProgress = progress;
-                    onProgress?.(progress);
-                }
-
-                requestAnimationFrame(drawFrame);
-            };
-
-            video.onended = () => recorder.stop();
-            video.play().then(() => requestAnimationFrame(drawFrame));
-        };
-
-        video.onerror = () => {
-            console.warn('[compress] Video load error, using original file');
-            URL.revokeObjectURL(objectUrl);
-            resolve(file);
-        };
-    });
-}
-
 export default function Home() {
-    // Multi-file support
     const [videoFiles, setVideoFiles] = useState<File[]>([]);
 
     const [isLoading, setIsLoading] = useState(false);
@@ -147,10 +47,8 @@ export default function Home() {
         progressTimerRef.current = setInterval(() => {
             const elapsed = Date.now() - startTime;
             const ratio = Math.min(elapsed / durationMs, 1);
-            // Logarithmic ease-out: fast start, very slow finish
-            // At 50% time elapsed → ~70% progress; at 90% time → ~90% progress
-            const eased = 1 - Math.pow(1 - ratio, 3);
-            const current = from + (to - from) * eased * 0.95; // never fully reach target
+            // 進行を一定ペース（リニア）に変更し、前半早すぎ・後半遅すぎを解消
+            const current = from + (to - from) * ratio * 0.95; // never fully reach target
             setProgress(Math.round(Math.min(current, to - 1)));
         }, 300);
     }, []);
@@ -227,19 +125,23 @@ export default function Home() {
                 const videoNum = videoIndex + 1;
                 const totalVideos = videoFiles.length;
 
-                // STAGE 1: Agentic Analysis
-                setLoadingStage(`[${videoNum}/${totalVideos}] 動画「${videoFile.name}」を解析中... (AI分析)`);
+                // STAGE 1: Dual-Video Strategy (Proxy Generation)
+                setLoadingStage(`[${videoNum}/${totalVideos}] 動画「${videoFile.name}」の軽量AI送信用データを作成中... (画質維持の高速化)`);
+                const proxyFile = await createProxyVideo(videoFile, (p) => {
+                    // Proxy generation consumes the first 10% of the progress bar
+                    const baseProgress = Math.round((videoIndex / totalVideos) * 90);
+                    setProgress(baseProgress + Math.round(p * 10));
+                });
 
-                // Simulated progress: each video's AI analysis covers (85 / totalVideos)% of the bar
-                const videoProgressStart = Math.round((videoIndex / totalVideos) * 85);
-                const videoProgressEnd = Math.round(((videoIndex + 1) / totalVideos) * 85);
-                startSimulatedProgress(videoProgressStart, videoProgressEnd, 180000); // simulate over ~3min
+                setLoadingStage(`[${videoNum}/${totalVideos}] 動画「${videoFile.name}」をAI解析中... (API通信)`);
 
-                // Compression disabled for accuracy as per user request
-                // const compressedFile = await compressVideoForAnalysis(videoFile);
+                // Simulated progress: AI analysis covers the remaining 10% to 90% range
+                const videoProgressStart = Math.round((videoIndex / totalVideos) * 90) + 10;
+                const videoProgressEnd = Math.round(((videoIndex + 1) / totalVideos) * 90);
+                startSimulatedProgress(videoProgressStart, videoProgressEnd, 45000); // simulate over ~45sec
 
                 const formData = new FormData();
-                formData.append('video', videoFile);
+                formData.append('video', proxyFile); // Send lightweight proxy!
 
                 const response = await fetch('/api/analyze-video', {
                     method: 'POST',
@@ -260,50 +162,56 @@ export default function Home() {
                 stopSimulatedProgress();
                 setProgress(videoProgressEnd);
 
-                // STAGE 2: Extract Frames
-                setLoadingStage(`[${videoNum}/${totalVideos}] 動画「${videoFile.name}」から画像を切り出し中...`);
+                // STAGE 2: Parallel Extract Frames using high-res Original videoFile
+                setLoadingStage(`[${videoNum}/${totalVideos}] オリジナル高画質動画から画像を切り出し中... (並列処理)`);
 
-                for (let i = 0; i < aiSteps.length; i++) {
-                    const step = aiSteps[i];
-                    if (!step.timestamp) continue;
+                const validSteps = aiSteps.filter((s: any) => s.timestamp);
+                const concurrentLimit = 4; // Process in batches of 4
+                let completedScreenshots = 0;
 
-                    try {
-                        // Extract high-res frame
-                        const frameData = await extractFrameAtTimestamp(videoFile, step.timestamp);
+                for (let i = 0; i < validSteps.length; i += concurrentLimit) {
+                    const batch = validSteps.slice(i, i + concurrentLimit);
 
-                        // Smart Automatic Zoom
-                        let displayFrame = frameData;
-                        if (step.box_2d && step.box_2d.length === 4) {
-                            try {
-                                displayFrame = await smartCropFrame(frameData, step.box_2d);
-                            } catch (cropErr) {
-                                console.warn(`SmartCrop failed for step ${i + 1} of video ${videoNum}, using original:`, cropErr);
-                                displayFrame = frameData;
-                            }
+                    await Promise.all(batch.map(async (step: any, batchIndex: number) => {
+                        try {
+                            // Extract high-res frame from original file! (Zero quality loss)
+                            const frameData = await extractFrameAtTimestamp(videoFile, step.timestamp);
+
+                            // Smart Automatic Zoom is disabled to ensure consistency with Edit Mode
+                            // The user requested that the full uncropped image (seen in Edit) is used everywhere
+                            let displayFrame = frameData;
+
+                            // Calculate global step number based on original sorted array index
+                            const originalIndex = i + batchIndex;
+                            const globalStepNumber = finalSteps.length + originalIndex + 1;
+
+                            step.processedData = {
+                                stepNumber: globalStepNumber,
+                                action: step.action,
+                                detail: step.reason || step.action,
+                                timestamp: step.timestamp,
+                                box_2d: step.box_2d,
+                                label: step.label,
+                                screenshot: displayFrame,
+                                originalUrl: frameData,
+                                uid: Math.random().toString(36).substring(2, 11)
+                            };
+
+                        } catch (err) {
+                            console.error(`Frame extraction failed for timestamp ${step.timestamp}:`, err);
+                        } finally {
+                            completedScreenshots++;
+                            const extractionProgress = 90 + Math.round((completedScreenshots / validSteps.length) * 10);
+                            setProgress(Math.min(extractionProgress, 99));
+                            setLoadingStage(`[${videoNum}/${totalVideos}] 高画質画像切り出し中... (${completedScreenshots}/${validSteps.length})`);
                         }
+                    }));
+                }
 
-                        // Calculate global step number
-                        const globalStepNumber = finalSteps.length + 1;
-
-                        finalSteps.push({
-                            stepNumber: globalStepNumber,
-                            action: step.action,
-                            detail: step.reason || step.action,
-                            timestamp: step.timestamp,
-                            box_2d: step.box_2d,
-                            label: step.label,
-                            screenshot: displayFrame,
-                            originalUrl: frameData,
-                            uid: Math.random().toString(36).substr(2, 9) // Ensure unique ID
-                        });
-
-                        // Detailed progress update (85% → 100% range)
-                        const extractionProgress = 85 + Math.round(((videoIndex + (i + 1) / aiSteps.length) / totalVideos) * 15);
-                        setProgress(Math.min(extractionProgress, 99));
-                        setLoadingStage(`[${videoNum}/${totalVideos}] 画像切り出し中... (${i + 1}/${aiSteps.length})`);
-
-                    } catch (error) {
-                        console.error(`Error processing step ${i + 1} of video ${videoNum}:`, error);
+                // Push all successfully processed steps in correct sequence
+                for (const step of validSteps) {
+                    if (step.processedData) {
+                        finalSteps.push(step.processedData);
                     }
                 }
             }

@@ -404,7 +404,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                         }`}
                                 >
                                     {/* Thumbnail */}
-                                    <div className="aspect-[4/3] bg-slate-100 overflow-hidden relative">
+                                    <div className="aspect-video bg-slate-100 overflow-hidden relative">
                                         {step.screenshot ? (
                                             <img
                                                 src={step.screenshot}
@@ -555,13 +555,13 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 </div>
 
                                 <div
-                                    className={`manual__image-container mx-auto rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1 ${isTwoColumn ? 'aspect-[4/3] flex items-start justify-center bg-slate-100 pt-2' : ''}`}
-                                    style={!isTwoColumn ? { maxWidth: isPortrait ? '576px' : '768px' } : {}}
+                                    className={`manual__image-container mx-auto rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1`}
+                                    style={{ maxWidth: isPortrait ? '576px' : '768px' }}
                                 >
                                     <img
                                         src={step.screenshot}
                                         alt={`Step ${step.stepNumber}: ${step.action}`}
-                                        className={`block transition-transform duration-700 group-hover:scale-[1.01] ${isTwoColumn ? 'w-full h-full object-contain' : 'w-full h-auto'}`}
+                                        className={`block transition-transform duration-700 group-hover:scale-[1.01] w-full h-auto`}
                                         loading="lazy"
                                     />
                                 </div>

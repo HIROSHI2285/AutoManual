@@ -55,9 +55,11 @@ export async function extractFrameAtTimestamp(
 
         video.addEventListener('seeked', () => {
             try {
+                // ビデオフレームをキャンバスに描画（欠落していたため画像が空白になっていたのを修正）
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                // 画質を 0.9 -> 1.0 (最高品質) に引き上げ
-                const imageData = canvas.toDataURL('image/jpeg', 1.0);
+
+                // UIの文字が滲まないよう、ロスレス品質のPNG形式で書き出し
+                const imageData = canvas.toDataURL('image/png');
                 URL.revokeObjectURL(url);
                 resolve(imageData);
             } catch (error) {
@@ -137,8 +139,8 @@ export function smartCropFrame(
                 0, 0, imgW, imgH
             );
 
-            // クロップ後の保存も最高品質(1.0)に設定
-            resolve(canvas.toDataURL('image/jpeg', 1.0));
+            // クロップ後の保存もロスレス品質のPNG形式に統一
+            resolve(canvas.toDataURL('image/png'));
         };
         img.onerror = () => reject(new Error('Image load failed'));
         img.src = imageData;
@@ -205,7 +207,8 @@ export function drawBoundingBox(
             // Removed corner markers for a cleaner look as requested 
 
 
-            resolve(canvas.toDataURL('image/jpeg', 0.9));
+            // 最終的なアノテーション画像もロスレス品質のPNG形式で書き出し
+            resolve(canvas.toDataURL('image/png'));
         };
 
         img.onerror = () => {
