@@ -169,9 +169,10 @@ export async function POST(request: NextRequest) {
 
             while (fileState === 'PROCESSING') {
                 await log('Processing video...');
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 2000)); // Increased from 500ms to 2000ms to avoid rate limits
 
-                const statusResponse = await fetch(`${BASE_URL}/${fileName}?key=${API_KEY}`);
+                // Disable default Next.js route caching to firmly prevent infinite loops
+                const statusResponse = await fetch(`${BASE_URL}/${fileName}?key=${API_KEY}`, { cache: 'no-store' });
                 if (!statusResponse.ok) throw new Error('Failed to check status');
 
                 const statusData = await statusResponse.json();
@@ -232,6 +233,7 @@ box_2d は 0-1000 の範囲に正規化してください。
 
             const generateResponse = await fetch(`${BASE_URL}/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
                 method: 'POST',
+                cache: 'no-store', // explicitly disable caching for generation
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{
