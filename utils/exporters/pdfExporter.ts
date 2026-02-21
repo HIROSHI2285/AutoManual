@@ -83,8 +83,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
         overflow: visible !important;
-        /* 1カラム時のみ円を 1.4mm 下げてセンターを一致させる */
-        ${!isTwoCol ? 'margin-top: 1.4mm;' : ''}
+        /* 1カラム時のみ、円を 1.3mm 下げて中心を一致させる */
+        ${!isTwoCol ? 'margin-top: 1.3mm;' : ''}
     }
     .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
     
@@ -100,17 +100,20 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         margin-left: 18mm; 
         font-size: 10.5pt; 
         margin-top: 0mm !important; 
-        /* 2カラムは維持(2.5mm)。1カラムはご要望通り 15mm から 8mm へ圧縮。これで見切れも防止します */
-        margin-bottom: ${isTwoCol ? '2.5mm' : '8mm'} !important; 
+        /* ご要望通り 15mm の余白を維持します */
+        margin-bottom: ${isTwoCol ? '2.5mm' : '15mm'} !important; 
         white-space: pre-wrap; color: #000; 
     }
     
+    /* 【見切れ対策】1カラム時の画像ボックスの高さを fixed(95mm) から auto に変更 */
     .img-box { 
         align-self: center;
         background: #fcfcfc; 
         border: 0.3mm solid #eee; 
         border-radius: 2mm;
-        height: ${isTwoCol ? '65mm' : '95mm'};
+        /* 2カラムは元の 65mm 固定、1カラムは可変(最大100mm)にすることで、ページ末尾での見切れを防止 */
+        height: ${isTwoCol ? '65mm' : 'auto'};
+        max-height: ${isTwoCol ? '65mm' : '100mm'};
         width: 100%;
         display: flex; 
         align-items: center; 
@@ -187,7 +190,8 @@ export async function generateAndDownloadPdf(manual: ManualData, layout: 'single
     margin: [20, 15, 23, 15] as [number, number, number, number], // Increased bottom margin from 15 to 23 to prevent footer numbering getting cut off
     filename: `${safeTitle}.pdf`,
     image: { type: 'jpeg' as 'jpeg' | 'png' | 'webp', quality: 0.98 },
-    html2canvas: { scale: 3, useCORS: true },
+    /* scaleを3から2に下げることで、後半ページの描画座標の累積誤差による見切れを抑制します */
+    html2canvas: { scale: 2, useCORS: true, logging: false },
     jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
     pagebreak: { mode: ['css', 'legacy'] }
   } as any;
