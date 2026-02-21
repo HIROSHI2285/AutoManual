@@ -69,8 +69,14 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     .step-row {
         display: flex; gap: 8mm; margin-bottom: 12mm; /* 15mmから短縮 */
         page-break-inside: avoid; break-inside: avoid;
+        /* 2カラム時は行の高さを統一 */
+        ${isTwoCol ? 'align-items: stretch;' : ''}
     }
-    .step-card { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .step-card { 
+        flex: 1; min-width: 0; display: flex; flex-direction: column; 
+        /* 2カラム時は高さを100%に統一して左右を揃える */
+        ${isTwoCol ? 'height: 100%;' : ''}
+    }
     
     /* 1. ActionとDetailの間を極限まで詰める (0.5mm) */
     .step-header { 
@@ -94,10 +100,10 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         ${!isTwoCol ? 'padding-top: 1.5mm;' : ''}
     }
     
-    /* 画像の高さを揃えるためのテキストコンテナ (22mmで同期を安定化) */
+    /* 画像の高さを揃えるためのテキストコンテナ */
     .text-container {
-        /* 2カラム時、画像の位置を横で揃えるため最小高さを 22mm に引き上げ */
-        min-height: ${isTwoCol ? '22mm' : 'auto'}; 
+        /* 2カラム時は flex-grow で残りスペースを埋める */
+        ${isTwoCol ? 'flex-grow: 1;' : ''}
         display: flex; flex-direction: column;
     }
 
@@ -126,7 +132,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         justify-content: center; 
         overflow: hidden;
         flex-shrink: 0;
-        ${isTwoCol ? 'padding-top: 2mm;' : ''} /* 枠の最上部への密着を防ぐ微調整 */
+        ${isTwoCol ? 'padding-top: 2mm; margin-top: auto;' : ''} /* margin-top: auto で下部に固定 */
     }
     img { max-width: 100%; max-height: 100%; object-fit: contain; }
   </style>
