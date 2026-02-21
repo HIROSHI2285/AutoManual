@@ -102,8 +102,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
     
     /* 画像の高さを揃えるためのテキストコンテナ */
     .text-container {
-        /* 2カラム時は flex-grow で残りスペースを埋める */
-        ${isTwoCol ? 'flex-grow: 1;' : ''}
+        /* テキストコンテナの高さを固定して画像の開始位置を揃える */
+        ${isTwoCol ? 'min-height: 30mm; flex-shrink: 0;' : ''}
         display: flex; flex-direction: column;
     }
 
@@ -125,6 +125,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         /* 1カラムは height: auto にすることで、ページ末尾で画像がカットされるのを防ぎます */
         height: ${isTwoCol ? '65mm' : 'auto'};
         max-height: ${isTwoCol ? '65mm' : '95mm'};
+        /* 2カラム時は最小高さも固定し、絶対に縮まないようにする */
+        ${isTwoCol ? 'min-height: 65mm;' : ''}
         width: 100%;
         display: flex; 
         /* 2カラム時は flex-start で上寄せに、シングルは元の center を維持 */
