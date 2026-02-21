@@ -544,7 +544,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                             {step.stepNumber}
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-3 py-1 w-full">
+                                    <div className={`flex flex-col gap-3 py-1 w-full ${isTwoColumn ? 'min-h-[140px]' : ''}`}>
                                         <h3 className="manual__step-title text-2xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
                                             {step.action}
                                         </h3>
@@ -555,7 +555,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 </div>
 
                                 <div
-                                    className={`manual__image-container mx-auto rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1 ${isTwoColumn ? 'aspect-[4/3] flex items-start justify-center bg-slate-100' : ''}`}
+                                    className={`manual__image-container mx-auto rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1 ${isTwoColumn ? 'aspect-[4/3] flex items-start justify-center bg-slate-100 pt-2' : ''}`}
                                     style={!isTwoColumn ? { maxWidth: isPortrait ? '576px' : '768px' } : {}}
                                 >
                                     <img

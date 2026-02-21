@@ -94,9 +94,10 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         ${!isTwoCol ? 'padding-top: 1.5mm;' : ''}
     }
     
-    /* 画像の高さを揃えるためのテキストコンテナ (18mmで同期を安定化) */
+    /* 画像の高さを揃えるためのテキストコンテナ (22mmで同期を安定化) */
     .text-container {
-        min-height: ${isTwoCol ? '18mm' : 'auto'}; 
+        /* 2カラム時、画像の位置を横で揃えるため最小高さを 22mm に引き上げ */
+        min-height: ${isTwoCol ? '22mm' : 'auto'}; 
         display: flex; flex-direction: column;
     }
 
@@ -125,6 +126,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         justify-content: center; 
         overflow: hidden;
         flex-shrink: 0;
+        ${isTwoCol ? 'padding-top: 2mm;' : ''} /* 枠の最上部への密着を防ぐ微調整 */
     }
     img { max-width: 100%; max-height: 100%; object-fit: contain; }
   </style>
