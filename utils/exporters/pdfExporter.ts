@@ -83,8 +83,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
         overflow: visible !important;
-        /* 1カラム時のみナンバリングを1.2mm下げてセンターを一致させる */
-        ${!isTwoCol ? 'margin-top: 1.2mm;' : ''}
+        /* 1カラム時のみ、円を1.5mm下げて1行目のテキストの中心に合わせる */
+        ${!isTwoCol ? 'margin-top: 1.5mm;' : ''}
     }
     .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
     
@@ -96,13 +96,12 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         display: flex; flex-direction: column;
     }
 
-    /* 画像との間隔を2カラム時は維持(2.5mm)、1カラムは大幅に下げる(15mm) */
     .detail-text { 
         margin-left: 18mm; 
         font-size: 10.5pt; 
         margin-top: 0mm !important; 
-        /* 見切れ防止：1カラムの余白を15mmから8mmに詰め、ページ内に収まりやすくする */
-        margin-bottom: ${isTwoCol ? '2.5mm' : '8mm'} !important; 
+        /* 見切れ防止：1カラムの余白を15mmから10mmに詰め、ページ末尾での溢れを防ぐ */
+        margin-bottom: ${isTwoCol ? '2.5mm' : '10mm'} !important; 
         white-space: pre-wrap; color: #000; 
     }
     
