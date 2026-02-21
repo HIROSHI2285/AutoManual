@@ -83,12 +83,16 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
         overflow: visible !important;
-        /* ナンバリングを 4mm 下げて中心を完全に合わせます */
-        ${!isTwoCol ? 'margin-top: 4mm;' : ''}
     }
     .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
     
-    .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; line-height: 1.1; }
+    .action-text { 
+        font-size: 13pt; 
+        font-weight: 800; 
+        color: #1e1b4b; 
+        line-height: ${isTwoCol ? '1.1' : '1.4'}; 
+        ${!isTwoCol ? 'padding-top: 1.5mm;' : ''}
+    }
     
     /* 画像の高さを揃えるためのテキストコンテナ (18mmで同期を安定化) */
     .text-container {
