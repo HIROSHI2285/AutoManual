@@ -17,16 +17,18 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング用SVGロゴ生成（PDF版のロジックを完全再現）
- * dominant-baseline="central" により、数字を円の幾何学的な中央に固定します。
+ * ナンバリング用SVGロゴ生成
+ * PDF版で成功している「dominant-baseline="central"」と「50%配置」を完全移植。
+ * パワーポイントでの視認性を考慮し、円の比率を調整しました。
  */
 function createStepNumberSvg(number: number): string {
-    const size = 128; // PDF版と同じ広域バッファ
-    const radius = 32;
+    const size = 128;
+    // PDF版と同じ中央配置ロジック。R値を調整して「小さすぎる」問題を解消。
+    const radius = 54;
     const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="28px">${number}</text>
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="60px">${number}</text>
     </svg>`;
     const base64 = typeof btoa !== 'undefined'
         ? btoa(unescape(encodeURIComponent(svg)))
@@ -49,7 +51,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
 
-    // 1. 表紙スライド
+    // 1. 表紙スライド（仕様維持）
     const coverSlide = pptx.addSlide();
     coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.30, fill: { color: NAVY } });
     // @ts-ignore
@@ -68,7 +70,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     overviewSlide.addText('■ DOCUMENT OVERVIEW', { x: 1.2, y: 1.5, w: 5, h: 0.4, fontSize: 11, color: NAVY, bold: true, fontFace: FONT_FACE });
     overviewSlide.addText(manual.overview, { x: 1.2, y: 2.0, w: 9.3, h: 4.2, fontSize: 11, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true, lineSpacing: 22 });
 
-    // 手順ループ
+    // 手順ループ（非同期getImageDimensionsを使用するためループ構造を変更）
     for (let i = 0; i < steps.length; (isTwoCol ? i += 2 : i++)) {
         const slide = pptx.addSlide();
         const currentPageNum = (isTwoCol ? Math.floor(i / 2) + 2 : i + 2);
@@ -100,9 +102,9 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const FONT_FACE = 'Meiryo UI';
 
     const cardWidth = isTwoCol ? 4.9 : 10.0;
-    const numSize = 0.50;
+    const numSize = 0.55;
 
-    // 1. ナンバリング（PDF版の配置を完全移植）
+    // 1. ナンバリング（中央固定SVG）
     slide.addImage({ data: createStepNumberSvg(step.stepNumber), x: xPos, y: 1.25, w: numSize, h: numSize });
 
     // 2. 見出し
@@ -111,7 +113,7 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     // 3. 詳細
     slide.addText(step.detail, { x: xPos + 0.65, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
 
-    // 4. 画像（「横」に合わせる調整）
+    // 4. 画像（縦横比を判定して調整）
     if (step.screenshot) {
         const dims = await getImageDimensions(step.screenshot);
         const isLandscape = dims.width > dims.height;
@@ -119,23 +121,28 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
         let imgWidth, imgHeight, imgY, imgX;
 
         if (isTwoCol) {
+            // 2カラム：横幅いっぱいに合わせる（高さもそれに従う）
             imgWidth = 4.8;
-            imgHeight = 3.5;
-            imgY = 3.2; // 2カラム時はさらに位置を下げる
+            imgHeight = isLandscape ? (4.8 * (dims.height / dims.width)) : 3.5;
+            imgY = 3.2; // 2カラム時は位置を下げるで重なりを防止
             imgX = xPos + 0.05;
         } else {
-            // シングルカラム：横幅を優先して配置
-            imgWidth = isLandscape ? 10.0 : 6.5;
-            imgHeight = 4.5;
+            // シングルカラム：横長ならPDFのように横幅いっぱいに拡大
+            imgWidth = isLandscape ? 10.5 : 7.0;
+            imgHeight = isLandscape ? (10.5 * (dims.height / dims.width)) : 4.5;
+            // 高さ上限（フッターに被らないよう）
+            if (imgHeight > 4.5) imgHeight = 4.5;
+
             imgY = 2.8;
             imgX = (11.69 - imgWidth) / 2;
         }
 
-        // sizing: { type: 'contain' } を使い、アスペクト比を崩さず横幅基準で収める
         slide.addImage({
             data: step.screenshot,
             x: imgX,
             y: imgY,
+            w: imgWidth,
+            h: imgHeight,
             sizing: { type: 'contain', w: imgWidth, h: imgHeight }
         });
     }
