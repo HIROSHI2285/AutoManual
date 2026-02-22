@@ -41,7 +41,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
 
-    // 1. 表紙
+    // 1. 表紙スライド（仕様維持）
     const coverSlide = pptx.addSlide();
     coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.30, fill: { color: NAVY } });
     // @ts-ignore
@@ -49,10 +49,11 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     coverSlide.addText(manual.title, { x: 1.0, y: 3.3, w: '85%', h: 1.5, fontSize: 42, color: SLATE_900, bold: false, fontFace: FONT_FACE, valign: 'top', margin: 0 });
     coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 7.97, w: '100%', h: 0.30, fill: { color: NAVY } });
 
-    // 2. 概要・手順
+    // 2. 概要・手順スライド
     const isTwoCol = layout === 'two-column';
     const steps = manual.steps;
 
+    // 概要スライド
     const overviewSlide = pptx.addSlide();
     addHeaderFooter(overviewSlide, pptx, manual.title, 1);
     overviewSlide.addShape(pptx.ShapeType.rect, { x: 1.0, y: 1.3, w: 9.7, h: 5.2, fill: { color: 'F8FAFC' }, line: { color: '1E1B4B', width: 0.1, pt: 3 } });
@@ -62,8 +63,8 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     // 手順ループ
     for (let i = 0; i < steps.length; (isTwoCol ? i += 2 : i++)) {
         const slide = pptx.addSlide();
-        const pageNum = (isTwoCol ? Math.floor(i / 2) + 2 : i + 2);
-        addHeaderFooter(slide, pptx, manual.title, pageNum);
+        const currentPageNum = (isTwoCol ? Math.floor(i / 2) + 2 : i + 2);
+        addHeaderFooter(slide, pptx, manual.title, currentPageNum);
 
         await addStepToSlide(slide, pptx, steps[i], (isTwoCol ? 0.7 : 1.2), isTwoCol);
         if (isTwoCol && steps[i + 1]) {
@@ -79,7 +80,8 @@ function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) 
     const FONT_FACE = 'Meiryo UI';
     slide.addText(title, { x: 0.8, y: 0.35, w: 9, h: 0.4, fontSize: 12, color: NAVY, fontFace: FONT_FACE, bold: false });
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.75, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
-    // ライン 7.8 / ページ番号 7.9
+
+    // フッターライン 7.8 / ページ番号 7.9 （指定通り）
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 7.8, w: 10.1, h: 0, line: { color: NAVY, width: 0.6 } });
     slide.addText(pageNum.toString(), { x: 10.0, y: 7.9, w: 0.9, h: 0.2, fontSize: 12, color: NAVY, fontFace: FONT_FACE, align: 'right' });
 }
@@ -88,22 +90,47 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
-    const cardWidth = isTwoCol ? 4.9 : 9.3;
+    const cardWidth = isTwoCol ? 4.9 : 10.0;
     const numSize = 0.50;
 
+    // 1. ナンバリング（y: 64 の中心固定版）
     slide.addImage({ data: createStepNumberSvg(step.stepNumber), x: xPos, y: 1.25, w: numSize, h: numSize });
+
+    // 2. 見出し
     slide.addText(step.action, { x: xPos + 0.65, y: 1.25, w: cardWidth - 0.7, h: numSize, fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE, valign: 'middle' });
+
+    // 3. 詳細
     slide.addText(step.detail, { x: xPos + 0.65, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
 
+    // 4. 画像（縦横判定とサイズ最適化）
     if (step.screenshot) {
-        const size = await getImageSize(step.screenshot);
-        const isLandscape = size.width > size.height;
+        const dims = await getImageDimensions(step.screenshot);
+        const isLandscape = dims.width > dims.height;
 
-        // 横画像の場合はPDFのように横幅いっぱいに拡大
-        const imgWidth = isTwoCol ? 4.8 : (isLandscape ? 10.0 : 8.5);
-        const imgHeight = isTwoCol ? 3.3 : (isLandscape ? 4.5 : 4.0);
-        const imgY = isTwoCol ? 3.0 : 2.7; // 2カラム時は3.0へ
-        const imgX = isTwoCol ? xPos + 0.05 : (11.69 - imgWidth) / 2;
+        let imgWidth, imgHeight, imgY, imgX;
+
+        if (isTwoCol) {
+            // 2カラム：枠内に収める
+            imgWidth = 4.8;
+            imgHeight = 3.5;
+            imgY = 3.1; // 2カラム時の画像位置を下げる
+            imgX = xPos + 0.05;
+        } else {
+            // 1カラム
+            if (isLandscape) {
+                // 横長画像：PDFのように横幅いっぱいに拡大
+                imgWidth = 10.5;
+                imgHeight = 4.5;
+                imgY = 2.8;
+                imgX = (11.69 - imgWidth) / 2;
+            } else {
+                // 縦長画像：アスペクト比を維持しつつ中央配置
+                imgWidth = 6.0;
+                imgHeight = 4.5;
+                imgY = 2.8;
+                imgX = (11.69 - imgWidth) / 2;
+            }
+        }
 
         slide.addImage({
             data: step.screenshot,
