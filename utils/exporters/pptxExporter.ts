@@ -1,16 +1,15 @@
 import { ManualData } from '@/app/page';
 
 /**
- * ナンバリング用SVGロゴ生成（高解像度・角丸四角形）
- * アプリのUIに合わせた配色と角丸を適用
+ * ナンバリング用SVGロゴ生成（数字と紺色の円を一体化した形式）
+ * メイリオUIを使用し、PPT側でのフォント置換やズレを物理的に防ぎます
  */
 function createStepNumberSvg(number: number): string {
     const size = 128;
-    const r = 32; // 角丸
     const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <rect x="0" y="0" width="${size}" height="${size}" rx="${r}" fill="#0F172A" />
-        <text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="Meiryo UI" font-weight="900" font-size="72px">${number}</text>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="#1E1B4B" />
+        <text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="Meiryo UI" font-weight="900" font-size="70px">${number}</text>
     </svg>`;
     const base64 = typeof btoa !== 'undefined'
         ? btoa(unescape(encodeURIComponent(svg)))
@@ -32,36 +31,41 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const NAVY = '1E1B4B';
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
-    const FONT_FACE = 'Meiryo UI'; // ご指定のフォント
+    const FONT_FACE = 'Meiryo UI'; // 厳守
 
     // 1. 表紙スライド
     const coverSlide = pptx.addSlide();
-    coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.12, fill: { color: NAVY } });
 
+    // 上部のライン (幅100%, 太さ0.15)
+    coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.15, fill: { color: NAVY } });
+
+    // trackingプロパティはTypeScriptの型エラーになるため削除して適用
     coverSlide.addText('OPERATIONAL STANDARD', {
-        x: 1.0, y: 2.8, w: 5, h: 0.4,
-        fontSize: 16, color: NAVY, bold: true, fontFace: FONT_FACE
+        x: 1.0, y: 2.8, w: 6, h: 0.4,
+        fontSize: 16, color: NAVY, bold: false, fontFace: FONT_FACE
     });
 
     coverSlide.addText(manual.title, {
         x: 1.0, y: 3.3, w: '85%', h: 1.5,
-        fontSize: 42, color: SLATE_900, bold: true, fontFace: FONT_FACE,
+        fontSize: 42, color: SLATE_900, bold: false, fontFace: FONT_FACE,
         valign: 'top', margin: 0
     });
 
-    coverSlide.addShape(pptx.ShapeType.rect, { x: 1.0, y: 5.5, w: 2.8, h: 0.06, fill: { color: NAVY } });
+    // 下部のライン (幅100%, 太さ0.15, 下限位置)
+    // 8.27(height) - 0.15 = 8.12
+    coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 8.12, w: '100%', h: 0.15, fill: { color: NAVY } });
 
     // 2. 概要スライド
     const overviewSlide = pptx.addSlide();
     addHeaderFooter(overviewSlide, pptx, manual.title, 1);
 
     overviewSlide.addText('■ DOCUMENT OVERVIEW', {
-        x: 1.0, y: 1.5, w: 5, h: 0.4,
-        fontSize: 14, color: NAVY, bold: true, fontFace: FONT_FACE
+        x: 1.0, y: 1.3, w: 5, h: 0.4,
+        fontSize: 14, color: NAVY, bold: false, fontFace: FONT_FACE
     });
 
     overviewSlide.addText(manual.overview, {
-        x: 1.0, y: 2.0, w: 9.7, h: 4.0,
+        x: 1.0, y: 1.8, w: 9.7, h: 4.5,
         fontSize: 12, color: SLATE_600, fontFace: FONT_FACE,
         valign: 'top', breakLine: true, lineSpacing: 24
     });
@@ -97,17 +101,17 @@ function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) 
     const NAVY = '1E1B4B';
     const FONT_FACE = 'Meiryo UI';
 
-    // ヘッダー
+    // ヘッダーテキスト：太字解除
     slide.addText(title, {
         x: 0.8, y: 0.35, w: 9, h: 0.4,
-        fontSize: 10, color: NAVY, fontFace: FONT_FACE, bold: true
+        fontSize: 10, color: NAVY, fontFace: FONT_FACE, bold: false
     });
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.75, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
 
-    // フッターライン (さらに下の位置 y: 8.05 に配置)
-    slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 8.05, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
+    // フッターライン：さらに下の位置 (y: 8.05)
+    slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 8.05, w: 10.1, h: 0, line: { color: NAVY, width: 0.8 } });
     slide.addText(pageNum.toString(), {
-        x: 10.0, y: 8.1, w: 0.9, h: 0.15, // 高さを微調整
+        x: 10.0, y: 8.1, w: 0.9, h: 0.15,
         fontSize: 10, color: NAVY, fontFace: FONT_FACE, align: 'right'
     });
 }
@@ -123,7 +127,7 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
     const cardWidth = isTwoCol ? 4.9 : 9.3;
     const numSize = 0.55;
 
-    // 1. ナンバリング (SVGロゴ)
+    // ナンバリング (SVG一体型)
     slide.addImage({
         data: createStepNumberSvg(step.stepNumber),
         x: xPos, y: 1.25, w: numSize, h: numSize
@@ -152,8 +156,8 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
 
         slide.addImage({
             data: step.screenshot,
-            x: imgX, y: imgY, w: imgWidth, h: imgHeight,
-            sizing: { type: 'contain', w: imgWidth, h: imgHeight } // NOTE: Preserve the stretch fix here
+            x: imgX, y: imgY,
+            sizing: { type: 'contain', w: imgWidth, h: imgHeight }
         });
     }
 }
