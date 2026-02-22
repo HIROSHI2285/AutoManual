@@ -1,10 +1,14 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 画像のサイズ（幅・高さ）をBase64から取得してアスペクト比を判定するユーティリティ
+ * 画像のサイズ（幅・高さ）をBase64から取得してアスペクト比を判定する
  */
 function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
     return new Promise((resolve) => {
+        if (typeof window === 'undefined') {
+            resolve({ width: 0, height: 0 });
+            return;
+        }
         const img = new Image();
         img.onload = () => resolve({ width: img.width, height: img.height });
         img.onerror = () => resolve({ width: 0, height: 0 });
@@ -14,7 +18,7 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 
 /**
  * ナンバリング用SVGロゴ生成
- * PDF版と同様のロジック（dominant-baseline="central"）で完璧な中央配置を実現
+ * PDF版のロジックを完全移植し、dominant-baseline="central" で中心を固定
  */
 function createStepNumberSvg(number: number): string {
     const size = 128;
@@ -83,7 +87,7 @@ function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) 
     slide.addText(title, { x: 0.8, y: 0.35, w: 9, h: 0.4, fontSize: 12, color: NAVY, fontFace: FONT_FACE, bold: false });
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.75, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
 
-    // フッター：ライン 7.8 / ページ番号 7.9
+    // フッターライン 7.8 / ページ番号 7.9
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 7.8, w: 10.1, h: 0, line: { color: NAVY, width: 0.6 } });
     slide.addText(pageNum.toString(), { x: 10.0, y: 7.9, w: 0.9, h: 0.2, fontSize: 12, color: NAVY, fontFace: FONT_FACE, align: 'right' });
 }
@@ -92,7 +96,7 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
-    const cardWidth = isTwoCol ? 4.9 : 9.5;
+    const cardWidth = isTwoCol ? 4.9 : 10.0;
     const numSize = 0.50;
 
     // 1. ナンバリング
@@ -113,19 +117,19 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
 
         if (isTwoCol) {
             imgWidth = 4.8;
-            imgHeight = 3.5;
+            imgHeight = 3.3;
             imgY = 3.1; // 2カラム時は位置を下げる
             imgX = xPos + 0.05;
         } else {
-            // 1カラム
+            // シングルカラム
             if (isLandscape) {
-                // 横画像は横幅いっぱいに拡大
+                // 横長画像はPDFのように横幅いっぱいに拡大 (横幅10.5インチ)
                 imgWidth = 10.5;
                 imgHeight = 4.5;
                 imgY = 2.8;
                 imgX = (11.69 - imgWidth) / 2;
             } else {
-                // 縦画像は比率維持
+                // 縦長画像はこれまでの比率を維持
                 imgWidth = 6.0;
                 imgHeight = 4.5;
                 imgY = 2.8;
@@ -133,6 +137,7 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
             }
         }
 
+        // sizing: { type: 'contain' } で縦伸び・横伸びを物理的に防止
         slide.addImage({
             data: step.screenshot,
             x: imgX,
