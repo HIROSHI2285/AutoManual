@@ -13,17 +13,16 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング用SVGロゴ生成
- * PDF版で成功している「dominant-baseline="central"」と「50%配置」を完全移植。
- * これにより、数字は円の幾何学的な中央に完全に固定されます。
+ * ナンバリング用SVGロゴ生成（PDF版の配置を完全再現）
+ * dominant-baseline="central" と text-anchor="middle" により、数字を円の幾何学的な中央に固定します。
  */
 function createStepNumberSvg(number: number): string {
     const size = 128;
-    const radius = 32; // PDF版のサイズ感に準拠
+    const radius = 58;
     const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="28px">${number}</text>
+        <circle cx="64" cy="64" r="${radius}" fill="#1E1B4B" />
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="65px">${number}</text>
     </svg>`;
     const base64 = typeof btoa !== 'undefined'
         ? btoa(unescape(encodeURIComponent(svg)))
@@ -46,7 +45,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
 
-    // 1. 表紙スライド（仕様維持）
+    // 1. 表紙スライド
     const coverSlide = pptx.addSlide();
     coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.30, fill: { color: NAVY } });
     // @ts-ignore
@@ -65,11 +64,11 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     overviewSlide.addText('■ DOCUMENT OVERVIEW', { x: 1.2, y: 1.5, w: 5, h: 0.4, fontSize: 11, color: NAVY, bold: true, fontFace: FONT_FACE });
     overviewSlide.addText(manual.overview, { x: 1.2, y: 2.0, w: 9.3, h: 4.2, fontSize: 11, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true, lineSpacing: 22 });
 
-    // 手順ループ (getImageDimensions のために async/await を使用)
+    // 手順ループ
     for (let i = 0; i < steps.length; (isTwoCol ? i += 2 : i++)) {
         const slide = pptx.addSlide();
-        const pageNum = (isTwoCol ? Math.floor(i / 2) + 2 : i + 2);
-        addHeaderFooter(slide, pptx, manual.title, pageNum);
+        const currentPageNum = (isTwoCol ? Math.floor(i / 2) + 2 : i + 2);
+        addHeaderFooter(slide, pptx, manual.title, currentPageNum);
 
         await addStepToSlide(slide, pptx, steps[i], (isTwoCol ? 0.7 : 1.2), isTwoCol);
         if (isTwoCol && steps[i + 1]) {
@@ -85,6 +84,8 @@ function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) 
     const FONT_FACE = 'Meiryo UI';
     slide.addText(title, { x: 0.8, y: 0.35, w: 9, h: 0.4, fontSize: 12, color: NAVY, fontFace: FONT_FACE, bold: false });
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.75, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
+
+    // フッターライン 7.8 / ページ番号 7.9
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 7.8, w: 10.1, h: 0, line: { color: NAVY, width: 0.6 } });
     slide.addText(pageNum.toString(), { x: 10.0, y: 7.9, w: 0.9, h: 0.2, fontSize: 12, color: NAVY, fontFace: FONT_FACE, align: 'right' });
 }
@@ -93,11 +94,10 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
-
     const cardWidth = isTwoCol ? 4.9 : 9.3;
-    const numSize = 0.55;
+    const numSize = 0.50;
 
-    // 1. ナンバリング
+    // 1. ナンバリング (PDFと同様の中央配置ロジック)
     slide.addImage({ data: createStepNumberSvg(step.stepNumber), x: xPos, y: 1.25, w: numSize, h: numSize });
 
     // 2. 見出し
@@ -106,7 +106,7 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     // 3. 詳細
     slide.addText(step.detail, { x: xPos + 0.65, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
 
-    // 4. 画像 (縦横比を判定して調整)
+    // 4. 画像 (縦横比を判定して、伸びを物理的に防止)
     if (step.screenshot) {
         const dims = await getImageDimensions(step.screenshot);
         const isLandscape = dims.width > dims.height;
@@ -114,32 +114,35 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
         let imgWidth, imgHeight, imgY, imgX;
 
         if (isTwoCol) {
-            // 2カラム：現状維持 (OKとのこと)
+            // 2カラム：横画像OKとのことなので以前のバランスを維持
             imgWidth = 4.8;
             imgHeight = 3.3;
-            imgY = 2.5;
+            imgY = 3.1; // テキストとの重なり防止のため3.1
             imgX = xPos + 0.05;
         } else {
             // 1カラム
             if (isLandscape) {
-                // 横画像：横幅を少し絞る (9.3インチ)
+                // 横長画像：テキスト幅に合わせる (大きすぎない 9.3)
                 imgWidth = 9.3;
                 imgHeight = 4.0;
                 imgY = 2.8;
                 imgX = (11.69 - imgWidth) / 2;
             } else {
-                // 縦画像：現状維持
-                imgWidth = 7.5;
+                // 縦長画像：比率を維持したまま、勝手に変えない
+                imgWidth = 6.5;
                 imgHeight = 4.5;
                 imgY = 2.8;
                 imgX = (11.69 - imgWidth) / 2;
             }
         }
 
+        // w, h を直接指定し、さらに sizing で contain を指定することで伸びを完全に封じ込めます
         slide.addImage({
             data: step.screenshot,
             x: imgX,
             y: imgY,
+            w: imgWidth,
+            h: imgHeight,
             sizing: { type: 'contain', w: imgWidth, h: imgHeight }
         });
     }
