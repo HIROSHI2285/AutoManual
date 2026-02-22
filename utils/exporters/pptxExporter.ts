@@ -1,8 +1,8 @@
 import { ManualData } from '@/app/page';
 
 /**
- * ナンバリング用SVGロゴ生成（数字と紺色の円を一体化した形式）
- * メイリオUIを使用し、PPT側でのフォント置換やズレを物理的に防ぎます
+ * ナンバリング用SVGロゴ生成（数字と紺色の円を完全に一体化）
+ * メイリオUIを使用し、高解像度で生成することでPPT側でのズレを防止
  */
 function createStepNumberSvg(number: number): string {
     const size = 128;
@@ -31,15 +31,15 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const NAVY = '1E1B4B';
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
-    const FONT_FACE = 'Meiryo UI'; // 厳守
+    const FONT_FACE = 'Meiryo UI';
 
     // 1. 表紙スライド
     const coverSlide = pptx.addSlide();
 
-    // 上部のライン (幅100%, 太さ0.15)
+    // 上下のライン：幅100%、太さ0.15で統一
     coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.15, fill: { color: NAVY } });
 
-    // trackingプロパティはTypeScriptの型エラーになるため削除して適用
+    // trackingプロパティはTypeScriptエラーになるため除外して適用
     coverSlide.addText('OPERATIONAL STANDARD', {
         x: 1.0, y: 2.8, w: 6, h: 0.4,
         fontSize: 16, color: NAVY, bold: false, fontFace: FONT_FACE
@@ -51,9 +51,8 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
         valign: 'top', margin: 0
     });
 
-    // 下部のライン (幅100%, 太さ0.15, 下限位置)
-    // 8.27(height) - 0.15 = 8.12
-    coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 8.12, w: '100%', h: 0.15, fill: { color: NAVY } });
+    // 表紙の下線：上線と同じ太さで位置を引き上げ (y: 7.5)
+    coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 7.5, w: '100%', h: 0.15, fill: { color: NAVY } });
 
     // 2. 概要スライド
     const overviewSlide = pptx.addSlide();
@@ -94,31 +93,25 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     await pptx.writeFile({ fileName: `${safeTitle}.pptx` });
 }
 
-/**
- * ヘッダー・フッターの描画
- */
 function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) {
     const NAVY = '1E1B4B';
     const FONT_FACE = 'Meiryo UI';
 
-    // ヘッダーテキスト：太字解除
+    // ヘッダー：太字を解除
     slide.addText(title, {
         x: 0.8, y: 0.35, w: 9, h: 0.4,
         fontSize: 10, color: NAVY, fontFace: FONT_FACE, bold: false
     });
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.75, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
 
-    // フッターライン：さらに下の位置 (y: 8.05)
-    slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 8.05, w: 10.1, h: 0, line: { color: NAVY, width: 0.8 } });
+    // フッターライン：位置を高く調整 (y: 7.5)
+    slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 7.5, w: 10.1, h: 0, line: { color: NAVY, width: 0.6 } });
     slide.addText(pageNum.toString(), {
-        x: 10.0, y: 8.1, w: 0.9, h: 0.15,
+        x: 10.0, y: 7.55, w: 0.9, h: 0.15,
         fontSize: 10, color: NAVY, fontFace: FONT_FACE, align: 'right'
     });
 }
 
-/**
- * スライドに手順を追加
- */
 function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol: boolean) {
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
@@ -127,27 +120,27 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
     const cardWidth = isTwoCol ? 4.9 : 9.3;
     const numSize = 0.55;
 
-    // ナンバリング (SVG一体型)
+    // 1. ナンバリング（一体型SVGロゴを挿入）：赤字指示の通り y: 1.25 に配置
     slide.addImage({
         data: createStepNumberSvg(step.stepNumber),
         x: xPos, y: 1.25, w: numSize, h: numSize
     });
 
-    // 2. タイトル
+    // 2. 見出しテキスト：y座標と高さをロゴと一致させ、中央揃え(valign)にすることで垂直軸を合致させる
     slide.addText(step.action, {
         x: xPos + 0.75, y: 1.25, w: cardWidth - 0.8, h: numSize,
         fontSize: isTwoCol ? 18 : 26, color: SLATE_900, bold: true, fontFace: FONT_FACE,
         valign: 'middle'
     });
 
-    // 3. 詳細説明
+    // 3. 詳細説明：開始位置(x)を見出し(xPos + 0.75)と完全に揃え、赤字指示の水平整列を再現
     slide.addText(step.detail, {
         x: xPos + 0.75, y: 2.0, w: cardWidth - 0.8, h: 0.8,
         fontSize: isTwoCol ? 11 : 13, color: SLATE_600, fontFace: FONT_FACE,
         valign: 'top', breakLine: true
     });
 
-    // 4. 画像 (上寄せ)
+    // 4. 画像：アスペクト比を維持して枠内に収める
     if (step.screenshot) {
         const imgWidth = isTwoCol ? 4.8 : 8.5;
         const imgHeight = isTwoCol ? 3.5 : 4.5;
