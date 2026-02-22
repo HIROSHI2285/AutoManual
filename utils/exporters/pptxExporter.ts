@@ -2,15 +2,15 @@ import { ManualData } from '@/app/page';
 
 /**
  * ナンバリング用SVGロゴ生成（高解像度・角丸四角形）
- * アプリのUI（bg-slate-950）に合わせた配色と角丸(rx)を適用
+ * アプリのUIに合わせた配色と角丸を適用
  */
 function createStepNumberSvg(number: number): string {
     const size = 128;
-    const r = 32; // UIに合わせた角丸設定
+    const r = 32; // 角丸
     const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <rect x="0" y="0" width="${size}" height="${size}" rx="${r}" fill="#0F172A" />
-        <text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="Meiryo, sans-serif" font-weight="900" font-size="72px">${number}</text>
+        <text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="Meiryo UI" font-weight="900" font-size="72px">${number}</text>
     </svg>`;
     const base64 = typeof btoa !== 'undefined'
         ? btoa(unescape(encodeURIComponent(svg)))
@@ -25,20 +25,19 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const pptxgen = (await import('pptxgenjs')).default;
     const pptx = new pptxgen();
 
-    // A4横サイズ (11.69 x 8.27 inch) を定義
+    // A4横サイズ (11.69 x 8.27 inch)
     pptx.defineLayout({ name: 'A4_LANDSCAPE', width: 11.69, height: 8.27 });
     pptx.layout = 'A4_LANDSCAPE';
 
     const NAVY = '1E1B4B';
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
-    const FONT_FACE = 'Meiryo UI'; // 指定のMeiryo UIを使用
+    const FONT_FACE = 'Meiryo UI'; // ご指定のフォント
 
-    // 1. 表紙スライド (サンプルに合わせたプロフェッショナルな構成)
+    // 1. 表紙スライド
     const coverSlide = pptx.addSlide();
     coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.12, fill: { color: NAVY } });
 
-    // trackingプロパティはTypeScriptの型エラーになるため削除
     coverSlide.addText('OPERATIONAL STANDARD', {
         x: 1.0, y: 2.8, w: 5, h: 0.4,
         fontSize: 16, color: NAVY, bold: true, fontFace: FONT_FACE
@@ -98,17 +97,17 @@ function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) 
     const NAVY = '1E1B4B';
     const FONT_FACE = 'Meiryo UI';
 
-    // ヘッダーライン
+    // ヘッダー
     slide.addText(title, {
         x: 0.8, y: 0.35, w: 9, h: 0.4,
         fontSize: 10, color: NAVY, fontFace: FONT_FACE, bold: true
     });
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.75, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
 
-    // フッターライン (ご要望通り、より下の位置 y: 7.9 に配置)
-    slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 7.85, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
+    // フッターライン (さらに下の位置 y: 8.05 に配置)
+    slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 8.05, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
     slide.addText(pageNum.toString(), {
-        x: 10.0, y: 7.9, w: 0.9, h: 0.3,
+        x: 10.0, y: 8.1, w: 0.9, h: 0.15, // 高さを微調整
         fontSize: 10, color: NAVY, fontFace: FONT_FACE, align: 'right'
     });
 }
@@ -122,29 +121,29 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
     const FONT_FACE = 'Meiryo UI';
 
     const cardWidth = isTwoCol ? 4.9 : 9.3;
-    const numSize = 0.55; // 現行より少し大きく設定
+    const numSize = 0.55;
 
-    // 1. ナンバリング (SVGロゴ画像)
+    // 1. ナンバリング (SVGロゴ)
     slide.addImage({
         data: createStepNumberSvg(step.stepNumber),
         x: xPos, y: 1.25, w: numSize, h: numSize
     });
 
-    // 2. タイトル (アクション) - サンプルのような太字強調
+    // 2. タイトル
     slide.addText(step.action, {
         x: xPos + 0.75, y: 1.25, w: cardWidth - 0.8, h: numSize,
         fontSize: isTwoCol ? 18 : 26, color: SLATE_900, bold: true, fontFace: FONT_FACE,
         valign: 'middle'
     });
 
-    // 3. 詳細説明 - インデントを揃えて配置
+    // 3. 詳細説明
     slide.addText(step.detail, {
         x: xPos + 0.75, y: 2.0, w: cardWidth - 0.8, h: 0.8,
         fontSize: isTwoCol ? 11 : 13, color: SLATE_600, fontFace: FONT_FACE,
         valign: 'top', breakLine: true
     });
 
-    // 4. 画像 - 画像の横伸びを防ぐため sizing プロパティを使用して完全に制御
+    // 4. 画像 (上寄せ)
     if (step.screenshot) {
         const imgWidth = isTwoCol ? 4.8 : 8.5;
         const imgHeight = isTwoCol ? 3.5 : 4.5;
@@ -153,8 +152,8 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
 
         slide.addImage({
             data: step.screenshot,
-            x: imgX, y: imgY,
-            sizing: { type: 'contain', w: imgWidth, h: imgHeight }
+            x: imgX, y: imgY, w: imgWidth, h: imgHeight,
+            sizing: { type: 'contain', w: imgWidth, h: imgHeight } // NOTE: Preserve the stretch fix here
         });
     }
 }
