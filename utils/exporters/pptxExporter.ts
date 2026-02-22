@@ -19,10 +19,10 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 function createStepNumberSvg(number: number): string {
     const size = 128;
     const svg = `
-    < svg xmlns = "http://www.w3.org/2000/svg" width = "${size}" height = "${size}" viewBox = "0 0 ${size} ${size}" >
-        <circle cx="64" cy = "64" r = "58" fill = "#1E1B4B" />
-            <text x="50%" y = "52%" dominant - baseline="central" text - anchor="middle" fill = "white" font - family="Arial, sans-serif" font - weight="bold" font - size="70px" > ${number} </text>
-                </svg>`;
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="64" cy="64" r="58" fill="#1E1B4B" />
+        <text x="50%" y="52%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="70px">${number}</text>
+    </svg>`;
     const base64 = typeof btoa !== 'undefined'
         ? btoa(unescape(encodeURIComponent(svg)))
         : Buffer.from(svg).toString('base64');
