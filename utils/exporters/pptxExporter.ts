@@ -1,187 +1,149 @@
 import { ManualData } from '@/app/page';
 
 /**
+ * 紺色の円形ナンバリングSVG（PPTX用に最適化）
+ * 現行の 0.35inch より少し大きく (0.45inch) 見えるよう設計
+ */
+function createStepNumberSvg(number: number): string {
+    const size = 128;
+    const radius = 60; // 視認性を高めるため円を大きく設定
+    const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
+        <text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="Meiryo, sans-serif" font-weight="bold" font-size="64px">${number}</text>
+    </svg>`;
+    const base64 = typeof btoa !== 'undefined'
+        ? btoa(unescape(encodeURIComponent(svg)))
+        : Buffer.from(svg).toString('base64');
+    return `data:image/svg+xml;base64,${base64}`;
+}
+
+/**
  * パワーポイントの生成とダウンロード
  */
 export async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
     const pptxgen = (await import('pptxgenjs')).default;
     const pptx = new pptxgen();
 
-    // UNKNOWN-LAYOUT エラーを解消するため、カスタムレイアウト(A4横)を定義
+    // A4横サイズ (11.69 x 8.27 inch) を定義
     pptx.defineLayout({ name: 'A4_LANDSCAPE', width: 11.69, height: 8.27 });
     pptx.layout = 'A4_LANDSCAPE';
 
     const NAVY = '1E1B4B';
-    const GRAY_BG = 'F8FAFC';
     const SLATE_900 = '0F172A';
-    const SLATE_500 = '64748B';
-    const FONT = 'Meiryo UI';
+    const SLATE_600 = '475569';
+    // ユーザー指定によりMeiryo UIに固定
+    const FONT_FACE = 'Meiryo UI';
 
-    // ---------------------------------------------------------
     // 1. 表紙スライド
-    // ---------------------------------------------------------
     const coverSlide = pptx.addSlide();
-
-    // 上部のソリッドライン（PDFに合わせた紺色線）
-    coverSlide.addShape(pptx.ShapeType.rect, {
-        x: 0, y: 0, w: '100%', h: 0.15,
-        fill: { color: NAVY }
-    });
+    // 上部の装飾ライン
+    coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.1, fill: { color: NAVY } });
 
     coverSlide.addText('OPERATIONAL STANDARD', {
-        x: 0.8, y: 2.5, w: 5, h: 0.4,
-        fontSize: 14, color: NAVY, bold: true, fontFace: FONT
+        x: 1.0, y: 2.8, w: 5, h: 0.4,
+        fontSize: 16, color: NAVY, bold: true, fontFace: FONT_FACE
     });
 
     coverSlide.addText(manual.title, {
-        x: 0.8, y: 3.0, w: '85%', h: 1.2,
-        fontSize: 38, color: SLATE_900, bold: true, fontFace: FONT,
-        valign: 'top'
+        x: 1.0, y: 3.3, w: '85%', h: 1.5,
+        fontSize: 42, color: SLATE_900, bold: true, fontFace: FONT_FACE,
+        valign: 'top', margin: 0
     });
 
-    // 下部のソリッドライン（PDFに合わせた紺色線）
-    coverSlide.addShape(pptx.ShapeType.rect, {
-        x: 0, y: 8.12, w: '100%', h: 0.15, // 8.27(height) - 0.15
-        fill: { color: NAVY }
+    coverSlide.addShape(pptx.ShapeType.rect, { x: 1.0, y: 5.2, w: 2.0, h: 0.05, fill: { color: NAVY } });
+
+    // 2. 概要スライド
+    const overviewSlide = pptx.addSlide();
+    addHeaderFooter(overviewSlide, pptx, manual.title, 1);
+
+    overviewSlide.addText('■ DOCUMENT OVERVIEW', {
+        x: 1.0, y: 1.5, w: 5, h: 0.4,
+        fontSize: 14, color: NAVY, bold: true, fontFace: FONT_FACE
     });
 
-    // ---------------------------------------------------------
-    // 2. 概要スライド 兼 手順スライド (Page 1)
-    // ---------------------------------------------------------
+    overviewSlide.addText(manual.overview, {
+        x: 1.0, y: 2.0, w: 9.5, h: 2.0,
+        fontSize: 12, color: SLATE_600, fontFace: FONT_FACE,
+        valign: 'top', breakLine: true, lineSpacing: 24
+    });
+
+    // 3. 手順スライド
     const isTwoCol = layout === 'two-column';
     const steps = manual.steps;
 
-    // Overviewの作成 (Slide 2, ページ番号1)
-    const page1Slide = pptx.addSlide();
-    addHeaderFooter(page1Slide, pptx, manual.title, 1);
-
-    page1Slide.addShape(pptx.ShapeType.rect, {
-        x: 0.5, y: 1.2, w: '90%', h: 1.2, // 縮小して余白を確保
-        fill: { color: GRAY_BG },
-        line: { color: NAVY, width: 2 },
-    });
-
-    page1Slide.addText('■ DOCUMENT OVERVIEW', {
-        x: 0.7, y: 1.3, w: 5, h: 0.3,
-        fontSize: 11, color: NAVY, bold: true, fontFace: FONT
-    });
-
-    page1Slide.addText(manual.overview, {
-        x: 0.7, y: 1.6, w: '85%', h: 0.7,
-        fontSize: 10.5, color: SLATE_500, fontFace: FONT,
-        valign: 'top', breakLine: true
-    });
-
-    // ---------------------------------------------------------
-    // 3. 手順描画ループ (Overviewの下から開始)
-    // ---------------------------------------------------------
-    let currentSlide = page1Slide;
-    let pageNum = 1;
-    let stepIndex = 0;
-
-    // Overviewが存在するPage 1用のY軸オフセット
-    const OVERVIEW_OFFSETY = 1.4;
-
-    while (stepIndex < steps.length) {
-        // 新しいページが必要か判定 (pageNum > 1の場合は新規スライド)
-        if (pageNum > 1) {
-            currentSlide = pptx.addSlide();
-            addHeaderFooter(currentSlide, pptx, manual.title, pageNum);
-        }
-
-        const offsetY = (pageNum === 1) ? OVERVIEW_OFFSETY : 0;
-
-        // Overviewがあるページ1は、スペースが狭いため画像の高さを少し縮小する係数
-        const scalePage1 = (pageNum === 1) ? 0.75 : 1.0;
-
-        if (isTwoCol) {
-            // 2カラム：1ページに2ステップ
-            addStepToSlide(currentSlide, pptx, steps[stepIndex], 0.5, true, offsetY, scalePage1); // 左
-            if (steps[stepIndex + 1]) {
-                addStepToSlide(currentSlide, pptx, steps[stepIndex + 1], 5.2, true, offsetY, scalePage1); // 右
+    if (isTwoCol) {
+        for (let i = 0; i < steps.length; i += 2) {
+            const slide = pptx.addSlide();
+            addHeaderFooter(slide, pptx, manual.title, Math.floor(i / 2) + 2);
+            addStepToSlide(slide, pptx, steps[i], 0.6, true);
+            if (steps[i + 1]) {
+                addStepToSlide(slide, pptx, steps[i + 1], 6.0, true);
             }
-            stepIndex += 2;
-        } else {
-            // 1カラム：1ページに1ステップ
-            addStepToSlide(currentSlide, pptx, steps[stepIndex], 0.5, false, offsetY, scalePage1);
-            stepIndex += 1;
         }
-        pageNum++;
+    } else {
+        for (let i = 0; i < steps.length; i++) {
+            const slide = pptx.addSlide();
+            addHeaderFooter(slide, pptx, manual.title, i + 2);
+            addStepToSlide(slide, pptx, steps[i], 1.0, false);
+        }
     }
 
-    // 保存
     await pptx.writeFile({ fileName: `${safeTitle}.pptx` });
 }
 
-/**
- * 共通：ヘッダー・フッターの描画
- */
 function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) {
     const NAVY = '1E1B4B';
-    const FONT = 'Meiryo UI';
+    const FONT_FACE = 'Meiryo UI';
 
-    // ヘッダー線
-    slide.addShape(pptx.ShapeType.line, {
-        x: 0.5, y: 0.6, w: 9.0, h: 0,
-        line: { color: NAVY, width: 1 }
-    });
     slide.addText(title, {
-        x: 0.5, y: 0.3, w: 8, h: 0.3,
-        fontSize: 12, color: NAVY, bold: true, fontFace: FONT
+        x: 0.8, y: 0.4, w: 9, h: 0.4,
+        fontSize: 10, color: NAVY, fontFace: FONT_FACE, bold: true
     });
+    slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.8, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
 
-    // フッター線
-    slide.addShape(pptx.ShapeType.line, {
-        x: 0.5, y: 7.0, w: 9.0, h: 0,
-        line: { color: NAVY, width: 0.5 }
-    });
+    slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 7.5, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
     slide.addText(pageNum.toString(), {
-        x: 8.5, y: 7.1, w: 1, h: 0.3,
-        fontSize: 9, color: NAVY, align: 'right', fontFace: FONT
+        x: 10.0, y: 7.6, w: 1, h: 0.3,
+        fontSize: 10, color: NAVY, fontFace: FONT_FACE, align: 'right'
     });
 }
 
-/**
- * スライドに手順を追加
- */
-function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol: boolean, offsetY: number = 0, scale: number = 1.0) {
-    const NAVY = '1E1B4B';
-    const FONT = 'Meiryo UI';
-    const cardWidth = isTwoCol ? 4.3 : 9.0;
+function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol: boolean) {
+    const SLATE_900 = '0F172A';
+    const SLATE_600 = '475569';
+    const FONT_FACE = 'Meiryo UI';
 
-    const baseNumY = 1.2 + offsetY;
-    const baseDetailY = 1.5 + offsetY;
+    const cardWidth = isTwoCol ? 5.0 : 9.7;
+    const numSize = 0.45; // 現行より少し大きめに設定
 
-    // ナンバリング
-    slide.addShape(pptx.ShapeType.ellipse, { x: xPos, y: baseNumY, w: 0.35, h: 0.35, fill: { color: NAVY } });
-    slide.addText(step.stepNumber.toString(), { x: xPos, y: baseNumY, w: 0.35, h: 0.35, fontSize: 12, color: 'FFFFFF', bold: true, align: 'center', valign: 'middle', fontFace: FONT });
+    // 1. ナンバリング (SVG形式で解像度を維持)
+    slide.addImage({
+        data: createStepNumberSvg(step.stepNumber),
+        x: xPos, y: 1.2, w: numSize, h: numSize
+    });
 
-    // 1. アクション
+    // 2. アクション (タイトル) - サンプルのような大胆な太字
     slide.addText(step.action, {
-        x: xPos + 0.5, y: baseNumY, w: cardWidth - 0.5, h: 0.3,
-        fontSize: 14, color: NAVY, bold: true, valign: 'middle', fontFace: FONT
+        x: xPos + 0.6, y: 1.2, w: cardWidth - 0.7, h: numSize,
+        fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE,
+        valign: 'middle'
     });
 
-    // 2. 詳細
+    // 3. 詳細説明 - インデント位置を揃え、可読性を向上
     slide.addText(step.detail, {
-        x: xPos + 0.5, y: baseDetailY, w: cardWidth - 0.5, h: 0.5 * scale,
-        fontSize: 10, color: '000000', valign: 'top', breakLine: true, fontFace: FONT
+        x: xPos + 0.6, y: 1.8, w: cardWidth - 0.7, h: 0.8,
+        fontSize: isTwoCol ? 11 : 13, color: SLATE_600, fontFace: FONT_FACE,
+        valign: 'top', breakLine: true
     });
 
-    // 3. 画像
+    // 4. 画像 - 前回の要望通り「上寄せ」配置を徹底し、画像が横伸びしないようsizingで厳重にロック。
     if (step.screenshot) {
-        const baseImgWidth = isTwoCol ? 4.0 : 6.0;
-        const baseImgHeight = isTwoCol ? 2.8 : 3.8;
+        const imgWidth = isTwoCol ? 4.8 : 8.5;
+        const imgHeight = isTwoCol ? 3.5 : 4.5;
+        const imgY = isTwoCol ? 2.8 : 3.0; // 本文の下に配置
+        const imgX = isTwoCol ? xPos + 0.1 : (11.69 - imgWidth) / 2;
 
-        let imgWidth = baseImgWidth * scale;
-        let imgHeight = baseImgHeight * scale;
-
-        const imgX = isTwoCol ? xPos + 0.15 : (11.69 - imgWidth) / 2;
-
-        // 画像のY位置（Overviewがある場合は少し詰める）
-        const imgY = (isTwoCol ? 2.1 : 3.2) + offsetY - (1.0 - scale);
-
-        // ※※ 最重要修正点：Topレベルの w, h を削除し sizing プロパティ内部のみに指定することで、横伸び(Stretching)を防止しアスペクト比を維持。※※
         slide.addImage({
             data: step.screenshot,
             x: imgX, y: imgY,
