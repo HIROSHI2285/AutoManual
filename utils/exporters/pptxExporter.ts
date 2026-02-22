@@ -2,14 +2,14 @@ import { ManualData } from '@/app/page';
 
 /**
  * ナンバリング用SVGロゴ生成
- * dominant-baseline="central" を使用して完璧な中央配置を実現
+ * PDF版と同様のロジックを適用し、dyプロパティでPPT特有の浮き上がりを補正
  */
 function createStepNumberSvg(number: number): string {
     const size = 128;
     const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="64" cy="64" r="58" fill="#1E1B4B" />
-        <text x="64" y="64" text-anchor="middle" dominant-baseline="central" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="65px">${number}</text>
+        <text x="64" y="64" dy=".05em" text-anchor="middle" dominant-baseline="central" alignment-baseline="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="70px">${number}</text>
     </svg>`;
     const base64 = typeof btoa !== 'undefined'
         ? btoa(unescape(encodeURIComponent(svg)))
@@ -97,20 +97,21 @@ function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, isTwoCol
     const cardWidth = isTwoCol ? 4.9 : 9.3;
     const numSize = 0.45;
 
-    // 1. ナンバリング (中央配置修正済み)
+    // 1. ナンバリング (中央配置を dy で微調整)
     slide.addImage({ data: createStepNumberSvg(step.stepNumber), x: xPos, y: 1.25, w: numSize, h: numSize });
 
-    // 2. 見出し (24pt)
+    // 2. 見出し
     slide.addText(step.action, { x: xPos + 0.65, y: 1.25, w: cardWidth - 0.7, h: numSize, fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE, valign: 'middle' });
 
-    // 3. 詳細 (14pt)
+    // 3. 詳細
     slide.addText(step.detail, { x: xPos + 0.65, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
 
-    // 4. 画像 (2カラム時の y座標を 2.8 に調整)
+    // 4. 画像 (アスペクト比維持を徹底)
     if (step.screenshot) {
         const imgWidth = isTwoCol ? 4.8 : 8.5;
         const imgHeight = isTwoCol ? 3.3 : 4.0;
-        const imgY = isTwoCol ? 2.8 : 2.6; // 2カラム時のみ 2.5 → 2.8 へ
+        // 2カラム時の画像位置を下げて調整 (y: 2.8 → 3.0)
+        const imgY = isTwoCol ? 3.0 : 2.6;
         const imgX = isTwoCol ? xPos + 0.05 : (11.69 - imgWidth) / 2;
 
         slide.addImage({
