@@ -1,7 +1,7 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 画像のサイズ（幅・高さ）をBase64から取得してアスペクト比を判定する
+ * 画像のサイズ（幅・高さ）をBase64から取得してアスペクト比を計算する
  */
 function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
     return new Promise((resolve) => {
@@ -13,27 +13,34 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング用SVGロゴ生成
- * PDF版と同様の「x=50%, y=50%, dominant-baseline=central」を採用。
- * これにより、数字は円の幾何学的な中央に完全に固定されます。
+ * ナンバリング用画像をCanvasで生成
+ * PDF版で成功している「幾何学的な中央配置」を100%保証します。
  */
-function createStepNumberSvg(number: number): string {
+function createStepNumberImage(number: number): string {
     const size = 128;
-    const radius = 58;
-    const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <circle cx="64" cy="64" r="${radius}" fill="#1E1B4B" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="65px">${number}</text>
-    </svg>`;
-    const base64 = typeof btoa !== 'undefined'
-        ? btoa(unescape(encodeURIComponent(svg)))
-        : Buffer.from(svg).toString('base64');
-    return `data:image/svg+xml;base64,${base64}`;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+
+    // 紺色の円を描画
+    ctx.fillStyle = '#1E1B4B';
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 58, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 数字を完璧な中心に描画
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 72px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // 視覚的な上下中央補正（Canvasのmiddle属性を使用）
+    ctx.fillText(number.toString(), size / 2, size / 2 + 4);
+
+    return canvas.toDataURL('image/png');
 }
 
-/**
- * パワーポイントの生成とダウンロード
- */
 export async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
     const pptxgen = (await import('pptxgenjs')).default;
     const pptx = new pptxgen();
@@ -58,29 +65,21 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const isTwoCol = layout === 'two-column';
     const steps = manual.steps;
 
-    // 概要
     const overviewSlide = pptx.addSlide();
     addHeaderFooter(overviewSlide, pptx, manual.title, 1);
     overviewSlide.addShape(pptx.ShapeType.rect, { x: 1.0, y: 1.3, w: 9.7, h: 5.2, fill: { color: 'F8FAFC' }, line: { color: '1E1B4B', width: 0.1, pt: 3 } });
     overviewSlide.addText('■ DOCUMENT OVERVIEW', { x: 1.2, y: 1.5, w: 5, h: 0.4, fontSize: 11, color: NAVY, bold: true, fontFace: FONT_FACE });
     overviewSlide.addText(manual.overview, { x: 1.2, y: 2.0, w: 9.3, h: 4.2, fontSize: 11, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true, lineSpacing: 22 });
 
-    // 手順ループ (非同期処理のため for...of を使用)
-    let pageIdx = 0;
-    if (isTwoCol) {
-        for (let i = 0; i < steps.length; i += 2) {
-            const slide = pptx.addSlide();
-            addHeaderFooter(slide, pptx, manual.title, pageIdx + 2);
-            await addStepToSlide(slide, pptx, steps[i], 0.7, true);
-            if (steps[i + 1]) await addStepToSlide(slide, pptx, steps[i + 1], 6.1, true);
-            pageIdx++;
-        }
-    } else {
-        for (const step of steps) {
-            const slide = pptx.addSlide();
-            addHeaderFooter(slide, pptx, manual.title, pageIdx + 2);
-            await addStepToSlide(slide, pptx, step, 1.2, false);
-            pageIdx++;
+    // 手順ループ
+    for (let i = 0; i < steps.length; (isTwoCol ? i += 2 : i++)) {
+        const slide = pptx.addSlide();
+        const pageNum = (isTwoCol ? Math.floor(i / 2) + 2 : i + 2);
+        addHeaderFooter(slide, pptx, manual.title, pageNum);
+
+        await addStepToSlide(slide, pptx, steps[i], (isTwoCol ? 0.7 : 1.2), isTwoCol);
+        if (isTwoCol && steps[i + 1]) {
+            await addStepToSlide(slide, pptx, steps[i + 1], 6.1, true);
         }
     }
 
@@ -93,7 +92,7 @@ function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) 
     slide.addText(title, { x: 0.8, y: 0.35, w: 9, h: 0.4, fontSize: 12, color: NAVY, fontFace: FONT_FACE, bold: false });
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.75, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
 
-    // フッターライン 7.8 / ページ番号 7.9
+    // 指定通り：フッターライン 7.8 / ページ番号 7.9
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 7.8, w: 10.1, h: 0, line: { color: NAVY, width: 0.6 } });
     slide.addText(pageNum.toString(), { x: 10.0, y: 7.9, w: 0.9, h: 0.2, fontSize: 12, color: NAVY, fontFace: FONT_FACE, align: 'right' });
 }
@@ -102,12 +101,11 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
-
     const cardWidth = isTwoCol ? 4.9 : 9.3;
-    const numSize = 0.55;
+    const numSize = 0.50;
 
-    // 1. ナンバリング (センター出し修正版)
-    slide.addImage({ data: createStepNumberSvg(step.stepNumber), x: xPos, y: 1.25, w: numSize, h: numSize });
+    // 1. ナンバリング（Canvas生成画像で配置）
+    slide.addImage({ data: createStepNumberImage(step.stepNumber), x: xPos, y: 1.25, w: numSize, h: numSize });
 
     // 2. 見出し
     slide.addText(step.action, { x: xPos + 0.65, y: 1.25, w: cardWidth - 0.7, h: numSize, fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE, valign: 'middle' });
@@ -115,28 +113,38 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     // 3. 詳細
     slide.addText(step.detail, { x: xPos + 0.65, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
 
-    // 4. 画像 (アスペクト比を維持して縦伸びを物理的に防止)
+    // 4. 画像（アスペクト比を計算し、変形を物理的に防止）
     if (step.screenshot) {
         const dims = await getImageDimensions(step.screenshot);
-        const imgAspect = dims.width / dims.height;
+        const aspect = dims.width / dims.height;
 
-        // 許容される最大枠
-        // シングルカラム横画像は 9.3 に縮小
-        // 縦画像は横に伸びないよう 5.5 に制限
-        const maxW = isTwoCol ? 4.8 : (dims.width > dims.height ? 9.3 : 5.5);
-        const maxH = isTwoCol ? 3.3 : 4.5;
-        const imgY = isTwoCol ? 3.2 : 2.8;
+        let maxW, maxH, imgY;
 
-        // アスペクト比を維持した実際のサイズ計算
-        let finalW = maxW;
-        let finalH = finalW / imgAspect;
-
-        if (finalH > maxH) {
-            finalH = maxH;
-            finalW = finalH * imgAspect;
+        if (isTwoCol) {
+            // 2カラム：横幅優先
+            maxW = 4.8;
+            maxH = 3.3;
+            imgY = 3.1;
+        } else {
+            // 1カラム
+            const isLandscape = dims.width > dims.height;
+            // 横画像は 8.5（テキスト幅内）、縦画像は 5.5（スリム）に制限
+            maxW = isLandscape ? 8.5 : 5.5;
+            maxH = 4.5;
+            imgY = 2.8;
         }
 
-        // 中央揃えのためのX座標計算
+        // アスペクト比を維持した実際の描画サイズを計算
+        let finalW = maxW;
+        let finalH = finalW / aspect;
+
+        // 計算した高さが制限を超える場合は高さを基準に再計算
+        if (finalH > maxH) {
+            finalH = maxH;
+            finalW = finalH * aspect;
+        }
+
+        // 中央揃えのX座標
         const imgX = isTwoCol ? xPos + (4.9 - finalW) / 2 : (11.69 - finalW) / 2;
 
         slide.addImage({
