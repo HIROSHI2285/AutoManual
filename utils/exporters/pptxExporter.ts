@@ -94,7 +94,7 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
-    const cardWidth = is TwoCol ? 4.9 : 9.3;
+    const cardWidth = isTwoCol ? 4.9 : 9.3;
 
     // 1. ナンバリング（絶対固定：一切変えません）
     slide.addImage({ data: createStepNumberImage(step.stepNumber), x: xPos, y: 1.25, w: 0.45, h: 0.45 });
