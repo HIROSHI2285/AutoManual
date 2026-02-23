@@ -14,7 +14,7 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング画像生成（PDF/PPTXと完全同一）
+ * ナンバリング画像生成（PDF/PPTXと完全同一の「ど真ん中」ロジック）
  */
 function createStepNumberImage(number: number): string {
     const size = 128;
@@ -55,14 +55,14 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
 
     const isTwoCol = layout === 'two-column';
     const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA - 400) / 2 : CONTENT_WIDTH_DXA;
-    const numCellWidth = 600; // ナンバリング用セルの幅を固定
+    const numCellWidth = 550; // ナンバリングセルの幅を固定
 
-    const createStepElements = async (step: any, _columnWidth: number) => {
+    const createStepElements = async (step: any, columnWidth: number) => {
         const elements: any[] = [];
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
 
-        // 1. アクション行（一行に収めるようにセルの幅設定を最適化）
+        // 1. アクション行（一行で収まるようテーブル構成を最適化）
         elements.push(new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -75,46 +75,45 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     }),
                     new TableCell({
                         verticalAlign: VerticalAlign.CENTER,
-                        // 幅を自動(Percentage 100)にすることで一行に収める
+                        // 残りの幅をすべて使い、テキストが2段にならないようにする
                         width: { size: 100, type: WidthType.PERCENTAGE },
-                        children: [
-                            new Paragraph({
-                                children: [
-                                    new TextRun({ text: " " + step.action, bold: true, size: 32, font: RF, color: BLACK }) // 半角スペース
-                                ]
-                            })
-                        ]
+                        margins: { left: 80 }, // 半角スペース相当
+                        children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK })] })]
                     })
                 ]
             })]
         }));
 
-        // 2. 詳細行（表題テキストと縦のラインを揃える）
+        // 2. 詳細説明（表題の開始位置と揃える）
         if (step.detail && step.detail !== step.action) {
             elements.push(new Paragraph({
-                indent: { left: numCellWidth + 100 },
+                indent: { left: numCellWidth + 80 },
                 spacing: { before: 100, after: 200 },
                 children: [new TextRun({ text: step.detail, size: 24, font: RF, color: BLACK })]
             }));
         }
 
-        // 3. 画像配置（インデントを0にして確実に中央揃えにする）
+        // 3. 画像配置（確実に中央へ戻す）
         if (step.screenshot) {
             try {
                 const dims = await getImageDimensions(step.screenshot);
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
                 const isLandscape = (dims.width || 4) >= (dims.height || 3);
 
-                let finalW = isTwoCol ? (4.8 * 96) : (8.5 * 96);
-                let finalH = isTwoCol ? (3.3 * 96) : (4.0 * 96);
-                if (!isLandscape) {
-                    finalH = isTwoCol ? (4.2 * 96) : (4.8 * 96);
-                    finalW = finalH * (3 / 4);
+                let finalW, finalH;
+                if (isTwoCol) {
+                    finalW = isLandscape ? 4.8 * 96 : 3.15 * 96;
+                    finalH = isLandscape ? 3.3 * 96 : 4.2 * 96;
+                } else {
+                    // 現在調整中のシングルカラム・縦画像（比率 3:4）
+                    finalH = 4.8 * 96;
+                    finalW = isLandscape ? (8.5 * 96) : (finalH * 0.75);
+                    if (isLandscape) finalH = finalW / (dims.width / dims.height);
                 }
 
                 elements.push(new Paragraph({
-                    alignment: AlignmentType.CENTER, // 中央揃え
-                    indent: { left: 0 }, // インデントをリセット
+                    alignment: AlignmentType.CENTER, // 全ページ共通で中央配置
+                    indent: { left: 0 }, // インデントをリセットして左寄りを解消
                     spacing: { before: 200, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
@@ -161,6 +160,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         styles: { default: { document: { run: { font: FONT }, paragraph: { spacing: { line: 276 } } } } },
         sections: [
             {
+                // セクション1: 表紙（12ptラインを上限・下限に配置）
                 properties: { page: { margin: { top: 0, bottom: 0, left: MARGIN_DXA, right: MARGIN_DXA } } },
                 children: [
                     new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, spacing: { before: 0, after: 3600 } }),
@@ -170,10 +170,11 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 ]
             },
             {
+                // セクション2: 本文（ページ番号1から開始）
                 properties: {
                     page: {
-                        // 開始位置を 1600 から 1200 へ引き上げ（半分より少し多めの調整）
-                        margin: { top: 1200, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
+                        // 2ページ目以降の開始位置を 1600 DXA に復旧
+                        margin: { top: 1600, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
                         pageNumbers: { start: 1 }
                     }
                 },
