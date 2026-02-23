@@ -13,7 +13,7 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング画像をCanvasで生成（OKをいただいた現状のものを完全維持）
+ * ナンバリング画像をCanvasで生成（OKをいただいた状態を完全維持）
  */
 function createStepNumberImage(number: number): string {
     const size = 128;
@@ -32,7 +32,7 @@ function createStepNumberImage(number: number): string {
     ctx.font = 'bold 72px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(number.toString(), size / 2, size / 2 + 4);
+    ctx.fillText(number.toString(), size / 2, size / 2 + 4); 
 
     return canvas.toDataURL('image/png');
 }
@@ -71,7 +71,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
         const slide = pptx.addSlide();
         const pageNum = (isTwoCol ? Math.floor(i / 2) + 2 : i + 2);
         addHeaderFooter(slide, pptx, manual.title, pageNum);
-
+        
         await addStepToSlide(slide, pptx, steps[i], (isTwoCol ? 0.7 : 1.2), isTwoCol);
         if (isTwoCol && steps[i + 1]) {
             await addStepToSlide(slide, pptx, steps[i + 1], 6.1, true);
@@ -94,15 +94,15 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const SLATE_900 = '0F172A';
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
-    const cardWidth = isTwoCol ? 4.9 : 9.3;
+    const cardWidth = 4.9; // 2カラム時の基本カード幅
 
-    // 1. ナンバリング（絶対固定：一切変えません）
+    // 1. ナンバリング（絶対固定）
     slide.addImage({ data: createStepNumberImage(step.stepNumber), x: xPos, y: 1.25, w: 0.45, h: 0.45 });
 
     // 2. テキスト整列
     const textX = xPos + 0.65;
-    slide.addText(step.action, { x: textX, y: 1.25, w: cardWidth - 0.7, h: 0.45, fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE, valign: 'middle' });
-    slide.addText(step.detail, { x: textX, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
+    slide.addText(step.action, { x: textX, y: 1.25, w: (isTwoCol ? cardWidth : 9.3) - 0.7, h: 0.45, fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE, valign: 'middle' });
+    slide.addText(step.detail, { x: textX, y: 1.9, w: (isTwoCol ? cardWidth : 9.3) - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
 
     // 3. 画像配置
     if (step.screenshot) {
@@ -114,30 +114,31 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
 
         if (isTwoCol) {
             if (isLandscape) {
-                // 2カラム・横画像：元の「良かった」サイズを維持
-                finalW = 4.8;
+                // ナンバリングと重ならないよう、最大幅を4.8に調整（5.1から微減）
+                finalW = 4.8; 
                 finalH = 3.3;
             } else {
-                // 2カラム・縦画像：ご要望通り大きく調整（高さ4.2基準 / 縦4:横3比率）
-                finalH = 4.2;
-                finalW = finalH * (3 / 4); // = 3.15
+                // 縦画像：大きく表示しつつ「縦4:横3」を維持
+                finalH = 4.2; 
+                finalW = finalH * (3 / 4);
             }
             imgY = 3.1;
         } else {
-            // 1カラム：OKをいただいた現状を絶対維持
+            // 1カラム：絶対固定
             if (isLandscape) {
                 finalW = 8.5;
                 finalH = 4.0;
             } else {
-                // 1カラム・縦画像：理想の「縦4：横3」
-                finalH = 4.8;
-                finalW = finalH * (3 / 4); // = 3.6
+                finalH = 4.8; 
+                finalW = finalH * (3 / 4);
             }
             imgY = 2.6;
         }
 
-        // 中央揃えのX座標計算
-        const imgX = isTwoCol ? xPos + (4.9 - finalW) / 2 : (11.69 - finalW) / 2;
+        // 2カラム時に画像が左側のナンバリングにはみ出さないよう、配置を計算
+        // imgX は最低でも xPos + 0.05 を維持するようにし、センタリングと両立させます
+        const baseImgX = isTwoCol ? xPos + (cardWidth - finalW) / 2 : (11.69 - finalW) / 2;
+        const imgX = (isTwoCol && baseImgX < xPos) ? xPos + 0.05 : baseImgX;
 
         slide.addImage({
             data: step.screenshot,
