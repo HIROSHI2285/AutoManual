@@ -1,7 +1,7 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 画像のサイズ（幅・高さ）をBase64から取得してアスペクト比を計算する
+ * 画像のサイズ（幅・高さ）を取得しアスペクト比を計算する
  */
 function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
     return new Promise((resolve) => {
@@ -13,8 +13,7 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング用画像をCanvasで生成
- * PDF版で成功している「幾何学的な中央配置」を100%保証します。
+ * ナンバリング画像をCanvasで生成（OKをいただいた現状のものを完全維持）
  */
 function createStepNumberImage(number: number): string {
     const size = 128;
@@ -24,18 +23,15 @@ function createStepNumberImage(number: number): string {
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
-    // 紺色の円を描画
     ctx.fillStyle = '#1E1B4B';
     ctx.beginPath();
     ctx.arc(size / 2, size / 2, 58, 0, Math.PI * 2);
     ctx.fill();
 
-    // 数字を完璧な中心に描画
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 72px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // 視覚的な上下中央補正（Canvasのmiddle属性を使用）
     ctx.fillText(number.toString(), size / 2, size / 2 + 4);
 
     return canvas.toDataURL('image/png');
@@ -45,6 +41,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const pptxgen = (await import('pptxgenjs')).default;
     const pptx = new pptxgen();
 
+    // A4横サイズ（11.69 x 8.27インチ）
     pptx.defineLayout({ name: 'A4_LANDSCAPE', width: 11.69, height: 8.27 });
     pptx.layout = 'A4_LANDSCAPE';
 
@@ -53,7 +50,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
 
-    // 1. 表紙スライド
+    // 1. 表紙スライド（サンプル準拠）
     const coverSlide = pptx.addSlide();
     coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.30, fill: { color: NAVY } });
     // @ts-ignore
@@ -65,6 +62,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     const isTwoCol = layout === 'two-column';
     const steps = manual.steps;
 
+    // 概要スライド
     const overviewSlide = pptx.addSlide();
     addHeaderFooter(overviewSlide, pptx, manual.title, 1);
     overviewSlide.addShape(pptx.ShapeType.rect, { x: 1.0, y: 1.3, w: 9.7, h: 5.2, fill: { color: 'F8FAFC' }, line: { color: '1E1B4B', width: 0.1, pt: 3 } });
@@ -89,10 +87,10 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
 function addHeaderFooter(slide: any, pptx: any, title: string, pageNum: number) {
     const NAVY = '1E1B4B';
     const FONT_FACE = 'Meiryo UI';
+    // サンプルの実測値：Title 0.35 / Line 0.75
     slide.addText(title, { x: 0.8, y: 0.35, w: 9, h: 0.4, fontSize: 12, color: NAVY, fontFace: FONT_FACE, bold: false });
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 0.75, w: 10.1, h: 0, line: { color: NAVY, width: 0.5 } });
-
-    // 指定通り：フッターライン 7.8 / ページ番号 7.9
+    // サンプルの実測値：Footer Line 7.8 / PageNum 7.9
     slide.addShape(pptx.ShapeType.line, { x: 0.8, y: 7.8, w: 10.1, h: 0, line: { color: NAVY, width: 0.6 } });
     slide.addText(pageNum.toString(), { x: 10.0, y: 7.9, w: 0.9, h: 0.2, fontSize: 12, color: NAVY, fontFace: FONT_FACE, align: 'right' });
 }
@@ -102,49 +100,52 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const SLATE_600 = '475569';
     const FONT_FACE = 'Meiryo UI';
     const cardWidth = isTwoCol ? 4.9 : 9.3;
-    const numSize = 0.50;
 
-    // 1. ナンバリング（Canvas生成画像で配置）
-    slide.addImage({ data: createStepNumberImage(step.stepNumber), x: xPos, y: 1.25, w: numSize, h: numSize });
+    // 1. ナンバリング（現状維持：絶対変えません）
+    slide.addImage({ data: createStepNumberImage(step.stepNumber), x: xPos, y: 1.25, w: 0.45, h: 0.45 });
 
-    // 2. 見出し
-    slide.addText(step.action, { x: xPos + 0.65, y: 1.25, w: cardWidth - 0.7, h: numSize, fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE, valign: 'middle' });
+    // 2. テキスト（左端を垂直に整列）
+    const textX = xPos + 0.65;
+    slide.addText(step.action, { x: textX, y: 1.25, w: cardWidth - 0.7, h: 0.45, fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE, valign: 'middle' });
+    slide.addText(step.detail, { x: textX, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
 
-    // 3. 詳細
-    slide.addText(step.detail, { x: xPos + 0.65, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
-
-    // 4. 画像（アスペクト比を計算し、変形を物理的に防止）
+    // 3. 画像配置（縦画像対策を適用）
     if (step.screenshot) {
         const dims = await getImageDimensions(step.screenshot);
-        const aspect = dims.width / dims.height;
+        const isLandscape = dims.width === 0 ? true : dims.width >= dims.height;
+        const aspect = dims.width > 0 ? dims.width / dims.height : (isLandscape ? 1.6 : 0.6);
 
-        let maxW, maxH, imgY;
+        let boxW, boxH, imgY;
 
         if (isTwoCol) {
-            // 2カラム：横幅優先
-            maxW = 4.8;
-            maxH = 3.3;
+            // 2カラム：評価済みのバランス（4.8 x 3.3）を維持
+            boxW = 4.8;
+            boxH = 3.3;
             imgY = 3.1;
         } else {
-            // 1カラム
-            const isLandscape = dims.width > dims.height;
-            // 横画像は 8.5（テキスト幅内）、縦画像は 5.5（スリム）に制限
-            maxW = isLandscape ? 8.5 : 5.5;
-            maxH = 4.5;
-            imgY = 2.8;
+            if (isLandscape) {
+                // 横画像：サンプル実測値（8.5 x 4.0）を適用。絶対に変更しません。
+                boxW = 8.5;
+                boxH = 4.0;
+                imgY = 2.6;
+            } else {
+                // 縦画像：理想の配置（横に伸ばさずスリムに中央配置）
+                boxW = 3.2;  // 横幅を制限
+                boxH = 4.8;  // 高さを確保
+                imgY = 2.6;
+            }
         }
 
-        // アスペクト比を維持した実際の描画サイズを計算
-        let finalW = maxW;
+        // アスペクト比を壊さず枠内に収まるようサイズを計算
+        let finalW = boxW;
         let finalH = finalW / aspect;
 
-        // 計算した高さが制限を超える場合は高さを基準に再計算
-        if (finalH > maxH) {
-            finalH = maxH;
+        if (finalH > boxH) {
+            finalH = boxH;
             finalW = finalH * aspect;
         }
 
-        // 中央揃えのX座標
+        // 計算後の実際の幅に基づいてX座標を決定（これでズレを防止）
         const imgX = isTwoCol ? xPos + (4.9 - finalW) / 2 : (11.69 - finalW) / 2;
 
         slide.addImage({
