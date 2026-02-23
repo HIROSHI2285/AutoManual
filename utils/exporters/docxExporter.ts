@@ -169,12 +169,31 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         styles: { default: { document: { run: { font: FONT }, paragraph: { spacing: { line: 276 } } } } },
         sections: [
             {
-                properties: { page: { margin: { top: 0, bottom: 0, left: MARGIN_DXA, right: MARGIN_DXA } } },
+                properties: {
+                    page: {
+                        margin: {
+                            top: 0,
+                            bottom: 0,
+                            left: MARGIN_DXA,
+                            right: MARGIN_DXA,
+                            header: 0,
+                            footer: 0
+                        }
+                    }
+                },
                 children: [
-                    new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, spacing: { before: 0, after: 3600 } }),
+                    new Paragraph({
+                        border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
+                        spacing: { before: 0, after: 3600 },
+                        children: [new TextRun({ text: "", size: 1 })]
+                    }),
                     new Paragraph({ indent: { left: 500 }, children: [new TextRun({ text: "OPERATIONAL STANDARD", size: 28, font: RF, color: BLACK, bold: true })] }),
                     new Paragraph({ indent: { left: 500 }, spacing: { before: 400, after: 3600 }, children: [new TextRun({ text: manual.title, bold: true, size: 76, font: RF, color: BLACK })] }),
-                    new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, spacing: { before: 0 } })
+                    new Paragraph({
+                        border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
+                        spacing: { before: 0, after: 0 },
+                        children: [new TextRun({ text: "", size: 1 })]
+                    })
                 ]
             },
             {
