@@ -108,7 +108,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 elements.push(new Paragraph({
                     alignment: AlignmentType.CENTER,
                     indent: { left: 0 },
-                    spacing: { before: 200, after: 400 },
+                    // 位置を少し下げるため spacing.before を 500 に調整
+                    spacing: { before: 500, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
             } catch (e) { console.error(e); }
@@ -193,6 +194,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                                     verticalAlign: VerticalAlign.TOP,
                                     children: [new Paragraph({
                                         border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
+                                        spacing: { before: 120, after: 0 },
                                         children: [new TextRun({ text: "", size: 1 })]
                                     })]
                                 })]
