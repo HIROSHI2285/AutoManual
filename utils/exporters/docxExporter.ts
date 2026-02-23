@@ -193,8 +193,9 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                                 children: [new TableCell({
                                     verticalAlign: VerticalAlign.TOP,
                                     children: [new Paragraph({
+                                        // 120 DXA から 100 DXA 下げて 220 DXA に調整
                                         border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
-                                        spacing: { before: 120, after: 0 },
+                                        spacing: { before: 220, after: 0 },
                                         children: [new TextRun({ text: "", size: 1 })]
                                     })]
                                 })]
