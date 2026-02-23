@@ -108,8 +108,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 elements.push(new Paragraph({
                     alignment: AlignmentType.CENTER,
                     indent: { left: 0 },
-                    // シングルカラム時は spacing.before を 1200 に増やしてさらに下げます
-                    spacing: { before: isTwoCol ? 200 : 1200, after: 400 },
+                    // 画像位置を少し上げるため 600 に調整
+                    spacing: { before: isTwoCol ? 200 : 600, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
             } catch (e) { console.error(e); }
@@ -191,7 +191,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     new Paragraph({ indent: { left: 500 }, spacing: { before: 400, after: 3600 }, children: [new TextRun({ text: manual.title, bold: true, size: 76, font: RF, color: BLACK })] }),
                     new Paragraph({
                         border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
-                        spacing: { before: 0, after: 0 },
+                        spacing: { before: 4000, after: 0 },
                         children: [new TextRun({ text: "", size: 1 })]
                     })
                 ]
