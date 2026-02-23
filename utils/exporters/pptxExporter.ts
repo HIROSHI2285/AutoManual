@@ -13,8 +13,7 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング画像をCanvasで生成
- * 1カラムで「OK」をいただいたこのロジックは一切変えず、2カラム時もこれを使用します。
+ * ナンバリング画像をCanvasで生成（OKをいただいた現状のものを完全維持）
  */
 function createStepNumberImage(number: number): string {
     const size = 128;
@@ -97,53 +96,49 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const FONT_FACE = 'Meiryo UI';
     const cardWidth = isTwoCol ? 4.9 : 9.3;
 
-    // 1. ナンバリング
-    // 1カラム時と同じく y: 1.25, w/h: 0.45 を固定適用
+    // 1. ナンバリング（2カラム時も1カラムの成功例と完全に一致させる）
     slide.addImage({ data: createStepNumberImage(step.stepNumber), x: xPos, y: 1.25, w: 0.45, h: 0.45 });
 
     // 2. テキスト整列
-    // 1カラムでOKだった「xPos + 0.65」の相対距離を2カラムにも適用
     const textX = xPos + 0.65;
     slide.addText(step.action, { x: textX, y: 1.25, w: cardWidth - 0.7, h: 0.45, fontSize: isTwoCol ? 18 : 24, color: SLATE_900, bold: true, fontFace: FONT_FACE, valign: 'middle' });
     slide.addText(step.detail, { x: textX, y: 1.9, w: cardWidth - 0.7, h: 0.8, fontSize: isTwoCol ? 11 : 14, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true });
 
-    // 3. 画像配置（1カラム時も理想の縦4：横3比率を適用）
+    // 3. 画像配置（理想の縦4：横3の比率を優先）
     if (step.screenshot) {
         const dims = await getImageDimensions(step.screenshot);
         const aspect = dims.width > 0 ? dims.width / dims.height : 0.75;
         const isLandscape = dims.width >= dims.height;
 
-        let finalW, finalH, imgY, maxBoxW;
+        let finalW, finalH, imgY;
 
         if (isTwoCol) {
-            maxBoxW = 4.8;
-            finalW = maxBoxW;
-            finalH = finalW / aspect;
-            if (finalH > 3.3) {
+            // 2カラム：良かった時の設定を維持。ただし縦画像なら比率を強制
+            if (isLandscape) {
+                finalW = 4.8;
                 finalH = 3.3;
-                finalW = finalH * aspect;
+            } else {
+                // 縦画像：縦4：横3 (3/4)
+                finalH = 3.5;
+                finalW = finalH * (3 / 4);
             }
             imgY = 3.1;
         } else {
-            // 1カラム時も縦画像なら「縦4：横3」の比率を優先
+            // 1カラム
             if (isLandscape) {
-                // 横画像：OKをいただいた 8.5 x 4.0 を維持
+                // 横画像：絶対に変えない指定の 8.5 x 4.0
                 finalW = 8.5;
                 finalH = 4.0;
-                imgY = 2.6;
             } else {
-                // 縦画像：ご指定の「縦4：横3」を強制
-                finalH = 4.5;
-                finalW = finalH * (3 / 4);
-                // 元画像がさらに細長い場合は比率を尊重
-                if (finalW / finalH > aspect) {
-                    finalW = finalH * aspect;
-                }
-                imgY = 2.6;
+                // 縦画像：理想の「縦4：横3」比率
+                finalH = 4.8;
+                finalW = finalH * (3 / 4); // = 3.6インチ
             }
+            imgY = 2.6;
         }
 
-        const containerWidth = isTwoCol ? 4.9 : 11.69;
+        // 中央揃えのX座標を計算
+        const columnWidth = isTwoCol ? 4.9 : 11.69;
         const imgX = isTwoCol ? xPos + (4.9 - finalW) / 2 : (11.69 - finalW) / 2;
 
         slide.addImage({
