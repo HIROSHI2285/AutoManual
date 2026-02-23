@@ -35,8 +35,87 @@ function createTextAsImage(text: string, fontSize: number, color: string): strin
   return canvas.toDataURL('image/png');
 }
 
-export function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'single'): string {
+/**
+ * 画像のサイズを取得してアスペクト比を判定する
+ */
+function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    if (typeof document === 'undefined') return resolve({ width: 0, height: 0 });
+    const img = new Image();
+    img.onload = () => resolve({ width: img.width, height: img.height });
+    img.onerror = () => resolve({ width: 0, height: 0 });
+    img.src = base64;
+  });
+}
+
+export async function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<string> {
   const isTwoCol = layout === 'two-column';
+
+  let stepsHtml = '';
+  for (let i = 0; i < manual.steps.length; i++) {
+    const step = manual.steps[i];
+
+    let initialImgStyle = '';
+    if (step.screenshot) {
+      const dims = await getImageDimensions(step.screenshot);
+      const isLandscape = dims.width >= dims.height;
+      if (!isLandscape) {
+        if (isTwoCol) {
+          initialImgStyle = `width: 48.75mm; height: 65mm; object-fit: contain;`;
+        } else {
+          initialImgStyle = `width: 71.25mm; height: 95mm; object-fit: contain;`;
+        }
+      } else {
+        initialImgStyle = `max-width: 100%; max-height: 100%; object-fit: contain;`;
+      }
+    }
+
+    const stepHtml = `
+      <div class="step-header">
+          <div class="num-icon-wrapper"><img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" /></div>
+          <div class="action-text">${step.action}</div>
+      </div>
+      <div class="text-container">
+          <div class="detail-text">${step.detail}</div>
+      </div>
+      ${step.screenshot ? `<div class="img-box"><img src="${step.screenshot}" style="${initialImgStyle}" /></div>` : ''}
+    `;
+
+    if (isTwoCol) {
+      if (i % 2 === 0) {
+        const nextStep = manual.steps[i + 1];
+        let nextStepHtmlContent = '';
+        if (nextStep) {
+          let nextImgStyle = `max-width: 100%; max-height: 100%; object-fit: contain;`;
+          if (nextStep.screenshot) {
+            const dims = await getImageDimensions(nextStep.screenshot);
+            const isLandscape = dims.width >= dims.height;
+            if (!isLandscape) {
+              nextImgStyle = `width: 48.75mm; height: 65mm; object-fit: contain;`;
+            }
+          }
+          nextStepHtmlContent = `
+                          <div class="step-header">
+                              <div class="num-icon-wrapper"><img src="${createStepNumberSvg(nextStep.stepNumber)}" class="num-icon" /></div>
+                              <div class="action-text">${nextStep.action}</div>
+                          </div>
+                          <div class="text-container">
+                              <div class="detail-text">${nextStep.detail}</div>
+                          </div>
+                          ${nextStep.screenshot ? `<div class="img-box"><img src="${nextStep.screenshot}" style="${nextImgStyle}" /></div>` : ''}
+          `;
+        }
+        stepsHtml += `<div class="step-row">
+                    <div class="step-card">${stepHtml}</div>
+                    <div class="step-card" style="${nextStep ? '' : 'visibility:hidden'}">
+                        ${nextStepHtmlContent}
+                    </div>
+                </div>`;
+      }
+    } else {
+      stepsHtml += `<div class="step-row" style="page-break-inside: avoid;"><div class="step-card">${stepHtml}</div></div>`;
+    }
+  }
 
   return `<!DOCTYPE html>
 <html lang="ja">
@@ -151,43 +230,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
         <p class="overview-text">${manual.overview}</p>
     </div>
 
-    ${manual.steps.reduce((acc, step, i) => {
-    const stepHtml = `
-      <div class="step-header">
-          <div class="num-icon-wrapper"><img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" /></div>
-          <div class="action-text">${step.action}</div>
-      </div>
-      <div class="text-container">
-          <div class="detail-text">${step.detail}</div>
-      </div>
-      ${step.screenshot ? `<div class="img-box"><img src="${step.screenshot}" /></div>` : ''}
-    `;
-
-    if (isTwoCol) {
-      if (i % 2 === 0) {
-        const nextStep = manual.steps[i + 1];
-        acc += `<div class="step-row">
-                    <div class="step-card">${stepHtml}</div>
-                    <div class="step-card" style="${nextStep ? '' : 'visibility:hidden'}">
-                        ${nextStep ? `
-                          <div class="step-header">
-                              <div class="num-icon-wrapper"><img src="${createStepNumberSvg(nextStep.stepNumber)}" class="num-icon" /></div>
-                              <div class="action-text">${nextStep.action}</div>
-                          </div>
-                          <div class="text-container">
-                              <div class="detail-text">${nextStep.detail}</div>
-                          </div>
-                          ${nextStep.screenshot ? `<div class="img-box"><img src="${nextStep.screenshot}" /></div>` : ''}
-                        ` : ''}
-                    </div>
-                </div>`;
-      }
-    } else {
-      /* 見切れの原因となっていた重複 padding-bottom: 5mm を削除 */
-      acc += `<div class="step-row" style="page-break-inside: avoid;"><div class="step-card">${stepHtml}</div></div>`;
-    }
-    return acc;
-  }, '')}
+    ${stepsHtml}
   </div>
 </body>
 </html>`;
@@ -196,7 +239,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
 export async function generateAndDownloadPdf(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
   const container = document.createElement('div');
-  container.innerHTML = generateHTML(manual, layout);
+  container.innerHTML = await generateHTML(manual, layout);
   document.body.appendChild(container);
 
   const titleImageData = createTextAsImage(manual.title, 32, '#1e1b4b');

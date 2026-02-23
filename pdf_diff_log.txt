@@ -1,0 +1,164 @@
+﻿commit 3532c62f11f54b9f96be975fbb880235f5255aff
+Author: HIROSHI2285 <hiroshi0510@hotmail.co.jp>
+Date:   Sat Feb 21 17:42:52 2026 +0900
+
+    fix(export): precise 2-col left/right height sync using absolute min-height 30mm on text and 65mm on image to avoid variable flex-grow stretching
+
+diff --git a/utils/exporters/pdfExporter.ts b/utils/exporters/pdfExporter.ts
+index bc4f3c8..9520525 100644
+--- a/utils/exporters/pdfExporter.ts
++++ b/utils/exporters/pdfExporter.ts
+@@ -102,8 +102,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+     
+     /* 逕ｻ蜒上・鬮倥＆繧呈純縺医ｋ縺溘ａ縺ｮ繝・く繧ｹ繝医さ繝ｳ繝・リ */
+     .text-container {
+-        /* 2繧ｫ繝ｩ繝譎ゅ・ flex-grow 縺ｧ谿九ｊ繧ｹ繝壹・繧ｹ繧貞沂繧√ｋ */
+-        ${isTwoCol ? 'flex-grow: 1;' : ''}
++        /* 繝・く繧ｹ繝医さ繝ｳ繝・リ縺ｮ鬮倥＆繧貞崋螳壹＠縺ｦ逕ｻ蜒上・髢句ｧ倶ｽ咲ｽｮ繧呈純縺医ｋ */
++        ${isTwoCol ? 'min-height: 30mm; flex-shrink: 0;' : ''}
+         display: flex; flex-direction: column;
+     }
+ 
+@@ -125,6 +125,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+         /* 1繧ｫ繝ｩ繝縺ｯ height: auto 縺ｫ縺吶ｋ縺薙→縺ｧ縲√・繝ｼ繧ｸ譛ｫ蟆ｾ縺ｧ逕ｻ蜒上′繧ｫ繝・ヨ縺輔ｌ繧九・繧帝亟縺弱∪縺・*/
+         height: ${isTwoCol ? '65mm' : 'auto'};
+         max-height: ${isTwoCol ? '65mm' : '95mm'};
++        /* 2繧ｫ繝ｩ繝譎ゅ・譛蟆城ｫ倥＆繧ょ崋螳壹＠縲∫ｵｶ蟇ｾ縺ｫ邵ｮ縺ｾ縺ｪ縺・ｈ縺・↓縺吶ｋ */
++        ${isTwoCol ? 'min-height: 65mm;' : ''}
+         width: 100%;
+         display: flex; 
+         /* 2繧ｫ繝ｩ繝譎ゅ・ flex-start 縺ｧ荳雁ｯ・○縺ｫ縲√す繝ｳ繧ｰ繝ｫ縺ｯ蜈・・ center 繧堤ｶｭ謖・*/
+
+commit fabc50b3e43a96636281602496623449ba8ae9fa
+Author: HIROSHI2285 <hiroshi0510@hotmail.co.jp>
+Date:   Sat Feb 21 17:34:00 2026 +0900
+
+    fix(export): perfect 2-col left/right height sync using flex-grow and margin-top: auto, leaving 1-col untouched
+
+diff --git a/utils/exporters/pdfExporter.ts b/utils/exporters/pdfExporter.ts
+index 2e85c27..bc4f3c8 100644
+--- a/utils/exporters/pdfExporter.ts
++++ b/utils/exporters/pdfExporter.ts
+@@ -69,8 +69,14 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+     .step-row {
+         display: flex; gap: 8mm; margin-bottom: 12mm; /* 15mm縺九ｉ遏ｭ邵ｮ */
+         page-break-inside: avoid; break-inside: avoid;
++        /* 2繧ｫ繝ｩ繝譎ゅ・陦後・鬮倥＆繧堤ｵｱ荳 */
++        ${isTwoCol ? 'align-items: stretch;' : ''}
++    }
++    .step-card { 
++        flex: 1; min-width: 0; display: flex; flex-direction: column; 
++        /* 2繧ｫ繝ｩ繝譎ゅ・鬮倥＆繧・00%縺ｫ邨ｱ荳縺励※蟾ｦ蜿ｳ繧呈純縺医ｋ */
++        ${isTwoCol ? 'height: 100%;' : ''}
+     }
+-    .step-card { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+     
+     /* 1. Action縺ｨDetail縺ｮ髢薙ｒ讌ｵ髯舌∪縺ｧ隧ｰ繧√ｋ (0.5mm) */
+     .step-header { 
+@@ -94,10 +100,10 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+         ${!isTwoCol ? 'padding-top: 1.5mm;' : ''}
+     }
+     
+-    /* 逕ｻ蜒上・鬮倥＆繧呈純縺医ｋ縺溘ａ縺ｮ繝・く繧ｹ繝医さ繝ｳ繝・リ (22mm縺ｧ蜷梧悄繧貞ｮ牙ｮ壼喧) */
++    /* 逕ｻ蜒上・鬮倥＆繧呈純縺医ｋ縺溘ａ縺ｮ繝・く繧ｹ繝医さ繝ｳ繝・リ */
+     .text-container {
+-        /* 2繧ｫ繝ｩ繝譎ゅ∫判蜒上・菴咲ｽｮ繧呈ｨｪ縺ｧ謠・∴繧九◆繧∵怙蟆城ｫ倥＆繧・22mm 縺ｫ蠑輔″荳翫￡ */
+-        min-height: ${isTwoCol ? '22mm' : 'auto'}; 
++        /* 2繧ｫ繝ｩ繝譎ゅ・ flex-grow 縺ｧ谿九ｊ繧ｹ繝壹・繧ｹ繧貞沂繧√ｋ */
++        ${isTwoCol ? 'flex-grow: 1;' : ''}
+         display: flex; flex-direction: column;
+     }
+ 
+@@ -126,7 +132,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+         justify-content: center; 
+         overflow: hidden;
+         flex-shrink: 0;
+-        ${isTwoCol ? 'padding-top: 2mm;' : ''} /* 譫縺ｮ譛荳企Κ縺ｸ縺ｮ蟇・捩繧帝亟縺仙ｾｮ隱ｿ謨ｴ */
++        ${isTwoCol ? 'padding-top: 2mm; margin-top: auto;' : ''} /* margin-top: auto 縺ｧ荳矩Κ縺ｫ蝗ｺ螳・*/
+     }
+     img { max-width: 100%; max-height: 100%; object-fit: contain; }
+   </style>
+
+commit 6175463f016bc3a4f7a713e48efa3973bd66332f
+Author: HIROSHI2285 <hiroshi0510@hotmail.co.jp>
+Date:   Sat Feb 21 17:21:38 2026 +0900
+
+    fix(layout): apply min-height 140px/22mm to text and pt-2/2mm to image for flawless 2-column horizontal image synchronization
+
+diff --git a/utils/exporters/pdfExporter.ts b/utils/exporters/pdfExporter.ts
+index 2a2b432..2e85c27 100644
+--- a/utils/exporters/pdfExporter.ts
++++ b/utils/exporters/pdfExporter.ts
+@@ -94,9 +94,10 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+         ${!isTwoCol ? 'padding-top: 1.5mm;' : ''}
+     }
+     
+-    /* 逕ｻ蜒上・鬮倥＆繧呈純縺医ｋ縺溘ａ縺ｮ繝・く繧ｹ繝医さ繝ｳ繝・リ (18mm縺ｧ蜷梧悄繧貞ｮ牙ｮ壼喧) */
++    /* 逕ｻ蜒上・鬮倥＆繧呈純縺医ｋ縺溘ａ縺ｮ繝・く繧ｹ繝医さ繝ｳ繝・リ (22mm縺ｧ蜷梧悄繧貞ｮ牙ｮ壼喧) */
+     .text-container {
+-        min-height: ${isTwoCol ? '18mm' : 'auto'}; 
++        /* 2繧ｫ繝ｩ繝譎ゅ∫判蜒上・菴咲ｽｮ繧呈ｨｪ縺ｧ謠・∴繧九◆繧∵怙蟆城ｫ倥＆繧・22mm 縺ｫ蠑輔″荳翫￡ */
++        min-height: ${isTwoCol ? '22mm' : 'auto'}; 
+         display: flex; flex-direction: column;
+     }
+ 
+@@ -125,6 +126,7 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+         justify-content: center; 
+         overflow: hidden;
+         flex-shrink: 0;
++        ${isTwoCol ? 'padding-top: 2mm;' : ''} /* 譫縺ｮ譛荳企Κ縺ｸ縺ｮ蟇・捩繧帝亟縺仙ｾｮ隱ｿ謨ｴ */
+     }
+     img { max-width: 100%; max-height: 100%; object-fit: contain; }
+   </style>
+
+commit a5e5a9303e7feb6fb802c2b538b1d9cc1f7f200d
+Author: HIROSHI2285 <hiroshi0510@hotmail.co.jp>
+Date:   Sat Feb 21 17:12:39 2026 +0900
+
+    fix(layout): align images to top edge in 2-column layout (items-start/flex-start) in ManualViewer & pdfExporter
+
+diff --git a/utils/exporters/pdfExporter.ts b/utils/exporters/pdfExporter.ts
+index 5453c7e..2a2b432 100644
+--- a/utils/exporters/pdfExporter.ts
++++ b/utils/exporters/pdfExporter.ts
+@@ -120,7 +120,8 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+         max-height: ${isTwoCol ? '65mm' : '95mm'};
+         width: 100%;
+         display: flex; 
+-        align-items: center; 
++        /* 2繧ｫ繝ｩ繝譎ゅ・ flex-start 縺ｧ荳雁ｯ・○縺ｫ縲√す繝ｳ繧ｰ繝ｫ縺ｯ蜈・・ center 繧堤ｶｭ謖・*/
++        align-items: ${isTwoCol ? 'flex-start' : 'center'}; 
+         justify-content: center; 
+         overflow: hidden;
+         flex-shrink: 0;
+
+commit 3e4697e6191cfc1106aa8111fec787d60c05465c
+Author: HIROSHI2285 <hiroshi0510@hotmail.co.jp>
+Date:   Sat Feb 21 10:03:43 2026 +0900
+
+    fix(export): remove numbering margin-top, use action text line-height 1.4 and padding-top 1.5mm to fix 1-col cutoff/alignment while preserving 2-col
+
+diff --git a/utils/exporters/pdfExporter.ts b/utils/exporters/pdfExporter.ts
+index c325acf..5453c7e 100644
+--- a/utils/exporters/pdfExporter.ts
++++ b/utils/exporters/pdfExporter.ts
+@@ -83,12 +83,16 @@ export function generateHTML(manual: ManualData, layout: 'single' | 'two-column'
+         width: 14mm; height: 14mm; flex-shrink: 0; 
+         display: flex; align-items: center; justify-content: center;
+         overflow: visible !important;
+-        /* 繝翫Φ繝舌Μ繝ｳ繧ｰ繧・4mm 荳九￡縺ｦ荳ｭ蠢・ｒ螳悟・縺ｫ蜷医ｏ縺帙∪縺・*/
+-        ${!isTwoCol ? 'margin-top: 4mm;' : ''}
+     }
+     .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
+     
+-    .action-text { font-size: 13pt; font-weight: 800; color: #1e1b4b; line-height: 1.1; }
++    .action-text { 
++        font-size: 13pt; 
++        font-weight: 800; 
++        color: #1e1b4b; 
++        line-height: ${isTwoCol ? '1.1' : '1.4'}; 
++        ${!isTwoCol ? 'padding-top: 1.5mm;' : ''}
++    }
+     
+     /* 逕ｻ蜒上・鬮倥＆繧呈純縺医ｋ縺溘ａ縺ｮ繝・く繧ｹ繝医さ繝ｳ繝・リ (18mm縺ｧ蜷梧悄繧貞ｮ牙ｮ壼喧) */
+     .text-container {

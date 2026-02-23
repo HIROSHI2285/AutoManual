@@ -66,7 +66,7 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 break;
             case 'html': {
                 const { generateHTML } = await import('@/utils/exporters/pdfExporter');
-                downloadFile(generateHTML(manual, layout), `${safeTitle}.html`, 'text/html;charset=utf-8');
+                downloadFile(await generateHTML(manual, layout), `${safeTitle}.html`, 'text/html;charset=utf-8');
                 break;
             }
         }
