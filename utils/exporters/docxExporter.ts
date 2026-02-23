@@ -222,6 +222,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                                     verticalAlign: VerticalAlign.BOTTOM,
                                     children: [new Paragraph({
                                         border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
+                                        spacing: { before: 0, after: 120 },
                                         children: [new TextRun({ text: "", size: 1 })]
                                     })]
                                 })]
