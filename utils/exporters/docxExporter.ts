@@ -54,15 +54,14 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
     const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 
     const isTwoCol = layout === 'two-column';
-    const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA - 400) / 2 : CONTENT_WIDTH_DXA;
-    const numCellWidth = 550; // ナンバリングセルの幅を固定
+    const numCellWidth = 550; // ナンバリングサークルの幅
 
-    const createStepElements = async (step: any, columnWidth: number) => {
+    const createStepElements = async (step: any) => {
         const elements: any[] = [];
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
 
-        // 1. アクション行（一行で収まるようテーブル構成を最適化）
+        // 1. 表題（アクション行）：絶対に一行で収まるよう、テキストセルの幅を最大化
         elements.push(new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -75,16 +74,15 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     }),
                     new TableCell({
                         verticalAlign: VerticalAlign.CENTER,
-                        // 残りの幅をすべて使い、テキストが2段にならないようにする
-                        width: { size: 100, type: WidthType.PERCENTAGE },
-                        margins: { left: 80 }, // 半角スペース相当
+                        // 幅指定を削除し、内容に合わせて一行で広がるように修正
+                        margins: { left: 80 },
                         children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK })] })]
                     })
                 ]
             })]
         }));
 
-        // 2. 詳細説明（表題の開始位置と揃える）
+        // 2. 詳細説明：左端を揃える
         if (step.detail && step.detail !== step.action) {
             elements.push(new Paragraph({
                 indent: { left: numCellWidth + 80 },
@@ -93,7 +91,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
             }));
         }
 
-        // 3. 画像配置（確実に中央へ戻す）
+        // 3. 画像配置：全ページ、確実に中央に配置
         if (step.screenshot) {
             try {
                 const dims = await getImageDimensions(step.screenshot);
@@ -102,8 +100,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
 
                 let finalW, finalH;
                 if (isTwoCol) {
-                    finalW = isLandscape ? 4.8 * 96 : 3.15 * 96;
-                    finalH = isLandscape ? 3.3 * 96 : 4.2 * 96;
+                    finalW = isLandscape ? (4.8 * 96) : (3.15 * 96);
+                    finalH = isLandscape ? (3.3 * 96) : (4.2 * 96);
                 } else {
                     // 現在調整中のシングルカラム・縦画像（比率 3:4）
                     finalH = 4.8 * 96;
@@ -112,8 +110,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 }
 
                 elements.push(new Paragraph({
-                    alignment: AlignmentType.CENTER, // 全ページ共通で中央配置
-                    indent: { left: 0 }, // インデントをリセットして左寄りを解消
+                    alignment: AlignmentType.CENTER, // カラム内中央
+                    indent: { left: 0 }, // 左寄りの原因となるインデントをリセット
                     spacing: { before: 200, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
@@ -141,8 +139,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
     }
 
     for (let i = 0; i < manual.steps.length; (isTwoCol ? i += 2 : i++)) {
-        const left = await createStepElements(manual.steps[i], colWidthDxa);
-        const right = (isTwoCol && manual.steps[i + 1]) ? await createStepElements(manual.steps[i + 1], colWidthDxa) : [];
+        const left = await createStepElements(manual.steps[i]);
+        const right = (isTwoCol && manual.steps[i + 1]) ? await createStepElements(manual.steps[i + 1]) : [];
         contentChildren.push(new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -160,7 +158,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         styles: { default: { document: { run: { font: FONT }, paragraph: { spacing: { line: 276 } } } } },
         sections: [
             {
-                // セクション1: 表紙（12ptラインを上限・下限に配置）
+                // セクション1: 表紙
                 properties: { page: { margin: { top: 0, bottom: 0, left: MARGIN_DXA, right: MARGIN_DXA } } },
                 children: [
                     new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, spacing: { before: 0, after: 3600 } }),
@@ -170,10 +168,10 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 ]
             },
             {
-                // セクション2: 本文（ページ番号1から開始）
+                // セクション2: 本文
                 properties: {
                     page: {
-                        // 2ページ目以降の開始位置を 1600 DXA に復旧
+                        // 高さ調整：赤線位置に対応する 1600 DXA を再設定
                         margin: { top: 1600, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
                         pageNumbers: { start: 1 }
                     }
