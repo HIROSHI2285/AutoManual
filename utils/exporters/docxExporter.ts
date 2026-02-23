@@ -1,5 +1,8 @@
 import { ManualData } from '@/app/page';
 
+/**
+ * 画像サイズ取得（アスペクト比維持用）
+ */
 function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
     return new Promise((resolve) => {
         if (typeof window === 'undefined') { resolve({ width: 0, height: 0 }); return; }
@@ -10,11 +13,13 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
     });
 }
 
+/**
+ * ナンバリング画像生成ロジック
+ */
 function createStepNumberImage(number: number): string {
     const size = 128;
     const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = size; canvas.height = size;
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
     ctx.fillStyle = '#1E1B4B';
@@ -52,11 +57,12 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
     const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA - 400) / 2 : CONTENT_WIDTH_DXA;
     const numCellWidth = 550;
 
-    const createStepElements = async (step: any, _columnWidth: number) => {
+    const createStepElements = async (step: any, columnWidth: number) => {
         const elements: any[] = [];
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
 
+        // 1. アクション行（一行で収まるよう幅を明示的に指定）
         elements.push(new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -69,13 +75,15 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     }),
                     new TableCell({
                         verticalAlign: VerticalAlign.CENTER,
-                        margins: { left: 80 }, // 半角スペース相当
+                        width: { size: columnWidth - numCellWidth, type: WidthType.DXA }, // 表題用セルの幅を確保
+                        margins: { left: 80 }, // 半角スペース相当の間隔
                         children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK })] })]
                     })
                 ]
             })]
         }));
 
+        // 2. 詳細行
         if (step.detail && step.detail !== step.action) {
             elements.push(new Paragraph({
                 indent: { left: numCellWidth + 80 },
@@ -84,6 +92,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
             }));
         }
 
+        // 3. 画像配置（インデントを削除してカラム中央に戻す）
         if (step.screenshot) {
             try {
                 const dims = await getImageDimensions(step.screenshot);
@@ -96,7 +105,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     finalW = finalH * (3 / 4);
                 }
                 elements.push(new Paragraph({
-                    alignment: AlignmentType.CENTER,
+                    alignment: AlignmentType.CENTER, // 中央揃え
                     spacing: { after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
@@ -154,7 +163,6 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
             {
                 properties: {
                     page: {
-                        // 開始位置を調整：以前の3200から1600（約半分）へ引き上げ
                         margin: { top: 1600, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
                         pageNumbers: { start: 1 }
                     }
