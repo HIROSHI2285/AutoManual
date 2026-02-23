@@ -3,10 +3,30 @@ import { ManualData } from '@/app/page';
 // Hoisted RegExp
 const RE_SAFE_TITLE = /[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g;
 
-const getCircledNumber = (num: number) => {
-    if (num >= 1 && num <= 20) return String.fromCodePoint(0x245F + num);
-    return `(${num})`;
-};
+/**
+ * ナンバリング画像をCanvasで生成（PPTXと完全同一）
+ */
+function createStepNumberImage(number: number): string {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+
+    ctx.fillStyle = '#1E1B4B';
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 58, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 72px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(number.toString(), size / 2, size / 2 + 4);
+
+    return canvas.toDataURL('image/png');
+}
 
 function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' | 'jpg' } {
     const [header, base64] = dataUrl.split(',');
@@ -17,228 +37,174 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
     return { data: arr, type };
 }
 
-export async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
-    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType, Header, HorizontalPositionAlign, VerticalPositionAlign, TextWrappingType, TextWrappingSide, PageBreak } = await import('docx');
+function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
+    return new Promise((resolve) => {
+        if (typeof window === 'undefined') {
+            resolve({ width: 0, height: 0 });
+            return;
+        }
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = () => resolve({ width: 0, height: 0 });
+        img.src = base64;
+    });
+}
 
-    // Core styling definitions to match PDF/PPTX
+export async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
+    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType, Header, PageBreak, TabStopType } = await import('docx');
+
     const FONT = 'Meiryo UI';
     const RF = { ascii: FONT, hAnsi: FONT, eastAsia: FONT, cs: FONT };
-    const THEME_COLOR = '1E1B4B'; // Indigo-950
-    const TEXT_COLOR = '333333';
+    const BLACK = '000000';
+    const NAVY = '1E1B4B';
 
-    // Page dimensions (A4 portrait)
-    const PAGE_WIDTH_DXA = 11906; // 210mm
-    const PAGE_HEIGHT_DXA = 16838; // 297mm
-    const MARGIN_DXA = 1134; // 20mm margins
+    const PAGE_WIDTH_DXA = 11906; // A4縦
+    const MARGIN_DXA = 1134;      // 20mm
     const CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - (MARGIN_DXA * 2);
+    const indentWidth = 720;      // ナンバリング後のテキスト開始位置 (約12.7mm)
 
     const isTwoCol = layout === 'two-column';
     const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+    const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA - 400) / 2 : CONTENT_WIDTH_DXA;
 
-    // Calculate exact image dimensions based on column layout
-    // In two-column, we need spacing between the columns
-    const GAP_DXA = 400; // ~7mm gap
-    const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA - GAP_DXA) / 2 : CONTENT_WIDTH_DXA;
-    // EMU = DXA * 635. We scale the image width to fill the column width exactly.
-    const imgWidthEmu = Math.round(colWidthDxa * 635);
+    // ヘルパー：ステップ要素の構築
+    const createStepElements = async (step: any, columnWidth: number) => {
+        const elements: any[] = [];
 
-    const children: any[] = [];
+        const numDataUrl = createStepNumberImage(step.stepNumber);
+        const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
 
-    // COVER PAGE (A4 Portrait Center Alignment)
-    children.push(
-        new Paragraph({
-            spacing: { before: 4000 }, // Push to center
-            alignment: AlignmentType.CENTER,
+        // 1. アクション行 (ナンバリング画像とテキストの高さを揃え、開始位置を指定)
+        elements.push(new Paragraph({
+            tabStops: [{ type: TabStopType.LEFT, position: indentWidth }],
+            spacing: { before: isTwoCol ? 100 : 400, after: 100 },
             children: [
-                new TextRun({
-                    text: "OPERATION MANUAL",
-                    size: 28, // 14pt
-                    font: RF,
-                    color: THEME_COLOR,
-                    bold: true,
-                    allCaps: true
-                })
+                new ImageRun({
+                    data: numData,
+                    transformation: { width: 43, height: 43 },
+                    type: numType
+                }),
+                new TextRun({ text: "\t", font: RF }),
+                new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK }) // 16pt
             ]
-        }),
-        new Paragraph({
-            spacing: { before: 400, after: 4000 },
-            alignment: AlignmentType.CENTER,
-            children: [
-                new TextRun({
-                    text: manual.title,
-                    bold: true,
-                    size: 72, // 36pt (Hero Title)
-                    font: RF,
-                    color: '0f172a' // Slate-900
-                })
-            ]
-        }),
-        new Paragraph({ children: [new PageBreak()] }) // Force page break
-    );
+        }));
 
-    // CONTENT PAGE START
+        // 2. 詳細行 (アクションと開始位置を垂直に揃える + 複数行改行対応)
+        if (step.detail && step.detail !== step.action) {
+            const lines = step.detail.split('\n');
+            elements.push(new Paragraph({
+                indent: { left: indentWidth },
+                spacing: { after: 200 },
+                children: lines.map((line: string, index: number) =>
+                    new TextRun({
+                        text: line,
+                        size: 24, // 12pt
+                        font: RF,
+                        color: BLACK,
+                        break: index > 0 ? 1 : 0
+                    })
+                )
+            }));
+        }
 
-    // Overview Section (Indigo Box Style)
+        // 3. 画像 (PPTX/PDF準拠のアスペクト比絶対維持と固定サイズ化)
+        if (step.screenshot) {
+            try {
+                const { data, type } = dataUrlToUint8Array(step.screenshot);
+                const dims = await getImageDimensions(step.screenshot);
+                const isLandscape = (dims.width > 0 ? dims.width : 4) >= (dims.height > 0 ? dims.height : 3);
+
+                let finalWpx, finalHpx;
+
+                if (isTwoCol) {
+                    if (isLandscape) {
+                        finalWpx = 4.8 * 96;
+                        finalHpx = 3.3 * 96;
+                    } else {
+                        // 3:4 portrait ratio
+                        finalHpx = 4.2 * 96;
+                        finalWpx = finalHpx * (3 / 4);
+                    }
+                } else {
+                    if (isLandscape) {
+                        finalWpx = 6.69 * 96;
+                        finalHpx = dims.width > 0 ? finalWpx * (dims.height / dims.width) : 4.0 * 96;
+                        if (finalHpx > 4.0 * 96) {
+                            finalHpx = 4.0 * 96;
+                            finalWpx = finalHpx * (dims.width / dims.height);
+                        }
+                    } else {
+                        // 3:4 portrait ratio
+                        finalHpx = 4.8 * 96;
+                        finalWpx = finalHpx * (3 / 4);
+                    }
+                }
+
+                elements.push(new Paragraph({
+                    indent: { left: isTwoCol ? 0 : indentWidth },
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 400 },
+                    children: [
+                        new ImageRun({
+                            data,
+                            transformation: {
+                                width: Math.round(finalWpx),
+                                height: Math.round(finalHpx)
+                            },
+                            type
+                        })
+                    ]
+                }));
+            } catch (e) { console.error(e); }
+        }
+        return elements;
+    };
+
+    const contentChildren: any[] = [];
+
+    // 概要
     if (manual.overview) {
-        children.push(
+        contentChildren.push(
             new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 borders: {
                     top: noBorder, bottom: noBorder, right: noBorder,
-                    left: { style: BorderStyle.SINGLE, size: 24, color: THEME_COLOR }
+                    left: { style: BorderStyle.SINGLE, size: 24, color: NAVY }
                 },
                 rows: [
                     new TableRow({
                         children: [
                             new TableCell({
-                                shading: { fill: 'F8FAFC' }, // Slate-50
-                                margins: { top: 200, bottom: 200, left: 200, right: 200 },
+                                shading: { fill: 'F8FAFC' },
+                                margins: { top: 200, bottom: 200, left: 300, right: 200 },
                                 children: [
-                                    new Paragraph({
-                                        children: [
-                                            new TextRun({
-                                                text: "【概要・目的】",
-                                                bold: true,
-                                                size: 22,
-                                                font: RF,
-                                                color: THEME_COLOR
-                                            })
-                                        ],
-                                        spacing: { after: 100 }
-                                    }),
-                                    new Paragraph({
-                                        children: [
-                                            new TextRun({
-                                                text: manual.overview,
-                                                size: 20,
-                                                font: RF,
-                                                color: '334155'
-                                            })
-                                        ]
-                                    })
+                                    new Paragraph({ children: [new TextRun({ text: "■ DOCUMENT OVERVIEW", bold: true, size: 22, font: RF, color: BLACK })], spacing: { after: 100 } }),
+                                    new Paragraph({ children: [new TextRun({ text: manual.overview, size: 21, font: RF, color: BLACK })] })
                                 ]
                             })
                         ]
                     })
-                ],
-                // Spacing after overview
+                ]
             }),
-            new Paragraph({ spacing: { after: 800 } })
+            new Paragraph({ spacing: { after: 600 } })
         );
     }
 
-    // Helper block to create a step's complete visual structure
-    const createStepElements = async (step: any) => {
-        const elements: any[] = [];
-
-        // 1. Step Header: Number and Title
-        elements.push(
-            new Paragraph({
-                spacing: { before: isTwoCol ? 0 : 400, after: 100 },
-                children: [
-                    new TextRun({
-                        text: `${getCircledNumber(step.stepNumber)}  `,
-                        bold: true,
-                        size: 32, // 16pt (slightly larger number)
-                        font: RF,
-                        color: THEME_COLOR
-                    }),
-                    new TextRun({
-                        text: step.action,
-                        bold: true,
-                        size: 28, // 14pt
-                        font: RF,
-                        color: THEME_COLOR
-                    })
-                ]
-            })
-        );
-
-        // 2. Step Detailed Description
-        if (step.detail && step.detail !== step.action) {
-            const lines = step.detail.split('\n');
-            elements.push(
-                new Paragraph({
-                    spacing: { after: 200, line: 360 }, // 1.5 line spacing
-                    children: lines.map((line: string, index: number) =>
-                        new TextRun({
-                            text: line,
-                            size: 20, // 10pt
-                            color: TEXT_COLOR,
-                            font: RF,
-                            break: index > 0 ? 1 : 0
-                        })
-                    )
-                })
-            );
-        } else {
-            // Add artificial spacing if no detail text
-            elements.push(new Paragraph({ spacing: { after: 200 } }));
-        }
-
-        // 3. Step Screenshot (Lossless aspect-ratio preserved)
-        if (step.screenshot) {
-            try {
-                const { data, type } = dataUrlToUint8Array(step.screenshot);
-                const imgHeightEmu = await new Promise<number>((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve(Math.round(imgWidthEmu * (img.height / img.width)));
-                    // Fallback to 16:9 if load fails
-                    img.onerror = () => resolve(Math.round(imgWidthEmu * 0.5625));
-                    img.src = step.screenshot!;
-                });
-
-                elements.push(
-                    new Paragraph({
-                        spacing: { after: isTwoCol ? 600 : 400 },
-                        alignment: AlignmentType.CENTER,
-                        children: [
-                            new ImageRun({
-                                data,
-                                transformation: {
-                                    width: Math.round(imgWidthEmu / 9525), // convert EMU to pixels for DOCX standard
-                                    height: Math.round(imgHeightEmu / 9525)
-                                },
-                                type
-                            })
-                        ]
-                    })
-                );
-            } catch (e) {
-                console.error("Docx Image embedding failed:", e);
-            }
-        }
-        return elements;
-    };
-
-    // Construct Body Layout
+    // 各ステップの配置 (泣き別れ防止のためTableRow/cantSplitを使用)
     if (isTwoCol) {
-        // Build tables for two-column flow
         for (let i = 0; i < manual.steps.length; i += 2) {
-            const leftCells = await createStepElements(manual.steps[i]);
-            const rightCells = manual.steps[i + 1] ? await createStepElements(manual.steps[i + 1]) : [new Paragraph("")];
-
-            children.push(
+            const leftCells = await createStepElements(manual.steps[i], colWidthDxa);
+            const rightCells = manual.steps[i + 1] ? await createStepElements(manual.steps[i + 1], colWidthDxa) : [];
+            contentChildren.push(
                 new Table({
                     width: { size: 100, type: WidthType.PERCENTAGE },
-                    borders: {
-                        top: noBorder, bottom: noBorder, left: noBorder, right: noBorder,
-                        insideHorizontal: noBorder, insideVertical: noBorder
-                    },
+                    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
                     rows: [
                         new TableRow({
-                            cantSplit: true, // Keep side-by-side steps on the same page
+                            cantSplit: true,
                             children: [
-                                new TableCell({
-                                    children: leftCells,
-                                    width: { size: 50, type: WidthType.PERCENTAGE },
-                                    margins: { bottom: 0, right: Math.round(GAP_DXA / 2), left: 0, top: 0 }
-                                }),
-                                new TableCell({
-                                    children: rightCells,
-                                    width: { size: 50, type: WidthType.PERCENTAGE },
-                                    margins: { bottom: 0, left: Math.round(GAP_DXA / 2), right: 0, top: 0 }
-                                })
+                                new TableCell({ children: leftCells, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                                new TableCell({ children: rightCells, width: { size: 50, type: WidthType.PERCENTAGE } })
                             ]
                         })
                     ]
@@ -246,114 +212,95 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
             );
         }
     } else {
-        // Single column sequential flow
         for (const step of manual.steps) {
-            const stepElems = await createStepElements(step);
-            children.push(...stepElems);
+            const stepElems = await createStepElements(step, CONTENT_WIDTH_DXA);
+            contentChildren.push(
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder },
+                    rows: [
+                        new TableRow({
+                            cantSplit: true,
+                            children: [new TableCell({ children: stepElems })]
+                        })
+                    ]
+                })
+            );
         }
     }
 
-    // Notes Section (Optional Addendum)
-    if (manual.notes && manual.notes.length > 0) {
-        children.push(
-            new Paragraph({
-                spacing: { before: 800, after: 200 },
-                children: [
-                    new TextRun({
-                        text: "補足事項",
-                        bold: true,
-                        size: 28,
-                        font: RF,
-                        color: THEME_COLOR
-                    })
-                ]
-            }),
-            new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                borders: {
-                    top: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' },
-                    bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' },
-                    left: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' },
-                    right: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' },
-                    insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' }
-                },
-                rows: manual.notes.map(note => new TableRow({
-                    children: [
-                        new TableCell({
-                            shading: { fill: 'FFFBEB' }, // Amber-50
-                            margins: { top: 120, bottom: 120, left: 160, right: 160 },
-                            children: [
-                                new Paragraph({
-                                    children: [
-                                        new TextRun({ text: "• ", bold: true, color: 'B45309' }),
-                                        new TextRun({ text: note, size: 18, font: RF, color: '451A03' })
-                                    ]
-                                })
-                            ]
-                        })
-                    ]
-                }))
-            })
-        );
-    }
-
-    // Final Document Assembly
-    const blob = await Packer.toBlob(new Document({
+    const doc = new Document({
         styles: {
             default: {
                 document: {
                     run: { font: FONT },
-                    paragraph: { spacing: { line: 276 /* 1.15 multiplier */ } }
+                    paragraph: { spacing: { line: 276 } }
                 }
             }
         },
-        sections: [{
-            properties: {
-                page: {
-                    margin: { top: MARGIN_DXA, right: MARGIN_DXA, bottom: MARGIN_DXA, left: MARGIN_DXA }
-                }
+        sections: [
+            { // セクション1: 表紙
+                properties: {
+                    page: { margin: { top: 0, bottom: 0, left: MARGIN_DXA, right: MARGIN_DXA } }
+                },
+                children: [
+                    new Paragraph({
+                        border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, // 12pt = 96 (1/8pt単位)
+                        spacing: { before: 0, after: 3600 }
+                    }),
+                    new Paragraph({
+                        indent: { left: 500 },
+                        children: [new TextRun({ text: "OPERATIONAL STANDARD", size: 28, font: RF, color: BLACK, bold: true })]
+                    }),
+                    new Paragraph({
+                        indent: { left: 500 },
+                        spacing: { before: 400, after: 3600 },
+                        children: [new TextRun({ text: manual.title, bold: true, size: 76, font: RF, color: BLACK })]
+                    }),
+                    new Paragraph({
+                        border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY } },
+                        spacing: { before: 0 }
+                    })
+                ]
             },
-            headers: {
-                default: new Header({
-                    children: [
-                        new Paragraph({
-                            alignment: AlignmentType.RIGHT,
-                            children: [
-                                new TextRun({
-                                    text: manual.title,
-                                    size: 16, // 8pt 
-                                    color: '999999',
-                                    font: RF
-                                })
-                            ]
-                        })
-                    ]
-                })
-            },
-            footers: {
-                default: new Footer({
-                    children: [
-                        new Paragraph({
-                            alignment: AlignmentType.CENTER,
-                            children: [
-                                new TextRun({
-                                    children: [PageNumber.CURRENT, " / ", PageNumber.TOTAL_PAGES],
-                                    size: 20, // 10pt
-                                    font: RF,
-                                    color: THEME_COLOR
-                                })
-                            ]
-                        })
-                    ]
-                })
-            },
-            children
-        }]
-    }));
+            { // セクション2: 本文
+                properties: {
+                    page: {
+                        margin: { top: MARGIN_DXA, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
+                        pageNumbers: { start: 1 }
+                    }
+                },
+                headers: {
+                    default: new Header({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.LEFT,
+                                border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: NAVY } },
+                                children: [new TextRun({ text: manual.title, size: 18, color: BLACK, font: RF })] // 9pt
+                            })
+                        ]
+                    })
+                },
+                footers: {
+                    default: new Footer({
+                        children: [
+                            new Paragraph({
+                                alignment: AlignmentType.CENTER,
+                                border: { top: { style: BorderStyle.SINGLE, size: 6, color: NAVY } },
+                                spacing: { before: 100 },
+                                children: [new TextRun({ children: [PageNumber.CURRENT], size: 18, font: RF, color: BLACK })] // 9pt / 数字のみ
+                            })
+                        ]
+                    })
+                },
+                children: contentChildren
+            }
+        ]
+    });
 
-    // Download Trigger
+    const blob = await Packer.toBlob(doc);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${manual.title.substring(0, 30) || 'Manual'}.docx`;
+    a.download = `${manual.title.substring(0, 30)}.docx`;
     a.click();
 }
