@@ -41,7 +41,7 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
 }
 
 export async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
-    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType, Header, VerticalAlign, PageBreak } = await import('docx');
+    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType, Header, VerticalAlign, HeightRule } = await import('docx');
 
     const FONT = 'Meiryo UI';
     const RF = { ascii: FONT, hAnsi: FONT, eastAsia: FONT, cs: FONT };
@@ -108,8 +108,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 elements.push(new Paragraph({
                     alignment: AlignmentType.CENTER,
                     indent: { left: 0 },
-                    // 画像位置を少し上げるため 600 に調整
-                    spacing: { before: isTwoCol ? 200 : 600, after: 400 },
+                    // 画像位置を少し上げるため spacing.before を 300 に修正
+                    spacing: { before: isTwoCol ? 200 : 300, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
             } catch (e) { console.error(e); }
@@ -169,30 +169,62 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         styles: { default: { document: { run: { font: FONT }, paragraph: { spacing: { line: 276 } } } } },
         sections: [
             {
+                // セクション1: 表紙
                 properties: {
                     page: {
+                        // サンプルに基づき全方向マージン0を設定（ラインを端まで伸ばす）
                         margin: {
                             top: 0,
                             bottom: 0,
-                            left: MARGIN_DXA,
-                            right: MARGIN_DXA,
+                            left: 0,
+                            right: 0,
                             header: 0,
                             footer: 0
                         }
                     }
                 },
                 children: [
-                    new Paragraph({
-                        border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
-                        spacing: { before: 0, after: 3600 },
-                        children: [new TextRun({ text: "", size: 1 })]
-                    }),
-                    new Paragraph({ indent: { left: 500 }, children: [new TextRun({ text: "OPERATIONAL STANDARD", size: 28, font: RF, color: BLACK, bold: true })] }),
-                    new Paragraph({ indent: { left: 500 }, spacing: { before: 400, after: 3600 }, children: [new TextRun({ text: manual.title, bold: true, size: 76, font: RF, color: BLACK })] }),
-                    new Paragraph({
-                        border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
-                        spacing: { before: 4000, after: 0 },
-                        children: [new TextRun({ text: "", size: 1 })]
+                    new Table({
+                        width: { size: 100, type: WidthType.PERCENTAGE },
+                        borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
+                        rows: [
+                            new TableRow({ // 上端ライン
+                                children: [new TableCell({
+                                    children: [new Paragraph({
+                                        border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
+                                        spacing: { before: 120, after: 0 }, // 上線が見切れないよう極微調整
+                                        children: [new TextRun({ text: "", size: 1 })]
+                                    })]
+                                })]
+                            }),
+                            new TableRow({ // タイトルエリア（中央寄せ）
+                                height: { value: 14000, rule: HeightRule.ATLEAST },
+                                children: [new TableCell({
+                                    verticalAlign: VerticalAlign.CENTER,
+                                    children: [
+                                        new Paragraph({
+                                            indent: { left: MARGIN_DXA },
+                                            children: [new TextRun({ text: "OPERATIONAL STANDARD", size: 28, font: RF, color: BLACK, bold: true })]
+                                        }),
+                                        new Paragraph({
+                                            indent: { left: MARGIN_DXA },
+                                            spacing: { before: 400 },
+                                            children: [new TextRun({ text: manual.title, bold: true, size: 76, font: RF, color: BLACK })]
+                                        })
+                                    ]
+                                })]
+                            }),
+                            new TableRow({ // 下端ライン
+                                children: [new TableCell({
+                                    verticalAlign: VerticalAlign.BOTTOM,
+                                    children: [new Paragraph({
+                                        border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
+                                        spacing: { before: 0, after: 120 }, // 物理的な最下部に密着
+                                        children: [new TextRun({ text: "", size: 1 })]
+                                    })]
+                                })]
+                            })
+                        ]
                     })
                 ]
             },
