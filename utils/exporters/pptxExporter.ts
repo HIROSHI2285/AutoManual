@@ -19,11 +19,11 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
  */
 function createStepNumberSvg(number: number): string {
     const size = 128;
-    const radius = 32; // PDF版と同じ比率
+    const radius = 58;
     const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="#1e1b4b" />
-        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold" font-size="28px">${number}</text>
+        <circle cx="64" cy="64" r="${radius}" fill="#1E1B4B" />
+        <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="65px">${number}</text>
     </svg>`;
     const base64 = typeof btoa !== 'undefined'
         ? btoa(unescape(encodeURIComponent(svg)))
@@ -106,7 +106,7 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
     const cardWidth = isTwoCol ? 4.9 : 9.3;
     const numSize = 0.55;
 
-    // 1. ナンバリング (PDF版完全移植)
+    // 1. ナンバリング (センター出し修正版)
     slide.addImage({ data: createStepNumberSvg(step.stepNumber), x: xPos, y: 1.25, w: numSize, h: numSize });
 
     // 2. 見出し
@@ -121,9 +121,11 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
         const imgAspect = dims.width / dims.height;
 
         // 許容される最大枠
-        const maxW = isTwoCol ? 4.8 : 8.5; // シングル時の横幅をご要望通り 8.5 に微調整
-        const maxH = isTwoCol ? 3.3 : 4.0;
-        const imgY = isTwoCol ? 2.5 : 2.8;
+        // シングルカラム横画像は 9.3 に縮小
+        // 縦画像は横に伸びないよう 5.5 に制限
+        const maxW = isTwoCol ? 4.8 : (dims.width > dims.height ? 9.3 : 5.5);
+        const maxH = isTwoCol ? 3.3 : 4.5;
+        const imgY = isTwoCol ? 3.2 : 2.8;
 
         // アスペクト比を維持した実際のサイズ計算
         let finalW = maxW;
@@ -134,7 +136,7 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
             finalW = finalH * imgAspect;
         }
 
-        // 中央揃えのためのX座標
+        // 中央揃えのためのX座標計算
         const imgX = isTwoCol ? xPos + (4.9 - finalW) / 2 : (11.69 - finalW) / 2;
 
         slide.addImage({
