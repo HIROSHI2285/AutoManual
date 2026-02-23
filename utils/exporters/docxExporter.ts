@@ -1,7 +1,7 @@
 import { ManualData } from '@/app/page';
 
 /**
- * 画像サイズ取得（アスペクト比計算用）
+ * 画像サイズ取得（アスペクト比維持用）
  */
 function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
     return new Promise((resolve) => {
@@ -14,7 +14,7 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング画像生成（PDF/PPTX版と共通の「ど真ん中」ロジック）
+ * ナンバリング画像生成（PDF/PPTX版と共通の「ど真ん中」配置）
  */
 function createStepNumberImage(number: number): string {
     const size = 128;
@@ -45,8 +45,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
 
     const FONT = 'Meiryo UI';
     const RF = { ascii: FONT, hAnsi: FONT, eastAsia: FONT, cs: FONT };
-    const BLACK = '000000'; // テキスト黒
-    const NAVY = '1E1B4B';  // ライン紺
+    const BLACK = '000000';
+    const NAVY = '1E1B4B';
 
     const PAGE_WIDTH_DXA = 11906;
     const MARGIN_DXA = 1134;
@@ -54,14 +54,14 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
     const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 
     const isTwoCol = layout === 'two-column';
-    const numCellWidth = 550; // ナンバリングの幅
+    const numCellWidth = 550;
 
     const createStepElements = async (step: any) => {
         const elements: any[] = [];
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
 
-        // 1. 表題（アクション）：透明なテーブルを使い、一行・垂直中央に固定
+        // 1. 表題（アクション）：透明テーブルで一行化と垂直中央揃えを固定
         elements.push(new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -74,15 +74,15 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     }),
                     new TableCell({
                         verticalAlign: VerticalAlign.CENTER,
-                        // テキスト用セルの幅指定を解除し、一行で広がるようにする
-                        margins: { left: 80 },
+                        width: { size: 100, type: WidthType.PERCENTAGE }, // 残りの幅をすべて使用
+                        margins: { left: 80 }, // 半角スペース相当
                         children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK })] })]
                     })
                 ]
             })]
         }));
 
-        // 2. 詳細説明：表題の左端と垂直に揃える
+        // 2. 詳細説明
         if (step.detail && step.detail !== step.action) {
             elements.push(new Paragraph({
                 indent: { left: numCellWidth + 80 },
@@ -91,24 +91,21 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
             }));
         }
 
-        // 3. 画像：全ページ共通でカラム内の中央に配置
+        // 3. 画像配置：確実に中央揃え（インデント干渉を削除）
         if (step.screenshot) {
             try {
                 const dims = await getImageDimensions(step.screenshot);
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
                 const isLandscape = (dims.width || 4) >= (dims.height || 3);
-
-                // 現在調整中のシングルカラム・縦画像基準サイズ
                 let finalW = isTwoCol ? (4.8 * 96) : (8.5 * 96);
                 let finalH = isTwoCol ? (3.3 * 96) : (4.0 * 96);
                 if (!isLandscape) {
                     finalH = isTwoCol ? (4.2 * 96) : (4.8 * 96);
                     finalW = finalH * (3 / 4);
                 }
-
                 elements.push(new Paragraph({
-                    alignment: AlignmentType.CENTER, // 中央配置を強制
-                    indent: { left: 0 }, // 左寄りの原因となるインデントを完全削除
+                    alignment: AlignmentType.CENTER, // カラム中央配置
+                    indent: { left: 0 }, // 左寄りを防ぐためにリセット
                     spacing: { before: 200, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
@@ -155,7 +152,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         styles: { default: { document: { run: { font: FONT }, paragraph: { spacing: { line: 276 } } } } },
         sections: [
             {
-                // セクション1: 表紙（12ptラインを上下端に配置）
+                // セクション1: 表紙
                 properties: { page: { margin: { top: 0, bottom: 0, left: MARGIN_DXA, right: MARGIN_DXA } } },
                 children: [
                     new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, spacing: { before: 0, after: 3600 } }),
@@ -168,7 +165,6 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 // セクション2: 本文
                 properties: {
                     page: {
-                        // 開始位置（1600 DXA）を確実に適用
                         margin: { top: 1600, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
                         pageNumbers: { start: 1 }
                     }
@@ -176,7 +172,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 headers: {
                     default: new Header({
                         children: [new Paragraph({
-                            alignment: AlignmentType.LEFT,
+                            alignment: AlignmentType.LEFT, // 左寄せ
                             border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: NAVY } },
                             children: [new TextRun({ text: manual.title, size: 18, color: BLACK, font: RF })]
                         })]
@@ -185,7 +181,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 footers: {
                     default: new Footer({
                         children: [new Paragraph({
-                            alignment: AlignmentType.RIGHT, // 右端寄せ
+                            alignment: AlignmentType.RIGHT, // 右寄せ
                             border: { top: { style: BorderStyle.SINGLE, size: 6, color: NAVY } },
                             spacing: { before: 100 },
                             children: [new TextRun({ children: [PageNumber.CURRENT], size: 18, font: RF, color: BLACK })]
