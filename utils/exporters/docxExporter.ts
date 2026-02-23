@@ -222,7 +222,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                                     verticalAlign: VerticalAlign.BOTTOM,
                                     children: [new Paragraph({
                                         border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
-                                        spacing: { before: 0, after: 120 },
+                                        // after を 0 に戻して、テーブル自体の短縮で位置を上に移動させる
+                                        spacing: { before: 0, after: 0 },
                                         children: [new TextRun({ text: "", size: 1 })]
                                     })]
                                 })]
