@@ -1,10 +1,35 @@
 import { ManualData } from '@/app/page';
 
-// Hoisted RegExp
-const RE_SAFE_TITLE = /[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g;
+/**
+ * 画像サイズ取得（アスペクト比維持用）
+ */
+function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
+    return new Promise((resolve) => {
+        if (typeof window === 'undefined') {
+            resolve({ width: 0, height: 0 });
+            return;
+        }
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = () => resolve({ width: 0, height: 0 });
+        img.src = base64;
+    });
+}
 
 /**
- * ナンバリング画像をCanvasで生成（PPTXと完全同一）
+ * DataURLをUint8Arrayに変換
+ */
+function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' | 'jpg' } {
+    const [header, base64] = dataUrl.split(',');
+    const type = header.includes('png') ? 'png' : 'jpg';
+    const binary = atob(base64);
+    const arr = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+    return { data: arr, type };
+}
+
+/**
+ * ナンバリング画像をCanvasで生成（PPTXと完全同一・絶対にズレない記号用）
  */
 function createStepNumberImage(number: number): string {
     const size = 128;
@@ -28,68 +53,49 @@ function createStepNumberImage(number: number): string {
     return canvas.toDataURL('image/png');
 }
 
-function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' | 'jpg' } {
-    const [header, base64] = dataUrl.split(',');
-    const type = header.includes('png') ? 'png' : 'jpg';
-    const binary = atob(base64);
-    const arr = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-    return { data: arr, type };
-}
-
-function getImageDimensions(base64: string): Promise<{ width: number; height: number }> {
-    return new Promise((resolve) => {
-        if (typeof window === 'undefined') {
-            resolve({ width: 0, height: 0 });
-            return;
-        }
-        const img = new Image();
-        img.onload = () => resolve({ width: img.width, height: img.height });
-        img.onerror = () => resolve({ width: 0, height: 0 });
-        img.src = base64;
-    });
-}
-
 export async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
-    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType, Header, PageBreak, TabStopType } = await import('docx');
+    const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType, Header, TabStopType } = await import('docx');
 
+    // スタイル定義 (PDF版に完全準拠)
     const FONT = 'Meiryo UI';
     const RF = { ascii: FONT, hAnsi: FONT, eastAsia: FONT, cs: FONT };
-    const BLACK = '000000';
-    const NAVY = '1E1B4B';
+    const BLACK = '000000'; // 全テキスト黒
+    const NAVY = '1E1B4B';  // ライン用
 
-    const PAGE_WIDTH_DXA = 11906; // A4縦
+    const PAGE_WIDTH_DXA = 11906; // A4
     const MARGIN_DXA = 1134;      // 20mm
     const CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - (MARGIN_DXA * 2);
-    const indentWidth = 720;      // ナンバリング後のテキスト開始位置 (約12.7mm)
+    const indentWidth = 800;      // テキスト開始位置の揃え (約14mm)
 
     const isTwoCol = layout === 'two-column';
     const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
     const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA - 400) / 2 : CONTENT_WIDTH_DXA;
 
-    // ヘルパー：ステップ要素の構築
-    const createStepElements = async (step: any, columnWidth: number) => {
+    /**
+     * ステップ要素の構築 (配置の整合性を保証)
+     */
+    const createStepElements = async (step: any, _currentColumnWidth: number) => {
         const elements: any[] = [];
 
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
 
-        // 1. アクション行 (ナンバリング画像とテキストの高さを揃え、開始位置を指定)
+        // 1. アクション行 (ナンバリング画像とテキストの高さを揃え、開始位置をインデント)
         elements.push(new Paragraph({
             tabStops: [{ type: TabStopType.LEFT, position: indentWidth }],
-            spacing: { before: isTwoCol ? 100 : 400, after: 100 },
+            spacing: { before: 300, after: 100 },
             children: [
                 new ImageRun({
                     data: numData,
                     transformation: { width: 43, height: 43 },
                     type: numType
                 }),
-                new TextRun({ text: "\t", font: RF }),
+                new TextRun({ text: "\t", font: RF }), // タブで開始位置を固定
                 new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK }) // 16pt
             ]
         }));
 
-        // 2. 詳細行 (アクションと開始位置を垂直に揃える + 複数行改行対応)
+        // 2. 詳細説明 (アクションと開始位置を垂直に揃える・複数行対応)
         if (step.detail && step.detail !== step.action) {
             const lines = step.detail.split('\n');
             elements.push(new Paragraph({
@@ -107,7 +113,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
             }));
         }
 
-        // 3. 画像 (PPTX/PDF準拠のアスペクト比絶対維持と固定サイズ化)
+        // 3. 画像 (PDF/PPTX完全準拠のアスペクト比維持と固定サイズ化)
         if (step.screenshot) {
             try {
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
@@ -142,7 +148,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
 
                 elements.push(new Paragraph({
                     indent: { left: isTwoCol ? 0 : indentWidth },
-                    alignment: AlignmentType.CENTER,
+                    alignment: isTwoCol ? AlignmentType.CENTER : AlignmentType.LEFT,
                     spacing: { after: 400 },
                     children: [
                         new ImageRun({
@@ -171,81 +177,68 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     top: noBorder, bottom: noBorder, right: noBorder,
                     left: { style: BorderStyle.SINGLE, size: 24, color: NAVY }
                 },
-                rows: [
-                    new TableRow({
+                rows: [new TableRow({
+                    children: [new TableCell({
+                        shading: { fill: 'F8FAFC' },
+                        margins: { top: 200, bottom: 200, left: 300, right: 200 },
                         children: [
-                            new TableCell({
-                                shading: { fill: 'F8FAFC' },
-                                margins: { top: 200, bottom: 200, left: 300, right: 200 },
-                                children: [
-                                    new Paragraph({ children: [new TextRun({ text: "■ DOCUMENT OVERVIEW", bold: true, size: 22, font: RF, color: BLACK })], spacing: { after: 100 } }),
-                                    new Paragraph({ children: [new TextRun({ text: manual.overview, size: 21, font: RF, color: BLACK })] })
-                                ]
-                            })
+                            new Paragraph({ children: [new TextRun({ text: "■ DOCUMENT OVERVIEW", bold: true, size: 22, font: RF, color: BLACK })], spacing: { after: 100 } }),
+                            new Paragraph({ children: [new TextRun({ text: manual.overview, size: 21, font: RF, color: BLACK })] })
                         ]
-                    })
-                ]
+                    })]
+                })]
             }),
             new Paragraph({ spacing: { after: 600 } })
         );
     }
 
-    // 各ステップの配置 (泣き別れ防止のためTableRow/cantSplitを使用)
+    // 各ステップの配置 (泣き別れ防止)
     if (isTwoCol) {
         for (let i = 0; i < manual.steps.length; i += 2) {
-            const leftCells = await createStepElements(manual.steps[i], colWidthDxa);
-            const rightCells = manual.steps[i + 1] ? await createStepElements(manual.steps[i + 1], colWidthDxa) : [];
-            contentChildren.push(
-                new Table({
-                    width: { size: 100, type: WidthType.PERCENTAGE },
-                    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
-                    rows: [
-                        new TableRow({
-                            cantSplit: true,
-                            children: [
-                                new TableCell({ children: leftCells, width: { size: 50, type: WidthType.PERCENTAGE } }),
-                                new TableCell({ children: rightCells, width: { size: 50, type: WidthType.PERCENTAGE } })
-                            ]
-                        })
+            const left = await createStepElements(manual.steps[i], colWidthDxa);
+            const right = manual.steps[i + 1] ? await createStepElements(manual.steps[i + 1], colWidthDxa) : [];
+            contentChildren.push(new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
+                rows: [new TableRow({
+                    cantSplit: true, // 同一ステップの改ページ禁止
+                    children: [
+                        new TableCell({ children: left, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: right, width: { size: 50, type: WidthType.PERCENTAGE } })
                     ]
-                })
-            );
+                })]
+            }));
         }
     } else {
         for (const step of manual.steps) {
             const stepElems = await createStepElements(step, CONTENT_WIDTH_DXA);
-            contentChildren.push(
-                new Table({
-                    width: { size: 100, type: WidthType.PERCENTAGE },
-                    borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder },
-                    rows: [
-                        new TableRow({
-                            cantSplit: true,
-                            children: [new TableCell({ children: stepElems })]
-                        })
-                    ]
-                })
-            );
+            contentChildren.push(new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder },
+                rows: [new TableRow({
+                    cantSplit: true,
+                    children: [new TableCell({ children: stepElems })]
+                })]
+            }));
         }
     }
 
+    // ドキュメント構築 (表紙セクションと本文セクションに分離)
     const doc = new Document({
         styles: {
             default: {
-                document: {
-                    run: { font: FONT },
-                    paragraph: { spacing: { line: 276 } }
-                }
+                document: { run: { font: FONT }, paragraph: { spacing: { line: 276 } } }
             }
         },
         sections: [
-            { // セクション1: 表紙
+            {
+                // セクション1: 表紙
                 properties: {
                     page: { margin: { top: 0, bottom: 0, left: MARGIN_DXA, right: MARGIN_DXA } }
                 },
                 children: [
                     new Paragraph({
-                        border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, // 12pt = 96 (1/8pt単位)
+                        border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, // 12ptライン
                         spacing: { before: 0, after: 3600 }
                     }),
                     new Paragraph({
@@ -258,16 +251,17 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                         children: [new TextRun({ text: manual.title, bold: true, size: 76, font: RF, color: BLACK })]
                     }),
                     new Paragraph({
-                        border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY } },
+                        border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY } }, // 12ptライン
                         spacing: { before: 0 }
                     })
                 ]
             },
-            { // セクション2: 本文
+            {
+                // セクション2: 本文 (ヘッダー/フッター開始、ページ番号1から)
                 properties: {
                     page: {
                         margin: { top: MARGIN_DXA, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
-                        pageNumbers: { start: 1 }
+                        pageNumbers: { start: 1 } // ※pageNumber を pageNumbers に修正
                     }
                 },
                 headers: {
@@ -301,6 +295,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
     const blob = await Packer.toBlob(doc);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${manual.title.substring(0, 30)}.docx`;
+    // @ts-ignore
+    a.download = `${manual.title.substring(0, 30)}.docx`; // Safari対応なども考慮するなら正規表現が便利
     a.click();
 }
