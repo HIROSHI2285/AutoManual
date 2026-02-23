@@ -14,7 +14,7 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
 }
 
 /**
- * ナンバリング画像生成ロジック
+ * ナンバリング画像生成（PDF/PPTXと完全同一）
  */
 function createStepNumberImage(number: number): string {
     const size = 128;
@@ -55,14 +55,14 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
 
     const isTwoCol = layout === 'two-column';
     const colWidthDxa = isTwoCol ? (CONTENT_WIDTH_DXA - 400) / 2 : CONTENT_WIDTH_DXA;
-    const numCellWidth = 550;
+    const numCellWidth = 600; // ナンバリング用セルの幅を固定
 
-    const createStepElements = async (step: any, columnWidth: number) => {
+    const createStepElements = async (step: any, _columnWidth: number) => {
         const elements: any[] = [];
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
 
-        // 1. アクション行（一行で収まるよう幅を明示的に指定）
+        // 1. アクション行（一行に収めるようにセルの幅設定を最適化）
         elements.push(new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -75,38 +75,47 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     }),
                     new TableCell({
                         verticalAlign: VerticalAlign.CENTER,
-                        width: { size: columnWidth - numCellWidth, type: WidthType.DXA }, // 表題用セルの幅を確保
-                        margins: { left: 80 }, // 半角スペース相当の間隔
-                        children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK })] })]
+                        // 幅を自動(Percentage 100)にすることで一行に収める
+                        width: { size: 100, type: WidthType.PERCENTAGE },
+                        children: [
+                            new Paragraph({
+                                children: [
+                                    new TextRun({ text: " " + step.action, bold: true, size: 32, font: RF, color: BLACK }) // 半角スペース
+                                ]
+                            })
+                        ]
                     })
                 ]
             })]
         }));
 
-        // 2. 詳細行
+        // 2. 詳細行（表題テキストと縦のラインを揃える）
         if (step.detail && step.detail !== step.action) {
             elements.push(new Paragraph({
-                indent: { left: numCellWidth + 80 },
+                indent: { left: numCellWidth + 100 },
                 spacing: { before: 100, after: 200 },
                 children: [new TextRun({ text: step.detail, size: 24, font: RF, color: BLACK })]
             }));
         }
 
-        // 3. 画像配置（インデントを削除してカラム中央に戻す）
+        // 3. 画像配置（インデントを0にして確実に中央揃えにする）
         if (step.screenshot) {
             try {
                 const dims = await getImageDimensions(step.screenshot);
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
                 const isLandscape = (dims.width || 4) >= (dims.height || 3);
+
                 let finalW = isTwoCol ? (4.8 * 96) : (8.5 * 96);
                 let finalH = isTwoCol ? (3.3 * 96) : (4.0 * 96);
                 if (!isLandscape) {
                     finalH = isTwoCol ? (4.2 * 96) : (4.8 * 96);
                     finalW = finalH * (3 / 4);
                 }
+
                 elements.push(new Paragraph({
                     alignment: AlignmentType.CENTER, // 中央揃え
-                    spacing: { after: 400 },
+                    indent: { left: 0 }, // インデントをリセット
+                    spacing: { before: 200, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
             } catch (e) { console.error(e); }
@@ -163,7 +172,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
             {
                 properties: {
                     page: {
-                        margin: { top: 1600, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
+                        // 開始位置を 1600 から 1200 へ引き上げ（半分より少し多めの調整）
+                        margin: { top: 1200, bottom: MARGIN_DXA, left: MARGIN_DXA, right: MARGIN_DXA },
                         pageNumbers: { start: 1 }
                     }
                 },
