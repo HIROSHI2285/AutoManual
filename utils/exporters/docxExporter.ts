@@ -200,7 +200,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                                 })]
                             }),
                             new TableRow({ // 中央コンテンツ
-                                height: { value: 14900, rule: HeightRule.ATLEAST }, // 全高 15300 に向けて調整 (14900 + 200 + 200)
+                                height: { value: 15100, rule: HeightRule.ATLEAST }, // 全高 15500 に向けて微調整 (15100 + 200 + 200)
                                 children: [new TableCell({
                                     verticalAlign: VerticalAlign.CENTER,
                                     children: [
