@@ -77,12 +77,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                         // 幅を最大化して一行を保証
                         width: { size: 95, type: WidthType.PERCENTAGE },
                         margins: { left: 80 },
-                        children: [new Paragraph({
-                            children: [new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK })],
-                            // 折り返しを無効化して1行に強制
-                            alignment: AlignmentType.LEFT,
-                            keepLines: true
-                        })]
+                        children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK })] })]
                     })
                 ]
             })]
@@ -116,8 +111,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 }
 
                 elements.push(new Paragraph({
-                    alignment: AlignmentType.CENTER, // 完全中央
-                    indent: { left: 0, right: 0 }, // 左右インデント完全ゼロ
+                    alignment: AlignmentType.CENTER, // カラム内中央
+                    indent: { left: 0 }, // インデントをリセット
                     spacing: { before: 200, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
