@@ -13,7 +13,8 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 interface ManualViewerProps {
     manual: ManualData;
     videoFile?: File;
-    onUpdateManual?: (manual: ManualData) => void;
+    // Accept both direct value and functional updater (rerender-functional-setstate)
+    onUpdateManual?: (updater: ManualData | ((prev: ManualData) => ManualData)) => void;
 }
 
 export default function ManualViewer({ manual, videoFile, onUpdateManual }: ManualViewerProps) {
@@ -157,66 +158,51 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         }
     };
 
+    // rerender-functional-setstate: functional updater removes 'manual' from dep array
     const handleCanvasUpdate = useCallback((index: number, newImageUrl: string, newData?: any) => {
         if (!onUpdateManual) return;
-
-        const updatedSteps = manual.steps.map((step, i) => {
-            if (i === index) {
-                return {
-                    ...step,
-                    screenshot: newImageUrl,
-                    canvasData: newData || step.canvasData
-                };
-            }
-            return step;
-        });
-
-        onUpdateManual({
-            ...manual,
-            steps: updatedSteps
-        });
-    }, [manual, onUpdateManual]);
+        onUpdateManual(prev => ({
+            ...prev,
+            steps: prev.steps.map((step, i) =>
+                i === index
+                    ? { ...step, screenshot: newImageUrl, canvasData: newData || step.canvasData }
+                    : step
+            )
+        }));
+    }, [onUpdateManual]);
 
     const handleDeleteStep = useCallback((index: number) => {
         if (!onUpdateManual) return;
-        if (manual.steps.length <= 1) {
-            alert('最後のステップは削除できません。');
-            return;
-        }
+        // Read current manual via functional update to avoid stale closure
+        onUpdateManual(prev => {
+            if (prev.steps.length <= 1) {
+                alert('最後のステップは削除できません。');
+                return prev;
+            }
 
-        const stepLabel = `ステップ ${manual.steps[index].stepNumber}: ${manual.steps[index].action}`;
-        if (!confirm(`「${stepLabel}」を削除しますか？\nこの操作は取り消せません。`)) {
-            return;
-        }
+            const stepLabel = `ステップ ${prev.steps[index].stepNumber}: ${prev.steps[index].action}`;
+            if (!confirm(`「${stepLabel}」を削除しますか？\nこの操作は取り消せません。`)) {
+                return prev;
+            }
 
-        // Force all canvases to save their current state BEFORE we trigger a re-render
-        window.dispatchEvent(new CustomEvent('am:force-save'));
+            window.dispatchEvent(new CustomEvent('am:force-save'));
 
-        // Clean up localStorage canvas state for deleted step
-        const deletedStep = manual.steps[index];
-        if (deletedStep.uid) {
-            localStorage.removeItem(`am_canvas_state_step-${deletedStep.uid}`);
-        }
-        // Also try old-style key
-        localStorage.removeItem(`am_canvas_state_step-${deletedStep.stepNumber}-${index}`);
+            const deletedStep = prev.steps[index];
+            if (deletedStep.uid) {
+                localStorage.removeItem(`am_canvas_state_step-${deletedStep.uid}`);
+            }
+            localStorage.removeItem(`am_canvas_state_step-${deletedStep.stepNumber}-${index}`);
 
-        // Remove the step and renumber
-        const newSteps = manual.steps
-            .filter((_, i) => i !== index)
-            .map((step, i) => ({
-                ...step,
-                stepNumber: i + 1
-            }));
+            const newSteps = prev.steps
+                .filter((_, i) => i !== index)
+                .map((step, i) => ({ ...step, stepNumber: i + 1 }));
 
-        // Reset stamp count
-        setStampCount(1);
-
-        onUpdateManual({
-            ...manual,
-            steps: newSteps
+            setStampCount(1);
+            return { ...prev, steps: newSteps };
         });
-    }, [manual, onUpdateManual]);
+    }, [onUpdateManual]);
 
+    // rerender-functional-setstate: removed 'manual' from deps for stable callback
     const handleDragEnd = useCallback((result: DropResult) => {
         if (!result.destination || !onUpdateManual) return;
         if (result.source.index === result.destination.index) return;
@@ -224,35 +210,39 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         // Force all canvases to save before reordering
         window.dispatchEvent(new CustomEvent('am:force-save'));
 
-        const reordered = Array.from(manual.steps);
-        const [removed] = reordered.splice(result.source.index, 1);
-        reordered.splice(result.destination.index, 0, removed);
+        onUpdateManual(prev => {
+            const reordered = Array.from(prev.steps);
+            const [removed] = reordered.splice(result.source.index, 1);
+            reordered.splice(result.destination!.index, 0, removed);
+            const renumbered = reordered.map((step, i) => ({ ...step, stepNumber: i + 1 }));
+            return { ...prev, steps: renumbered };
+        });
+    }, [onUpdateManual]);
 
-        // Renumber steps
-        const renumbered = reordered.map((step, i) => ({ ...step, stepNumber: i + 1 }));
-        onUpdateManual({ ...manual, steps: renumbered });
-    }, [manual, onUpdateManual]);
-
+    // rerender-functional-setstate: removed 'manual' and 'selectedSwapIndex' from deps
     const handleSwapClick = useCallback((clickedIndex: number) => {
         if (!onUpdateManual) return;
-        if (selectedSwapIndex === null) {
-            // First click: select this card
-            setSelectedSwapIndex(clickedIndex);
-        } else if (selectedSwapIndex === clickedIndex) {
-            // Clicked same card: deselect
-            setSelectedSwapIndex(null);
-        } else {
-            // Second click on different card: swap
-            const newSteps = [...manual.steps];
-            const temp = newSteps[selectedSwapIndex];
-            newSteps[selectedSwapIndex] = newSteps[clickedIndex];
-            newSteps[clickedIndex] = temp;
-            // Renumber
-            const renumbered = newSteps.map((step, i) => ({ ...step, stepNumber: i + 1 }));
-            onUpdateManual({ ...manual, steps: renumbered });
-            setSelectedSwapIndex(null);
-        }
-    }, [manual, onUpdateManual, selectedSwapIndex]);
+        setSelectedSwapIndex(prev => {
+            if (prev === null) {
+                // First click: select this card
+                return clickedIndex;
+            } else if (prev === clickedIndex) {
+                // Clicked same card: deselect
+                return null;
+            } else {
+                // Second click on different card: swap
+                onUpdateManual(cur => {
+                    const newSteps = [...cur.steps];
+                    const temp = newSteps[prev];
+                    newSteps[prev] = newSteps[clickedIndex];
+                    newSteps[clickedIndex] = temp;
+                    const renumbered = newSteps.map((step, i) => ({ ...step, stepNumber: i + 1 }));
+                    return { ...cur, steps: renumbered };
+                });
+                return null;
+            }
+        });
+    }, [onUpdateManual]);
 
     return (
         <div className={`manual min-h-screen transition-all duration-700 ease-in-out ${isEditMode ? 'bg-[#f8fafc] pl-[80px] max-w-none' : 'bg-white'}`}>

@@ -459,8 +459,8 @@ export default function InlineCanvas({
         canvas.on('mouse:down', handleMouseDown);
 
         window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('am:undo', handleUndo);
-        window.addEventListener('am:redo', handleRedo);
+        window.addEventListener('am:undo', handleUndo, { passive: true });
+        window.addEventListener('am:redo', handleRedo, { passive: true });
         window.addEventListener('am:delete', () => {
             const objs = canvas.getActiveObjects();
             if (objs.length) {
@@ -470,9 +470,9 @@ export default function InlineCanvas({
                 saveState(canvas);
                 setTimeout(() => exportToParent(), 10);
             }
-        });
-        window.addEventListener('am:fontsize', handleFontSizeEvent);
-        window.addEventListener('am:force-save', handleForceSave);
+        }, { passive: true });
+        window.addEventListener('am:fontsize', handleFontSizeEvent, { passive: true });
+        window.addEventListener('am:force-save', handleForceSave, { passive: true });
 
         // コンテンツ読み込み
         const loadContent = async () => {

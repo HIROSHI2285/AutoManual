@@ -356,7 +356,16 @@ export default function Home() {
                     <ManualViewer
                         manual={manual}
                         videoFile={videoFiles[0] || undefined}
-                        onUpdateManual={setManual}
+                        onUpdateManual={(updater) => {
+                            // Bridge functional-setState pattern from ManualViewer to setManual
+                            setManual(prev =>
+                                prev === null
+                                    ? null
+                                    : typeof updater === 'function'
+                                        ? updater(prev)
+                                        : updater
+                            );
+                        }}
                     />
                 )}
             </div>

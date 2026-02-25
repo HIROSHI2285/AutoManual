@@ -504,6 +504,13 @@ h6 {
   gap: 16px;
 }
 
+/* rendering-content-visibility: skip layout/paint for off-screen steps (Vercel best practice) */
+.manual__step {
+  content-visibility: auto;
+  /* hint to browser about expected rendered height — avoids scroll jump */
+  contain-intrinsic-size: 0 600px;
+}
+
 .step {
   background: var(--bg-upload);
   border: 1px solid var(--border-color);
