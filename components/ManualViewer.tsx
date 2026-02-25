@@ -5,8 +5,8 @@ import { ManualData } from '@/app/page';
 import CopyButton from './CopyButton';
 import ExportButton from './ExportButton';
 import EditorToolbar from './EditorToolbar';
-import InlineCanvas from './InlineCanvas';
 import ManualStepItem from './ManualStepItem';
+import EditStepRow from './EditStepRow';
 import { ToolType, EditorState, StrokeStyle } from './EditorTypes';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
@@ -45,6 +45,13 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         const saved = localStorage.getItem('am_editor_strokeStyle_v2');
         return (saved === 'solid' || saved === 'dashed') ? saved : 'solid';
     });
+
+    // Local draft for header text fields (blur-flush pattern — prevents per-keystroke re-renders)
+    const [draftTitle, setDraftTitle] = useState(manual.title);
+    const [draftOverview, setDraftOverview] = useState(manual.overview);
+    // Sync drafts when manual changes externally (e.g. cancel edit)
+    useEffect(() => { setDraftTitle(manual.title); }, [manual.title]);
+    useEffect(() => { setDraftOverview(manual.overview); }, [manual.overview]);
 
 
     // Backup for cancellation & Original reference for InlineCanvas
@@ -244,6 +251,18 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         });
     }, [onUpdateManual]);
 
+    // Flush step text edits to parent — called on blur from EditStepRow (not on every keystroke)
+    const handleTextBlur = useCallback((index: number, action: string, detail: string) => {
+        if (!onUpdateManual) return;
+        onUpdateManual(prev => {
+            const existing = prev.steps[index];
+            if (existing.action === action && existing.detail === detail) return prev;
+            const newSteps = [...prev.steps];
+            newSteps[index] = { ...existing, action, detail };
+            return { ...prev, steps: newSteps };
+        });
+    }, [onUpdateManual]);
+
     return (
         <div className={`manual min-h-screen transition-all duration-700 ease-in-out ${isEditMode ? 'bg-[#f8fafc] pl-[80px] max-w-none' : 'bg-white'}`}>
 
@@ -313,14 +332,16 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 </div>
                                 <input
                                     type="text"
-                                    value={manual.title}
-                                    onChange={(e) => onUpdateManual && onUpdateManual({ ...manual, title: e.target.value })}
+                                    value={draftTitle}
+                                    onChange={(e) => setDraftTitle(e.target.value)}
+                                    onBlur={() => onUpdateManual && onUpdateManual(prev => prev.title === draftTitle ? prev : { ...prev, title: draftTitle })}
                                     className="manual__title text-5xl font-black text-slate-950 tracking-tighter leading-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300"
                                     placeholder="マニュアルのタイトル"
                                 />
                                 <textarea
-                                    value={manual.overview}
-                                    onChange={(e) => onUpdateManual && onUpdateManual({ ...manual, overview: e.target.value })}
+                                    value={draftOverview}
+                                    onChange={(e) => setDraftOverview(e.target.value)}
+                                    onBlur={() => onUpdateManual && onUpdateManual(prev => prev.overview === draftOverview ? prev : { ...prev, overview: draftOverview })}
                                     className="manual__overview text-slate-800 font-bold text-lg w-full leading-relaxed bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors min-h-[80px] resize-y placeholder-slate-300 mt-2"
                                     placeholder="マニュアルの概要"
                                 />
@@ -450,72 +471,30 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     </div>
                 </div>
             ) : isEditMode ? (
-                /* Normal Edit Mode: Full InlineCanvas */
-                <div className="mx-auto px-4 pb-32 steps max-w-4xl space-y-20 py-16">
+                /* Normal Edit Mode: Uses EditStepRow (local draft state, blur-flush) */
+                <div className="mx-auto px-4 pb-32 max-w-5xl divide-y divide-slate-100">
                     {manual.steps.map((step, index) => (
-                        <section key={step.uid || `step-${index}`} className="manual__step animate-slide-up">
-                            <div className="flex items-start gap-6 group mb-6">
-                                <div className="flex flex-col items-center gap-3">
-                                    <div className="manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform">
-                                        {step.stepNumber}
-                                    </div>
-                                    <button
-                                        onClick={() => handleDeleteStep(index)}
-                                        className="px-3 py-1 bg-rose-50 text-rose-600 rounded-md text-xs font-bold border border-rose-200 hover:bg-rose-600 hover:text-white hover:border-transparent transition-all active:scale-95 flex items-center justify-center w-full whitespace-nowrap"
-                                        title={`ステップ ${step.stepNumber} を削除`}
-                                    >
-                                        削除
-                                    </button>
-                                </div>
-                                <div className="flex flex-col gap-3 py-1 w-full">
-                                    <input
-                                        type="text"
-                                        value={step.action}
-                                        onChange={(e) => {
-                                            if (!onUpdateManual) return;
-                                            const newSteps = [...manual.steps];
-                                            newSteps[index] = { ...step, action: e.target.value };
-                                            onUpdateManual({ ...manual, steps: newSteps });
-                                        }}
-                                        className="manual__step-title font-black text-slate-950 leading-tight tracking-tight bg-transparent border-b-2 border-purple-200 focus:border-purple-600 focus:outline-none transition-colors w-full placeholder-slate-300 text-3xl"
-                                        placeholder="手順のタイトル"
-                                    />
-                                    <textarea
-                                        value={step.detail}
-                                        onChange={(e) => {
-                                            if (!onUpdateManual) return;
-                                            const newSteps = [...manual.steps];
-                                            newSteps[index] = { ...step, detail: e.target.value };
-                                            onUpdateManual({ ...manual, steps: newSteps });
-                                        }}
-                                        className="manual__step-desc text-slate-800 font-bold leading-relaxed w-full bg-transparent border border-purple-200 rounded-lg p-3 focus:border-purple-600 focus:outline-none transition-colors resize-y placeholder-slate-300 text-lg min-h-[100px]"
-                                        placeholder="手順の詳細説明"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className={`manual__image-container rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-white shadow-floating border-purple-600/10 mx-auto ${orientations[step.uid || index] ? 'max-w-[576px]' : 'max-w-[768px]'}`}>
-                                <InlineCanvas
-                                    canvasId={`step-${step.uid || index}`}
-                                    imageUrl={(step.originalUrl && !step.originalUrl.startsWith('blob:')) ? step.originalUrl : (step.screenshot || '')}
-                                    activeTool={activeTool}
-                                    currentColor={currentColor}
-                                    onColorChange={setCurrentColor}
-                                    strokeWidth={strokeWidth}
-                                    onStrokeWidthChange={setStrokeWidth}
-                                    strokeStyle={strokeStyle}
-                                    onStrokeStyleChange={setStrokeStyle}
-                                    fontSize={fontSize}
-                                    onFontSizeChange={setFontSize}
-                                    stampCount={stampCount}
-                                    onUpdate={(newUrl, newData) => handleCanvasUpdate(index, newUrl, newData)}
-                                    onStampUsed={() => setStampCount(prev => prev + 1)}
-                                    onToolReset={() => setActiveTool('select')}
-                                    initialData={step.canvasData}
-                                    isPortrait={orientations[step.uid || index]}
-                                />
-                            </div>
-                        </section>
+                        <EditStepRow
+                            key={step.uid || `step-${index}`}
+                            step={step}
+                            index={index}
+                            isPortrait={orientations[step.uid || index] ?? false}
+                            activeTool={activeTool}
+                            currentColor={currentColor}
+                            strokeWidth={strokeWidth}
+                            strokeStyle={strokeStyle}
+                            fontSize={fontSize}
+                            stampCount={stampCount}
+                            onColorChange={setCurrentColor}
+                            onStrokeWidthChange={setStrokeWidth}
+                            onStrokeStyleChange={setStrokeStyle}
+                            onFontSizeChange={setFontSize}
+                            onStampUsed={() => setStampCount(prev => prev + 1)}
+                            onToolReset={() => setActiveTool('select')}
+                            onCanvasUpdate={handleCanvasUpdate}
+                            onDeleteStep={handleDeleteStep}
+                            onTextBlur={handleTextBlur}
+                        />
                     ))}
                 </div>
             ) : (
