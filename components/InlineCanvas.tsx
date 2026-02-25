@@ -55,6 +55,8 @@ export default function InlineCanvas({
     const lastSelectedTextRef = useRef<Textbox | null>(null);
     const [, setTick] = useState(0);
     const [compactScale, setCompactScale] = useState(1);
+    // Lazy initialization: Fabric.js Canvas is only created when this step enters the viewport
+    const [isCanvasReady, setIsCanvasReady] = useState(false);
 
     const activeToolRef = useRef(activeTool);
     const currentColorRef = useRef(currentColor);
@@ -93,6 +95,27 @@ export default function InlineCanvas({
         onFontSizeChangeRef.current = onFontSizeChange;
     }, [activeTool, currentColor, strokeWidth, strokeStyle, fontSize, stampCount, onUpdate, onColorChange, onStrokeWidthChange, onStrokeStyleChange, onFontSizeChange]);
 
+    // ── Lazy init: use IntersectionObserver to defer Fabric.js Canvas creation ──
+    // Only initialize when this step scrolls into view (200px pre-load margin).
+    // This avoids creating 20+ Canvas instances simultaneously on edit mode entry.
+    useEffect(() => {
+        if (isCanvasReady) return; // Already initialized
+        const el = containerRef.current;
+        if (!el) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    setIsCanvasReady(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '200px' } // pre-load 200px before entering viewport
+        );
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [isCanvasReady]);
+
     // ツールバーの状態をキャンバスの選択オブジェクトに同期
     const syncToolbarFromSelection = useCallback((obj: any) => {
         if (!obj || isUpdatingFromCanvas.current) return;
@@ -122,7 +145,9 @@ export default function InlineCanvas({
     }, []);
 
     // メインの初期化 Effect
+    // NOTE: gated on isCanvasReady — only runs after IntersectionObserver fires
     useEffect(() => {
+        if (!isCanvasReady) return; // Wait until viewport entry
         isMounted.current = true;
         if (!canvasRef.current || !containerRef.current) return;
 
@@ -567,7 +592,7 @@ export default function InlineCanvas({
             window.removeEventListener('am:force-save', handleForceSave);
             canvas.dispose();
         };
-    }, [canvasId, imageUrl, compact]);
+    }, [canvasId, imageUrl, compact, isCanvasReady]);
 
     // ツール切替・プロパティ更新 Effect
     useEffect(() => {
@@ -668,14 +693,35 @@ export default function InlineCanvas({
                 : { minHeight: '300px', backgroundColor: '#ffffff' }
             }
         >
-            <div className={`relative z-10 shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-slate-900/5 ${compact ? '' : 'w-full'}`}
-                style={compact && compactScale < 1 ? {
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: `translate(-50%, -50%) scale(${compactScale})`,
-                    transformOrigin: 'center center'
-                } : undefined}
+            {/* Lightweight placeholder shown BEFORE Fabric.js Canvas is initialized */}
+            {!isCanvasReady && (
+                <div className="w-full flex items-center justify-center" style={{ minHeight: '300px' }}>
+                    {imageUrl ? (
+                        <img
+                            src={imageUrl}
+                            alt="Loading canvas..."
+                            className="w-full h-auto block rounded-xl"
+                            style={{ opacity: 0.7 }}
+                        />
+                    ) : (
+                        <div className="w-full animate-pulse rounded-xl bg-slate-100" style={{ minHeight: '300px' }} />
+                    )}
+                </div>
+            )}
+            {/* Fabric.js Canvas — rendered but hidden until isCanvasReady */}
+            <div
+                className={`relative z-10 shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-slate-900/5 ${compact ? '' : 'w-full'}`}
+                style={{
+                    ...(compact && compactScale < 1 ? {
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: `translate(-50%, -50%) scale(${compactScale})`,
+                        transformOrigin: 'center center'
+                    } : {}),
+                    // Keep canvas in DOM (for ref access) but invisible until ready
+                    display: isCanvasReady ? undefined : 'none',
+                }}
             >
                 <canvas ref={canvasRef} />
             </div>
