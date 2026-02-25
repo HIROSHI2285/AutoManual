@@ -210,9 +210,12 @@ export async function POST(request: NextRequest) {
 1. **action (操作・作業)**: 「〜します」の形式で統一すること（常体・丁寧語）。
 2. **reason (挙動・結果・理由)**: その作業の結果どうなるか、または何のための作業かを簡潔に記述すること。「〜したため」という表現は使用禁止。
 
-## タイムスタンプ選定ルール
+## タイムスタンプ選定ルール（厳守）
 1. **操作の直前**の、画面（またはカメラ）が完全に静止し、対象がはっきりと見えている瞬間のタイムスタンプを選んでください。
 2. 画面遷移アニメーションの途中や、読み込み中のスピナーなどは絶対に避けてください。
+3. **【最重要】各ステップのtimestampは必ず異なる値にすること。同じ秒数を2つ以上のステップに使用することを禁止します。**
+4. **動画全体の時間軸に沿って均等に分散させること。** 動画の前半だけに集中したり、特定の数秒間に複数のステップを詰め込んではいけません。動画の始まりから終わりまで、時間的に離れたタイムスタンプを選んでください。
+5. ステップ間のtimestampは**最低3秒以上の間隔**を空けてください。
 
 box_2d は 0-1000 の範囲に正規化してください（対象物のバウンディングボックス）。
 `;
@@ -252,7 +255,7 @@ box_2d は 0-1000 の範囲に正規化してください（対象物のバウ�
             await fetch(`${BASE_URL}/${fileName}?key=${API_KEY}`, { method: 'DELETE' });
             try { await fs.unlink(tempFilePath); } catch { await log(`Warning: Failed to delete temp file ${tempFilePath}`); }
 
-            let steps = [];
+            let steps: any[] = [];
             try {
                 steps = JSON.parse(responseText);
             } catch (e) {
@@ -262,9 +265,29 @@ box_2d は 0-1000 の範囲に正規化してください（対象物のバウ�
                 steps = JSON.parse(cleanText);
             }
 
-            await log(`Successfully parsed ${steps?.length || 0} steps from Gemini response.`);
+            // Deduplicate by timestamp: remove steps whose timestamp is within 2s of a prior step
+            // This guards against Gemini assigning the same/near-same timestamp to multiple steps,
+            // which would cause identical screenshots to appear in the manual.
+            const tsToSeconds = (ts: string): number => {
+                const parts = ts.split(':').map(Number);
+                return parts.length === 2 ? parts[0] * 60 + parts[1] : 0;
+            };
+            const MIN_GAP_SECONDS = 2;
+            const seen: number[] = [];
+            const deduped = steps.filter((step: any) => {
+                const sec = tsToSeconds(step.timestamp || '00:00');
+                const tooClose = seen.some(s => Math.abs(s - sec) < MIN_GAP_SECONDS);
+                if (tooClose) {
+                    log(`[dedup] Dropping duplicate timestamp step: ${step.timestamp} — "${step.action?.slice(0, 40)}"`);
+                    return false;
+                }
+                seen.push(sec);
+                return true;
+            });
+
+            await log(`Successfully parsed ${steps?.length || 0} steps; after dedup: ${deduped.length}`);
             await log('POST /api/analyze-video completed successfully');
-            return NextResponse.json({ steps });
+            return NextResponse.json({ steps: deduped });
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
