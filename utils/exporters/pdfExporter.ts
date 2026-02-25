@@ -159,10 +159,10 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
     
     /* 1. ActionとDetailの間を極限まで詰める (0.5mm) */
     .step-header { 
-        display: flex; gap: 4mm; 
+        display: flex; gap: 1mm; 
         /* 2カラムは元のcenter、1カラムはテキストの1行目に合わせるため flex-start */
         align-items: ${isTwoCol ? 'center' : 'flex-start'}; 
-        margin-bottom: 0.5mm !important; 
+        margin-bottom: 0.25mm !important; 
     }
     .num-icon-wrapper { 
         width: 14mm; height: 14mm; flex-shrink: 0; 
@@ -187,7 +187,7 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
     }
 
     .detail-text { 
-        margin-left: 18mm; 
+        margin-left: 15mm; 
         font-size: 10.5pt; 
         margin-top: 0mm !important; 
         /* ご要望通り 15mm の余白を維持します */
