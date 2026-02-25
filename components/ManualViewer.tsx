@@ -6,6 +6,7 @@ import CopyButton from './CopyButton';
 import ExportButton from './ExportButton';
 import EditorToolbar from './EditorToolbar';
 import InlineCanvas from './InlineCanvas';
+import ManualStepItem from './ManualStepItem';
 import { ToolType, EditorState, StrokeStyle } from './EditorTypes';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
@@ -156,7 +157,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         }
     };
 
-    const handleCanvasUpdate = (index: number, newImageUrl: string, newData?: any) => {
+    const handleCanvasUpdate = useCallback((index: number, newImageUrl: string, newData?: any) => {
         if (!onUpdateManual) return;
 
         const updatedSteps = manual.steps.map((step, i) => {
@@ -174,9 +175,9 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             ...manual,
             steps: updatedSteps
         });
-    };
+    }, [manual, onUpdateManual]);
 
-    const handleDeleteStep = (index: number) => {
+    const handleDeleteStep = useCallback((index: number) => {
         if (!onUpdateManual) return;
         if (manual.steps.length <= 1) {
             alert('最後のステップは削除できません。');
@@ -214,7 +215,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             ...manual,
             steps: newSteps
         });
-    };
+    }, [manual, onUpdateManual]);
 
     const handleDragEnd = useCallback((result: DropResult) => {
         if (!result.destination || !onUpdateManual) return;
@@ -528,46 +529,19 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     ))}
                 </div>
             ) : (
-                /* View Mode: No drag & drop */
+                /* View Mode: No drag & drop - Uses React.memo'd ManualStepItem for perf */
                 <div className={`mx-auto px-4 py-12 pb-32 ${isTwoColumn
                     ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8'
                     : 'steps max-w-4xl space-y-20'
                     }`}>
-                    {manual.steps.map((step, index) => {
-                        const isPortrait = orientations[step.uid || index];
-                        return (
-                            <section key={index} className={`manual__step animate-slide-up ${isTwoColumn ? 'bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full' : `mx-auto w-full ${isPortrait ? 'max-w-[576px]' : 'max-w-[768px]'}`}`}>
-                                <div className={`flex items-start gap-6 group ${isTwoColumn ? 'flex-grow mb-4' : 'mb-6'}`}>
-                                    <div className="flex flex-col items-center gap-3">
-                                        {/* 1カラム時のみ mt-[12px] を適用して大幅に下げ、漢字の中心に合わせます。2カラムは変更なし */}
-                                        <div className={`manual__step-number flex-shrink-0 w-10 h-10 bg-slate-950 text-white rounded-xl flex items-center justify-center text-lg font-black shadow-2xl shadow-slate-900/30 group-hover:scale-110 transition-transform ${!isTwoColumn ? 'mt-[12px]' : ''}`}>
-                                            {step.stepNumber}
-                                        </div>
-                                    </div>
-                                    <div className={`flex flex-col gap-3 py-1 w-full ${isTwoColumn ? 'min-h-[140px]' : ''}`}>
-                                        <h3 className="manual__step-title text-2xl font-black text-slate-950 leading-tight tracking-tight drop-shadow-sm">
-                                            {step.action}
-                                        </h3>
-                                        <p className="manual__step-desc text-slate-800 font-bold text-base leading-relaxed">
-                                            {step.detail}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div
-                                    className={`manual__image-container mx-auto rounded-[16px] overflow-hidden transition-all duration-500 border-2 bg-slate-50 shadow-lg border-slate-900/5 hover:border-slate-900/10 hover:shadow-xl transform hover:-translate-y-1`}
-                                    style={{ maxWidth: isPortrait ? '576px' : '768px' }}
-                                >
-                                    <img
-                                        src={step.screenshot}
-                                        alt={`Step ${step.stepNumber}: ${step.action}`}
-                                        className={`block transition-transform duration-700 group-hover:scale-[1.01] w-full h-auto`}
-                                        loading="lazy"
-                                    />
-                                </div>
-                            </section>
-                        );
-                    })}
+                    {manual.steps.map((step, index) => (
+                        <ManualStepItem
+                            key={step.uid || index}
+                            step={step}
+                            isPortrait={orientations[step.uid || index] ?? false}
+                            isTwoColumn={isTwoColumn}
+                        />
+                    ))}
                 </div>
             )}
 
