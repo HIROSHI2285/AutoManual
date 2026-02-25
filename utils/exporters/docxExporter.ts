@@ -62,7 +62,11 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
 
-        // 1. 表題
+        // 2カラム時はフォントサイズを縮小 (14pt/11pt)
+        const actionSize = isTwoCol ? 28 : 32;
+        const detailSize = isTwoCol ? 22 : 24;
+
+        // 1. 表題 (ナンバリング高さを揃えるためのコンテナ)
         elements.push(new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -77,38 +81,52 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                         verticalAlign: VerticalAlign.CENTER,
                         width: { size: 100, type: WidthType.PERCENTAGE },
                         margins: { left: 80 },
-                        children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: 32, font: RF, color: BLACK })] })]
+                        children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: actionSize, font: RF, color: BLACK })] })]
                     })
                 ]
             })]
         }));
 
-        // 2. 詳細
+        // 2. 詳細 (テキストの高さを揃えるため余白を調整)
         if (step.detail && step.detail !== step.action) {
             elements.push(new Paragraph({
                 indent: { left: numCellWidth + 80 },
                 spacing: { before: 100, after: 200 },
-                children: [new TextRun({ text: step.detail, size: 24, font: RF, color: BLACK })]
+                children: [new TextRun({ text: step.detail, size: detailSize, font: RF, color: BLACK })]
             }));
+        } else {
+            // テキストがない場合も高さを確保するための空段落
+            elements.push(new Paragraph({ spacing: { after: 200 } }));
         }
 
-        // 3. 画像配置（さらに上に引き上げた設定：before 200）
+        // 3. 画像配置 (2カラム時の独立性を確保)
         if (step.screenshot) {
             try {
                 const dims = await getImageDimensions(step.screenshot);
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
                 const isLandscape = (dims.width || 4) >= (dims.height || 3);
-                let finalW = isTwoCol ? (4.8 * 96) : (8.5 * 96);
+
+                // カラム幅に収まるよう厳密に計算 (content_widthの約45%)
+                const maxColWidth = Math.round(CONTENT_WIDTH_DXA * 0.45);
+                let finalW = isTwoCol ? Math.min(maxColWidth, 4.2 * 96) : (8.5 * 96);
                 let finalH = isTwoCol ? (3.3 * 96) : (4.0 * 96);
+
                 if (!isLandscape) {
                     finalH = isTwoCol ? (4.2 * 96) : (4.8 * 96);
-                    finalW = finalH * (3 / 4);
+                    finalW = finalH * (dims.width / (dims.height || 1));
+                    if (isTwoCol && finalW > maxColWidth) {
+                        finalW = maxColWidth;
+                        finalH = finalW / (dims.width / (dims.height || 1));
+                    }
+                } else if (isTwoCol) {
+                    // 横画像がカラムをはみ出さないようアスペクト比で再計算
+                    finalW = maxColWidth;
+                    finalH = finalW / (dims.width / (dims.height || 1));
                 }
 
                 elements.push(new Paragraph({
                     alignment: AlignmentType.CENTER,
                     indent: { left: 0 },
-                    // 位置を少し下げるため spacing.before を 500 に調整
                     spacing: { before: 500, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
                 }));
@@ -170,19 +188,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         styles: { default: { document: { run: { font: FONT }, paragraph: { spacing: { line: 276 } } } } },
         sections: [
             {
-                // セクション1: 表紙（全幅ライン再現）
-                properties: {
-                    page: {
-                        margin: {
-                            top: 0,
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            header: 0,
-                            footer: 0
-                        }
-                    }
-                },
+                // セクション1: 表紙
+                properties: { page: { margin: { top: 0, bottom: 0, left: 0, right: 0, header: 0, footer: 0 } } },
                 children: [
                     new Table({
                         width: { size: 100, type: WidthType.PERCENTAGE },
@@ -193,7 +200,6 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                                 children: [new TableCell({
                                     verticalAlign: VerticalAlign.TOP,
                                     children: [new Paragraph({
-                                        // 120 DXA から 100 DXA 下げて 220 DXA に調整
                                         border: { top: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
                                         spacing: { before: 220, after: 0 },
                                         children: [new TextRun({ text: "", size: 1 })]
@@ -201,16 +207,18 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                                 })]
                             }),
                             new TableRow({ // 中央コンテンツ
-                                height: { value: 15100, rule: HeightRule.ATLEAST }, // 全高 15500 に向けて微調整 (15100 + 200 + 200)
+                                height: { value: 15100, rule: HeightRule.ATLEAST },
                                 children: [new TableCell({
                                     verticalAlign: VerticalAlign.CENTER,
                                     children: [
                                         new Paragraph({
-                                            alignment: AlignmentType.CENTER,
+                                            alignment: AlignmentType.LEFT,
+                                            indent: { left: 1134 },
                                             children: [new TextRun({ text: "OPERATIONAL STANDARD", size: 28, font: RF, color: BLACK, bold: true })]
                                         }),
                                         new Paragraph({
-                                            alignment: AlignmentType.CENTER,
+                                            alignment: AlignmentType.LEFT,
+                                            indent: { left: 1134 },
                                             spacing: { before: 400 },
                                             children: [new TextRun({ text: manual.title, bold: true, size: 76, font: RF, color: BLACK })]
                                         })
@@ -223,7 +231,6 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                                     verticalAlign: VerticalAlign.BOTTOM,
                                     children: [new Paragraph({
                                         border: { bottom: { style: BorderStyle.SINGLE, size: 96, color: NAVY, space: 0 } },
-                                        // after を 0 に戻して、テーブル自体の短縮で位置を上に移動させる
                                         spacing: { before: 0, after: 0 },
                                         children: [new TextRun({ text: "", size: 1 })]
                                     })]
