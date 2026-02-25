@@ -67,6 +67,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         const actionSize = isTwoCol ? 28 : 32; // 14pt / 16pt
         const detailSize = isTwoCol ? 22 : 24; // 11pt / 12pt
 
+        // 1. 表題 (VerticalAlign.TOP に変更して上揃えを強制)
         const titleTable = new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -74,14 +75,20 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 children: [
                     new TableCell({
                         width: { size: numCellWidth, type: WidthType.DXA },
-                        verticalAlign: VerticalAlign.CENTER,
-                        children: [new Paragraph({ children: [new ImageRun({ data: numData, transformation: { width: 32, height: 32 }, type: numType })] })]
+                        verticalAlign: VerticalAlign.TOP, // 上揃え
+                        children: [new Paragraph({
+                            keepNext: true, // 泣き別れ防止
+                            children: [new ImageRun({ data: numData, transformation: { width: 32, height: 32 }, type: numType })]
+                        })]
                     }),
                     new TableCell({
-                        verticalAlign: VerticalAlign.CENTER,
+                        verticalAlign: VerticalAlign.TOP, // 上揃え
                         width: { size: 100, type: WidthType.PERCENTAGE },
                         margins: { left: 80 },
-                        children: [new Paragraph({ children: [new TextRun({ text: step.action, bold: true, size: actionSize, font: RF, color: BLACK })] })]
+                        children: [new Paragraph({
+                            keepNext: true, // 泣き別れ防止
+                            children: [new TextRun({ text: step.action, bold: true, size: actionSize, font: RF, color: BLACK })]
+                        })]
                     })
                 ]
             })]
@@ -90,6 +97,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         const detailPara = new Paragraph({
             indent: { left: numCellWidth + 80 },
             spacing: { before: 100, after: 200 },
+            keepNext: true, // 泣き別れ防止
             children: [new TextRun({ text: step.detail || "", size: detailSize, font: RF, color: BLACK })]
         });
 
@@ -159,22 +167,25 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
                 rows: [
-                    // 行1: 表題 (左右で高さを同期)
+                    // 行1: 表題
                     new TableRow({
+                        cantSplit: true, // 行の分割防止
                         children: [
                             new TableCell({ children: stepL.title, width: { size: 50, type: WidthType.PERCENTAGE } }),
                             new TableCell({ children: stepR ? stepR.title : [], width: { size: 50, type: WidthType.PERCENTAGE } })
                         ]
                     }),
-                    // 行2: 詳細説明 (左右で高さを同期)
+                    // 行2: 詳細説明
                     new TableRow({
+                        cantSplit: true, // 行の分割防止
                         children: [
                             new TableCell({ children: stepL.detail, width: { size: 50, type: WidthType.PERCENTAGE } }),
                             new TableCell({ children: stepR ? stepR.detail : [], width: { size: 50, type: WidthType.PERCENTAGE } })
                         ]
                     }),
-                    // 行3: 画像 (左右で開始位置を同期)
+                    // 行3: 画像
                     new TableRow({
+                        cantSplit: true, // 行の分割防止
                         children: [
                             new TableCell({ children: stepL.image, width: { size: 50, type: WidthType.PERCENTAGE } }),
                             new TableCell({ children: stepR ? stepR.image : [], width: { size: 50, type: WidthType.PERCENTAGE } })
