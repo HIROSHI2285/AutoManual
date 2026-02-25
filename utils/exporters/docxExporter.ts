@@ -56,18 +56,18 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
     const isTwoCol = layout === 'two-column';
     const numCellWidth = 600;
 
-    // ステップ構築
-    const createStepElements = async (step: any) => {
-        const elements: any[] = [];
+    /**
+     * ステップの各パーツ（表題、詳細、画像）を個別に生成するヘルパー
+     */
+    const getStepParts = async (step: any | null) => {
+        if (!step) return { title: [], detail: [], image: [] };
+
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
+        const actionSize = isTwoCol ? 28 : 32; // 14pt / 16pt
+        const detailSize = isTwoCol ? 22 : 24; // 11pt / 12pt
 
-        // 2カラム時はフォントサイズを縮小 (14pt/11pt)
-        const actionSize = isTwoCol ? 28 : 32;
-        const detailSize = isTwoCol ? 22 : 24;
-
-        // 1. 表題 (ナンバリング高さを揃えるためのコンテナ)
-        elements.push(new Table({
+        const titleTable = new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
             rows: [new TableRow({
@@ -85,54 +85,50 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     })
                 ]
             })]
-        }));
+        });
 
-        // 2. 詳細 (テキストの高さを揃えるため余白を調整)
-        if (step.detail && step.detail !== step.action) {
-            elements.push(new Paragraph({
-                indent: { left: numCellWidth + 80 },
-                spacing: { before: 100, after: 200 },
-                children: [new TextRun({ text: step.detail, size: detailSize, font: RF, color: BLACK })]
-            }));
-        } else {
-            // テキストがない場合も高さを確保するための空段落
-            elements.push(new Paragraph({ spacing: { after: 200 } }));
-        }
+        const detailPara = new Paragraph({
+            indent: { left: numCellWidth + 80 },
+            spacing: { before: 100, after: 200 },
+            children: [new TextRun({ text: step.detail || "", size: detailSize, font: RF, color: BLACK })]
+        });
 
-        // 3. 画像配置 (2カラム時の独立性を確保)
+        let imagePara = new Paragraph({ spacing: { before: 0, after: 0 } });
         if (step.screenshot) {
             try {
                 const dims = await getImageDimensions(step.screenshot);
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
                 const isLandscape = (dims.width || 4) >= (dims.height || 3);
 
-                // カラム幅に収まるよう厳密に計算 (content_widthの約45%)
-                const maxColWidth = Math.round(CONTENT_WIDTH_DXA * 0.45);
-                let finalW = isTwoCol ? Math.min(maxColWidth, 4.2 * 96) : (8.5 * 96);
-                let finalH = isTwoCol ? (3.3 * 96) : (4.0 * 96);
+                // カラム内での画像サイズ計算（左右の重なりを防止）
+                const maxW_DXA = isTwoCol ? (CONTENT_WIDTH_DXA * 0.46) : CONTENT_WIDTH_DXA;
+                const baseW = isTwoCol ? (4.2 * 96) : (8.5 * 96);
+                const baseH = isTwoCol ? (3.3 * 96) : (4.0 * 96);
+
+                let finalW = baseW;
+                let finalH = baseH;
 
                 if (!isLandscape) {
                     finalH = isTwoCol ? (4.2 * 96) : (4.8 * 96);
                     finalW = finalH * (dims.width / (dims.height || 1));
-                    if (isTwoCol && finalW > maxColWidth) {
-                        finalW = maxColWidth;
+                    if (isTwoCol && finalW * 15 > maxW_DXA) {
+                        finalW = maxW_DXA / 15;
                         finalH = finalW / (dims.width / (dims.height || 1));
                     }
-                } else if (isTwoCol) {
-                    // 横画像がカラムをはみ出さないようアスペクト比で再計算
-                    finalW = maxColWidth;
+                } else {
+                    finalW = Math.min(baseW, maxW_DXA / 15);
                     finalH = finalW / (dims.width / (dims.height || 1));
                 }
 
-                elements.push(new Paragraph({
+                imagePara = new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    indent: { left: 0 },
                     spacing: { before: 500, after: 400 },
                     children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
-                }));
+                });
             } catch (e) { console.error(e); }
         }
-        return elements;
+
+        return { title: [titleTable], detail: [detailPara], image: [imagePara] };
     };
 
     const contentChildren: any[] = [];
@@ -153,32 +149,49 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         }), new Paragraph({ spacing: { after: 600 } }));
     }
 
-    // 本文のテーブル構築
     if (isTwoCol) {
         for (let i = 0; i < manual.steps.length; i += 2) {
-            const left = await createStepElements(manual.steps[i]);
-            const right = manual.steps[i + 1] ? await createStepElements(manual.steps[i + 1]) : [];
+            const stepL = await getStepParts(manual.steps[i]);
+            const stepR = manual.steps[i + 1] ? await getStepParts(manual.steps[i + 1]) : null;
+
+            // 左右で高さを揃えるため、表題、詳細、画像を別々の行にする
+            contentChildren.push(new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
+                rows: [
+                    // 行1: 表題 (左右で高さを同期)
+                    new TableRow({
+                        children: [
+                            new TableCell({ children: stepL.title, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                            new TableCell({ children: stepR ? stepR.title : [], width: { size: 50, type: WidthType.PERCENTAGE } })
+                        ]
+                    }),
+                    // 行2: 詳細説明 (左右で高さを同期)
+                    new TableRow({
+                        children: [
+                            new TableCell({ children: stepL.detail, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                            new TableCell({ children: stepR ? stepR.detail : [], width: { size: 50, type: WidthType.PERCENTAGE } })
+                        ]
+                    }),
+                    // 行3: 画像 (左右で開始位置を同期)
+                    new TableRow({
+                        children: [
+                            new TableCell({ children: stepL.image, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                            new TableCell({ children: stepR ? stepR.image : [], width: { size: 50, type: WidthType.PERCENTAGE } })
+                        ]
+                    })
+                ]
+            }), new Paragraph({ spacing: { after: 400 } }));
+        }
+    } else {
+        for (const step of manual.steps) {
+            const parts = await getStepParts(step);
             contentChildren.push(new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
                 rows: [new TableRow({
                     cantSplit: true,
-                    children: [
-                        new TableCell({ children: left, width: { size: 50, type: WidthType.PERCENTAGE } }),
-                        new TableCell({ children: right, width: { size: 50, type: WidthType.PERCENTAGE } })
-                    ]
-                })]
-            }));
-        }
-    } else {
-        for (const step of manual.steps) {
-            const stepElems = await createStepElements(step);
-            contentChildren.push(new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER },
-                rows: [new TableRow({
-                    cantSplit: true,
-                    children: [new TableCell({ children: stepElems, width: { size: 100, type: WidthType.PERCENTAGE } })]
+                    children: [new TableCell({ children: [...parts.title, ...parts.detail, ...parts.image], width: { size: 100, type: WidthType.PERCENTAGE } })]
                 })]
             }));
         }
