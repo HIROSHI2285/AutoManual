@@ -130,6 +130,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     };
 
     const handleCancelEdit = () => {
+        const scrollY = window.scrollY;
         if (backupManual && onUpdateManual) {
             onUpdateManual(backupManual);
         }
@@ -137,15 +138,20 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         setIsReorderMode(false);
         setSelectedSwapIndex(null);
         setBackupManual(null);
-        setIsTwoColumn(savedTwoColumnRef.current); // Restore column state
+        setIsTwoColumn(savedTwoColumnRef.current);
+        // Restore scroll position after layout re-render
+        requestAnimationFrame(() => window.scrollTo(0, scrollY));
     };
 
     const handleSaveAndExit = () => {
+        const scrollY = window.scrollY;
         setIsEditMode(false);
         setIsReorderMode(false);
         setSelectedSwapIndex(null);
         setBackupManual(null);
-        setIsTwoColumn(savedTwoColumnRef.current); // Restore column state
+        setIsTwoColumn(savedTwoColumnRef.current);
+        // Restore scroll position after layout re-render
+        requestAnimationFrame(() => window.scrollTo(0, scrollY));
     };
 
     const handleSaveProgress = () => {

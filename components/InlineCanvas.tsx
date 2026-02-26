@@ -168,25 +168,44 @@ export default function InlineCanvas({
         fabricCanvasRef.current = canvas;
         setTick(t => t + 1);
 
-        // エクスポート — reset user zoom/pan before capturing for correct output
+        // エクスポート — capture current zoomed/panned view as the saved image
         const exportToParent = () => {
             if (!canvas) return;
             try {
-                // Save current viewport transform
-                const savedVpt = [...canvas.viewportTransform!];
-                const savedZoom = canvas.getZoom();
-
-                // Reset to base fit zoom (no user zoom/pan) for clean export
+                const currentZoom = canvas.getZoom();
                 const baseZoom = baseFitZoomRef.current;
-                canvas.setViewportTransform([baseZoom, 0, 0, baseZoom, 0, 0]);
+                const isUserZoomed = Math.abs(currentZoom - baseZoom) > 0.001;
+                const vpt = canvas.viewportTransform!;
+                const hasPanned = Math.abs(vpt[4]) > 1 || Math.abs(vpt[5]) > 1;
 
-                const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
-                const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
-                lastSavedUrl.current = dataUrl;
-                onUpdateRef.current?.(dataUrl, json);
+                if (isUserZoomed || hasPanned) {
+                    // User has zoomed/panned — capture what they see (the viewport)
+                    const canvasEl = canvas.getElement();
+                    const visW = canvasEl.width;
+                    const visH = canvasEl.height;
 
-                // Restore user viewport transform
-                canvas.setViewportTransform(savedVpt as any);
+                    // Render at native resolution (undo CSS display scaling)
+                    const outputCanvas = document.createElement('canvas');
+                    outputCanvas.width = visW;
+                    outputCanvas.height = visH;
+                    const outCtx = outputCanvas.getContext('2d');
+                    if (outCtx) {
+                        outCtx.drawImage(canvasEl, 0, 0);
+                        const dataUrl = outputCanvas.toDataURL('image/png');
+                        const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
+                        // Store viewport state in JSON so it can be restored
+                        json.__viewportTransform = [...vpt];
+                        json.__userZoom = currentZoom / baseZoom;
+                        lastSavedUrl.current = dataUrl;
+                        onUpdateRef.current?.(dataUrl, json);
+                    }
+                } else {
+                    // No user zoom/pan — normal full-resolution export
+                    const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
+                    const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
+                    lastSavedUrl.current = dataUrl;
+                    onUpdateRef.current?.(dataUrl, json);
+                }
             } catch (e) {
                 console.warn('[InlineCanvas] Export skipped:', (e as Error).message);
             }
@@ -545,11 +564,9 @@ export default function InlineCanvas({
         (canvas as any).__applyUserZoom = applyUserZoom;
         (canvas as any).__resetUserZoom = resetUserZoom;
 
-        // Ctrl + Scroll wheel → zoom
+        // Scroll wheel → zoom (no modifier key needed)
         canvas.on('mouse:wheel', (opt: any) => {
             const e = opt.e as WheelEvent;
-            // Only zoom when Ctrl is held
-            if (!e.ctrlKey && !e.metaKey) return;
             e.preventDefault();
             e.stopPropagation();
 
@@ -562,14 +579,16 @@ export default function InlineCanvas({
             applyUserZoom(newUserZoom, pointer.x, pointer.y);
         });
 
-        // Space + Drag → pan
+        // Right-click drag → pan (mouse-only, no keyboard needed)
         canvas.on('mouse:down', (opt: any) => {
-            if (spaceHeldRef.current) {
+            const e = opt.e as MouseEvent;
+            // Right-click (button 2) or middle-click (button 1) to pan
+            if (e.button === 2 || e.button === 1) {
                 isPanningRef.current = true;
-                lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
+                lastPanPointRef.current = { x: e.clientX, y: e.clientY };
                 canvas.selection = false;
                 canvas.setCursor('grabbing');
-                opt.e.preventDefault();
+                e.preventDefault();
             }
         });
 
@@ -595,10 +614,16 @@ export default function InlineCanvas({
             }
         });
 
-        // Space key hold for pan mode
+        // Disable context menu on canvas to allow right-click pan
+        const canvasEl = canvas.getElement();
+        const wrapperEl = canvasEl.parentElement;
+        const preventContextMenu = (e: Event) => e.preventDefault();
+        if (wrapperEl) wrapperEl.addEventListener('contextmenu', preventContextMenu);
+        canvasEl.addEventListener('contextmenu', preventContextMenu);
+
+        // Space key hold for pan mode (keyboard alternative, still available)
         const handleSpaceDown = (e: KeyboardEvent) => {
             if (e.code === 'Space' && !spaceHeldRef.current) {
-                // Don't interfere with text editing
                 const active = canvas.getActiveObject();
                 if (active && (active as any).isEditing) return;
                 const tag = (document.activeElement?.tagName || '').toUpperCase();
@@ -609,6 +634,17 @@ export default function InlineCanvas({
                 canvas.forEachObject(obj => { obj.set({ evented: false }); });
             }
         };
+
+        // Also support Space+Drag pan (original mouse:down handler already covered)
+        canvas.on('mouse:down', (opt: any) => {
+            if (spaceHeldRef.current) {
+                isPanningRef.current = true;
+                lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
+                canvas.selection = false;
+                canvas.setCursor('grabbing');
+                opt.e.preventDefault();
+            }
+        });
 
         const handleSpaceUp = (e: KeyboardEvent) => {
             if (e.code === 'Space') {
