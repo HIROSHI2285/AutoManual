@@ -61,9 +61,10 @@ export default function InlineCanvas({
     // Zoom & Pan state
     const baseFitZoomRef = useRef(1);   // zoom set during loadContent to fit image
     const [userZoom, setUserZoom] = useState(1);   // additional user zoom on top of baseFit
+    const [isAdjustMode, setIsAdjustMode] = useState(false); // double-click toggle
     const isPanningRef = useRef(false);
     const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
-    const spaceHeldRef = useRef(false);
+    const isAdjustModeRef = useRef(false); // mirror of isAdjustMode for event handlers
 
     const activeToolRef = useRef(activeTool);
     const currentColorRef = useRef(currentColor);
@@ -168,44 +169,15 @@ export default function InlineCanvas({
         fabricCanvasRef.current = canvas;
         setTick(t => t + 1);
 
-        // エクスポート — capture current zoomed/panned view as the saved image
+        // エクスポート — always export at base fit zoom (viewport is reset before export)
         const exportToParent = () => {
             if (!canvas) return;
             try {
-                const currentZoom = canvas.getZoom();
                 const baseZoom = baseFitZoomRef.current;
-                const isUserZoomed = Math.abs(currentZoom - baseZoom) > 0.001;
-                const vpt = canvas.viewportTransform!;
-                const hasPanned = Math.abs(vpt[4]) > 1 || Math.abs(vpt[5]) > 1;
-
-                if (isUserZoomed || hasPanned) {
-                    // User has zoomed/panned — capture what they see (the viewport)
-                    const canvasEl = canvas.getElement();
-                    const visW = canvasEl.width;
-                    const visH = canvasEl.height;
-
-                    // Render at native resolution (undo CSS display scaling)
-                    const outputCanvas = document.createElement('canvas');
-                    outputCanvas.width = visW;
-                    outputCanvas.height = visH;
-                    const outCtx = outputCanvas.getContext('2d');
-                    if (outCtx) {
-                        outCtx.drawImage(canvasEl, 0, 0);
-                        const dataUrl = outputCanvas.toDataURL('image/png');
-                        const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
-                        // Store viewport state in JSON so it can be restored
-                        json.__viewportTransform = [...vpt];
-                        json.__userZoom = currentZoom / baseZoom;
-                        lastSavedUrl.current = dataUrl;
-                        onUpdateRef.current?.(dataUrl, json);
-                    }
-                } else {
-                    // No user zoom/pan — normal full-resolution export
-                    const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
-                    const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
-                    lastSavedUrl.current = dataUrl;
-                    onUpdateRef.current?.(dataUrl, json);
-                }
+                const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
+                const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
+                lastSavedUrl.current = dataUrl;
+                onUpdateRef.current?.(dataUrl, json);
             } catch (e) {
                 console.warn('[InlineCanvas] Export skipped:', (e as Error).message);
             }
@@ -533,129 +505,174 @@ export default function InlineCanvas({
         window.addEventListener('am:fontsize', handleFontSizeEvent, { passive: true });
         window.addEventListener('am:force-save', handleForceSave, { passive: true });
 
-        // ────────── Zoom & Pan ──────────
+        // ────────── Double-Click Toggle Zoom/Pan Mode ──────────
 
-        /** Apply user zoom centered on a point (in canvas CSS pixels) */
-        const applyUserZoom = (newUserZoom: number, centerX?: number, centerY?: number) => {
-            const base = baseFitZoomRef.current;
-            const finalZoom = base * newUserZoom;
-            if (centerX !== undefined && centerY !== undefined) {
-                // Zoom toward cursor position
-                canvas.zoomToPoint(new Point(centerX, centerY), finalZoom);
-            } else {
-                // Zoom toward canvas center
-                const cx = (canvas.width ?? 600) / 2;
-                const cy = (canvas.height ?? 400) / 2;
-                canvas.zoomToPoint(new Point(cx, cy), finalZoom);
-            }
-            canvas.requestRenderAll();
-            setUserZoom(newUserZoom);
-        };
+        /** Bake visible viewport into background image, reset viewport, then export */
+        const bakeViewportToImage = async () => {
+            const bgImg = canvas.backgroundImage;
+            if (!bgImg) return;
 
-        /** Reset zoom/pan back to original fit view */
-        const resetUserZoom = () => {
-            const base = baseFitZoomRef.current;
-            canvas.setViewportTransform([base, 0, 0, base, 0, 0]);
-            canvas.requestRenderAll();
+            // Get current viewport transform
+            const vpt = canvas.viewportTransform!;
+            const currentZoom = canvas.getZoom();
+            const baseZoom = baseFitZoomRef.current;
+
+            // Calculate what portion of the original image is visible
+            // vpt = [scaleX, 0, 0, scaleY, translateX, translateY]
+            const panX = -vpt[4] / currentZoom; // in image coordinates
+            const panY = -vpt[5] / currentZoom;
+            const visibleW = (canvas.width ?? 600) / currentZoom;
+            const visibleH = (canvas.height ?? 400) / currentZoom;
+
+            // Create a new image from the visible portion
+            const origImg = (bgImg as any).getElement() as HTMLImageElement;
+            const srcW = origImg.naturalWidth;
+            const srcH = origImg.naturalHeight;
+
+            // Clamp source rect to image bounds
+            const sx = Math.max(0, Math.min(panX, srcW));
+            const sy = Math.max(0, Math.min(panY, srcH));
+            const sw = Math.min(visibleW, srcW - sx);
+            const sh = Math.min(visibleH, srcH - sy);
+
+            if (sw <= 0 || sh <= 0) return;
+
+            // Render visible portion to a new canvas at original resolution
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = sw;
+            cropCanvas.height = sh;
+            const cropCtx = cropCanvas.getContext('2d');
+            if (!cropCtx) return;
+            cropCtx.drawImage(origImg, sx, sy, sw, sh, 0, 0, sw, sh);
+
+            // Create new FabricImage from cropped canvas
+            const croppedDataUrl = cropCanvas.toDataURL('image/png');
+            const newBgImg = await FabricImage.fromURL(croppedDataUrl, { crossOrigin: 'anonymous' });
+            newBgImg.set({ originX: 'left', originY: 'top', left: 0, top: 0, scaleX: 1, scaleY: 1, selectable: false, evented: false });
+
+            // Remove all existing annotation objects (they don't make sense after crop)
+            canvas.getObjects().forEach(obj => canvas.remove(obj));
+
+            // Recalculate fit zoom for new image size
+            const newW = sw;
+            const newH = sh;
+            const containerWidth = containerRef.current?.getBoundingClientRect().width || 768;
+            const newZoom = Math.min(containerWidth, isPortrait ? 576 : 768) / newW;
+
+            canvas.setWidth(newW * newZoom);
+            canvas.setHeight(newH * newZoom);
+            canvas.setZoom(newZoom);
+            canvas.setViewportTransform([newZoom, 0, 0, newZoom, 0, 0]);
+            baseFitZoomRef.current = newZoom;
+            canvas.backgroundImage = newBgImg;
+            canvas.renderAll();
+
             setUserZoom(1);
+
+            // Save state and export
+            saveStateRef.current(canvas);
+            setTimeout(() => exportToParentRef.current(), 50);
         };
 
-        // Expose zoom functions for UI buttons
-        (canvas as any).__applyUserZoom = applyUserZoom;
-        (canvas as any).__resetUserZoom = resetUserZoom;
+        /** Enter adjust mode */
+        const enterAdjustMode = () => {
+            isAdjustModeRef.current = true;
+            setIsAdjustMode(true);
+            canvas.discardActiveObject();
+            canvas.forEachObject(obj => obj.set({ evented: false, selectable: false }));
+            canvas.selection = false;
+            canvas.defaultCursor = 'grab';
+            canvas.renderAll();
+        };
 
-        // Scroll wheel → zoom (no modifier key needed)
+        /** Exit adjust mode */
+        const exitAdjustMode = async () => {
+            const currentZoom = canvas.getZoom();
+            const baseZoom = baseFitZoomRef.current;
+            const vpt = canvas.viewportTransform!;
+            const isZoomed = Math.abs(currentZoom - baseZoom) > 0.01;
+            const isPanned = Math.abs(vpt[4]) > 2 || Math.abs(vpt[5]) > 2;
+
+            if (isZoomed || isPanned) {
+                await bakeViewportToImage();
+            }
+
+            isAdjustModeRef.current = false;
+            setIsAdjustMode(false);
+            canvas.forEachObject(obj => obj.set({ evented: true, selectable: true }));
+            canvas.selection = activeToolRef.current === 'select';
+            canvas.defaultCursor = 'default';
+            canvas.renderAll();
+        };
+
+        // Expose for UI buttons
+        (canvas as any).__enterAdjustMode = enterAdjustMode;
+        (canvas as any).__exitAdjustMode = exitAdjustMode;
+
+        // Double-click toggle
+        canvas.on('mouse:dblclick', () => {
+            if (isAdjustModeRef.current) {
+                exitAdjustMode();
+            } else {
+                enterAdjustMode();
+            }
+        });
+
+        // Scroll wheel → zoom (only in adjust mode)
         canvas.on('mouse:wheel', (opt: any) => {
+            if (!isAdjustModeRef.current) return;
             const e = opt.e as WheelEvent;
             e.preventDefault();
             e.stopPropagation();
 
             const delta = e.deltaY;
-            const currentUserZoom = canvas.getZoom() / baseFitZoomRef.current;
+            const base = baseFitZoomRef.current;
+            const currentUserZoom = canvas.getZoom() / base;
             let newUserZoom = currentUserZoom * (delta > 0 ? 0.9 : 1.1);
-            newUserZoom = Math.max(0.5, Math.min(5, newUserZoom)); // clamp 50% – 500%
+            newUserZoom = Math.max(0.3, Math.min(5, newUserZoom));
 
-            const pointer = canvas.getPointer(e, true);
-            applyUserZoom(newUserZoom, pointer.x, pointer.y);
+            const finalZoom = base * newUserZoom;
+            const pointer = canvas.getPointer(opt.e, true);
+            canvas.zoomToPoint(new Point(pointer.x, pointer.y), finalZoom);
+            canvas.requestRenderAll();
+            setUserZoom(newUserZoom);
         });
 
-        // Right-click drag → pan (mouse-only, no keyboard needed)
+        // Left-click drag → pan (only in adjust mode)
         canvas.on('mouse:down', (opt: any) => {
-            const e = opt.e as MouseEvent;
-            // Right-click (button 2) or middle-click (button 1) to pan
-            if (e.button === 2 || e.button === 1) {
-                isPanningRef.current = true;
-                lastPanPointRef.current = { x: e.clientX, y: e.clientY };
-                canvas.selection = false;
-                canvas.setCursor('grabbing');
-                e.preventDefault();
-            }
+            if (!isAdjustModeRef.current) return;
+            isPanningRef.current = true;
+            lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
+            canvas.setCursor('grabbing');
         });
 
         canvas.on('mouse:move', (opt: any) => {
-            if (isPanningRef.current && lastPanPointRef.current) {
-                const dx = opt.e.clientX - lastPanPointRef.current.x;
-                const dy = opt.e.clientY - lastPanPointRef.current.y;
-                const vpt = [...canvas.viewportTransform!];
-                vpt[4] += dx;
-                vpt[5] += dy;
-                canvas.setViewportTransform(vpt as any);
-                lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
-                canvas.requestRenderAll();
-            }
+            if (!isPanningRef.current || !lastPanPointRef.current) return;
+            const dx = opt.e.clientX - lastPanPointRef.current.x;
+            const dy = opt.e.clientY - lastPanPointRef.current.y;
+            const vpt = [...canvas.viewportTransform!];
+            vpt[4] += dx;
+            vpt[5] += dy;
+            canvas.setViewportTransform(vpt as any);
+            lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
+            canvas.requestRenderAll();
         });
 
         canvas.on('mouse:up', () => {
             if (isPanningRef.current) {
                 isPanningRef.current = false;
                 lastPanPointRef.current = null;
-                canvas.selection = activeToolRef.current === 'select';
-                canvas.setCursor('default');
+                if (isAdjustModeRef.current) {
+                    canvas.setCursor('grab');
+                }
             }
         });
 
-        // Disable context menu on canvas to allow right-click pan
+        // Disable context menu on canvas
         const canvasEl = canvas.getElement();
         const wrapperEl = canvasEl.parentElement;
         const preventContextMenu = (e: Event) => e.preventDefault();
         if (wrapperEl) wrapperEl.addEventListener('contextmenu', preventContextMenu);
-        canvasEl.addEventListener('contextmenu', preventContextMenu);
-
-        // Space key hold for pan mode (keyboard alternative, still available)
-        const handleSpaceDown = (e: KeyboardEvent) => {
-            if (e.code === 'Space' && !spaceHeldRef.current) {
-                const active = canvas.getActiveObject();
-                if (active && (active as any).isEditing) return;
-                const tag = (document.activeElement?.tagName || '').toUpperCase();
-                if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-                e.preventDefault();
-                spaceHeldRef.current = true;
-                canvas.setCursor('grab');
-                canvas.forEachObject(obj => { obj.set({ evented: false }); });
-            }
-        };
-
-        // Also support Space+Drag pan (original mouse:down handler already covered)
-        canvas.on('mouse:down', (opt: any) => {
-            if (spaceHeldRef.current) {
-                isPanningRef.current = true;
-                lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
-                canvas.selection = false;
-                canvas.setCursor('grabbing');
-                opt.e.preventDefault();
-            }
-        });
-
-        const handleSpaceUp = (e: KeyboardEvent) => {
-            if (e.code === 'Space') {
-                spaceHeldRef.current = false;
-                canvas.setCursor('default');
-                canvas.forEachObject(obj => { obj.set({ evented: true }); });
-            }
-        };
-
-        window.addEventListener('keydown', handleSpaceDown);
-        window.addEventListener('keyup', handleSpaceUp);
 
         // コンテンツ読み込み
         const loadContent = async () => {
@@ -745,8 +762,6 @@ export default function InlineCanvas({
         return () => {
             isMounted.current = false;
             window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keydown', handleSpaceDown);
-            window.removeEventListener('keyup', handleSpaceUp);
             window.removeEventListener('am:undo', handleUndo);
             window.removeEventListener('am:redo', handleRedo);
             window.removeEventListener('am:fontsize', handleFontSizeEvent);
@@ -892,46 +907,51 @@ export default function InlineCanvas({
                 </div>
             )}
 
+            {/* Adjust Mode indicator & controls */}
+            {!compact && isCanvasReady && isAdjustMode && (
+                <div className="absolute inset-0 z-20 pointer-events-none rounded-xl" style={{ border: '3px solid #3b82f6', boxShadow: '0 0 0 1px rgba(59,130,246,.3)' }}>
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-auto bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-2">
+                        <span>📐 画像調整モード</span>
+                        <span className="opacity-70">スクロール=ズーム / ドラッグ=移動 / ダブルクリック=確定</span>
+                    </div>
+                </div>
+            )}
+
             {/* Floating Zoom Controls — visible on hover (edit mode only) */}
             {!compact && isCanvasReady && (
                 <div
-                    className="absolute bottom-3 right-3 z-30 flex items-center gap-1 bg-slate-800/80 backdrop-blur-sm rounded-lg px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    className={`absolute bottom-3 right-3 z-30 flex items-center gap-1 bg-slate-800/80 backdrop-blur-sm rounded-lg px-1.5 py-1 shadow-lg transition-opacity ${isAdjustMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                 >
-                    <button
-                        className="w-7 h-7 flex items-center justify-center text-white hover:bg-slate-700 rounded text-sm font-bold"
-                        title="ズームアウト (Ctrl+スクロール↓)"
-                        onClick={() => {
-                            const c = fabricCanvasRef.current;
-                            if (!c) return;
-                            const cur = c.getZoom() / baseFitZoomRef.current;
-                            (c as any).__applyUserZoom?.(Math.max(0.5, cur * 0.8));
-                        }}
-                    >
-                        −
-                    </button>
-                    <button
-                        className="min-w-[40px] h-7 flex items-center justify-center text-white hover:bg-slate-700 rounded text-xs font-mono tabular-nums"
-                        title="ズームリセット"
-                        onClick={() => {
-                            const c = fabricCanvasRef.current;
-                            if (!c) return;
-                            (c as any).__resetUserZoom?.();
-                        }}
-                    >
-                        {Math.round(userZoom * 100)}%
-                    </button>
-                    <button
-                        className="w-7 h-7 flex items-center justify-center text-white hover:bg-slate-700 rounded text-sm font-bold"
-                        title="ズームイン (Ctrl+スクロール↑)"
-                        onClick={() => {
-                            const c = fabricCanvasRef.current;
-                            if (!c) return;
-                            const cur = c.getZoom() / baseFitZoomRef.current;
-                            (c as any).__applyUserZoom?.(Math.min(5, cur * 1.25));
-                        }}
-                    >
-                        +
-                    </button>
+                    {!isAdjustMode ? (
+                        <button
+                            className="h-7 px-3 flex items-center justify-center text-white hover:bg-slate-700 rounded text-xs font-bold gap-1"
+                            title="画像調整モードに入る（ダブルクリックでも可）"
+                            onClick={() => {
+                                const c = fabricCanvasRef.current;
+                                if (!c) return;
+                                (c as any).__enterAdjustMode?.();
+                            }}
+                        >
+                            🔍 調整
+                        </button>
+                    ) : (
+                        <>
+                            <span className="text-white text-xs font-mono tabular-nums px-1">
+                                {Math.round(userZoom * 100)}%
+                            </span>
+                            <button
+                                className="h-7 px-3 flex items-center justify-center text-white bg-blue-600 hover:bg-blue-700 rounded text-xs font-bold"
+                                title="確定して保存"
+                                onClick={() => {
+                                    const c = fabricCanvasRef.current;
+                                    if (!c) return;
+                                    (c as any).__exitAdjustMode?.();
+                                }}
+                            >
+                                ✓ 確定
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
         </div>
