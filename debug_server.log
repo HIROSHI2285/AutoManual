@@ -2305,3 +2305,55 @@ Stack: TypeError: fetch failed
 [2026-02-26T14:20:23.282Z] [dedup] Dropping duplicate timestamp step: 01:36 — "登録ボタンをクリックします"
 [2026-02-26T14:20:23.283Z] Successfully parsed 11 steps; after dedup: 9
 [2026-02-26T14:20:23.292Z] POST /api/analyze-video completed successfully
+[2026-02-26T14:26:37.000Z] POST /api/analyze-video started
+[2026-02-26T14:26:37.103Z] Received file: proxy_オフライン起動手順.mp4, size: 12696151
+[2026-02-26T14:26:37.214Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1772115997118_proxy_オフライン起動手順.mp4
+[2026-02-26T14:26:37.268Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-26T14:26:37.278Z] Starting Resumable Upload to Gemini...
+[2026-02-26T14:26:38.071Z] Upload session initiated. URL obtained.
+[2026-02-26T14:27:02.949Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/awhxfa9pwr8t (files/awhxfa9pwr8t)
+[2026-02-26T14:27:02.952Z] Processing video...
+[2026-02-26T14:27:05.405Z] Video Ready. Generating content...
+[2026-02-26T14:27:33.881Z] Response received: [
+  {
+    "timestamp": "00:01",
+    "action": "電源スイッチを押します",
+    "box_2d": [290, 470, 320, 500],
+   ...
+[2026-02-26T14:27:37.171Z] Successfully parsed 15 steps; after dedup: 15
+[2026-02-26T14:27:37.174Z] POST /api/analyze-video completed successfully
+[2026-02-26T14:29:05.535Z] POST /api/analyze-video started
+[2026-02-26T14:29:05.568Z] Received file: proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 4512689
+[2026-02-26T14:29:05.581Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1772116145575_proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-26T14:29:05.583Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-26T14:29:05.586Z] Starting Resumable Upload to Gemini...
+[2026-02-26T14:29:06.466Z] Upload session initiated. URL obtained.
+[2026-02-26T14:29:16.870Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/lkieazf0488c (files/lkieazf0488c)
+[2026-02-26T14:29:16.882Z] Processing video...
+[2026-02-26T14:29:19.713Z] Processing video...
+[2026-02-26T14:29:22.238Z] Processing video...
+[2026-02-26T14:29:24.585Z] Video Ready. Generating content...
+[2026-02-26T14:29:41.339Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "検索バーに「yahoo.co.jp」と入力します",
+    "box_2d": [99, 100, 13...
+[2026-02-26T14:29:44.502Z] Successfully parsed 6 steps; after dedup: 6
+[2026-02-26T14:29:44.507Z] POST /api/analyze-video completed successfully
+[2026-02-26T14:32:49.390Z] POST /api/analyze-video started
+[2026-02-26T14:32:49.508Z] Received file: proxy_IMG_0047.mp4, size: 15076656
+[2026-02-26T14:32:49.595Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1772116369565_proxy_IMG_0047.mp4
+[2026-02-26T14:32:49.626Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-26T14:32:49.671Z] Starting Resumable Upload to Gemini...
+[2026-02-26T14:32:51.848Z] Upload session initiated. URL obtained.
+[2026-02-26T14:33:16.689Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/953hbd4ho429 (files/953hbd4ho429)
+[2026-02-26T14:33:16.697Z] Processing video...
+[2026-02-26T14:33:20.179Z] Processing video...
+[2026-02-26T14:33:22.593Z] Video Ready. Generating content...
+[2026-02-26T14:34:25.892Z] Response received: [
+  {
+    "timestamp": "00:02",
+    "action": "「売掛帳票出力」ボタンをクリックします",
+    "box_2d": [447, 19, 494, 12...
+[2026-02-26T14:34:28.719Z] Successfully parsed 54 steps; after dedup: 54
+[2026-02-26T14:34:28.724Z] POST /api/analyze-video completed successfully
