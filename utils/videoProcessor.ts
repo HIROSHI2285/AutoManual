@@ -45,10 +45,9 @@ export async function extractFrameAtTimestamp(
             return 0;
         };
 
-        // Add forward offset (2.0s) to shift past the exact reported second
-        // The AI is instructed to pick timestamps 2-3s after action completion,
-        // and this offset provides additional buffer for keyframe alignment
-        const targetTime = parseTimestamp(timestampStr) + 2.0;
+        // Pre-action capture: minimal offset (0.3s) just for keyframe alignment
+        // We want the frame showing the screen BEFORE the action is performed
+        const targetTime = parseTimestamp(timestampStr) + 0.3;
 
         /** Capture the currently displayed video frame to canvas */
         const captureFrame = () => {
