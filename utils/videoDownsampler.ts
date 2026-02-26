@@ -78,7 +78,7 @@ export async function createProxyVideo(
                 });
 
                 videoEncoder.configure({
-                    codec: 'avc1.42E01E', // standard H.264 Baseline Profile (widest support)
+                    codec: 'avc1.42E01F', // H.264 Baseline Profile Level 3.1 (supports up to 1280x720)
                     width: w,
                     height: h,
                     bitrate: 1_000_000,   // ~1 Mbps target bitrate (very high compression)
