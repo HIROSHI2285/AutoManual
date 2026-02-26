@@ -69,15 +69,10 @@ export async function extractFrameAtTimestamp(
         });
 
         video.addEventListener('seeked', () => {
-            // Use requestVideoFrameCallback for precise frame capture if available.
-            // This waits for the actual decoded frame to be ready, preventing
-            // stale keyframe capture that causes image-caption misalignment.
-            if ('requestVideoFrameCallback' in video) {
-                (video as any).requestVideoFrameCallback(() => captureFrame());
-            } else {
-                // Fallback: wait a short time for the decode to complete
-                setTimeout(captureFrame, 150);
-            }
+            // Wait a short time after seeked fires to let the decoder fully settle
+            // on the correct frame. requestVideoFrameCallback is NOT used here
+            // because it requires the video to be playing, which we don't do.
+            setTimeout(captureFrame, 100);
         });
 
         video.addEventListener('error', () => {
