@@ -178,7 +178,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             ...prev,
             steps: prev.steps.map((step, i) =>
                 i === index
-                    ? { ...step, screenshot: newImageUrl, canvasData: newData || step.canvasData }
+                    ? { ...step, screenshot: newImageUrl, originalUrl: newImageUrl, canvasData: newData || step.canvasData }
                     : step
             )
         }));
