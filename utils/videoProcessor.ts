@@ -45,7 +45,22 @@ export async function extractFrameAtTimestamp(
             return 0;
         };
 
-        const targetTime = parseTimestamp(timestampStr);
+        // Add small forward offset (0.5s) to shift past exact second boundary
+        // This helps capture the correct frame when keyframes don't align with integer seconds
+        const targetTime = parseTimestamp(timestampStr) + 0.5;
+
+        /** Capture the currently displayed video frame to canvas */
+        const captureFrame = () => {
+            try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = canvas.toDataURL('image/png');
+                URL.revokeObjectURL(url);
+                resolve(imageData);
+            } catch (error) {
+                URL.revokeObjectURL(url);
+                reject(error);
+            }
+        };
 
         video.addEventListener('loadedmetadata', () => {
             canvas.width = video.videoWidth;
@@ -54,17 +69,14 @@ export async function extractFrameAtTimestamp(
         });
 
         video.addEventListener('seeked', () => {
-            try {
-                // ビデオフレームをキャンバスに描画（欠落していたため画像が空白になっていたのを修正）
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                // UIの文字が滲まないよう、ロスレス品質のPNG形式で書き出し
-                const imageData = canvas.toDataURL('image/png');
-                URL.revokeObjectURL(url);
-                resolve(imageData);
-            } catch (error) {
-                URL.revokeObjectURL(url);
-                reject(error);
+            // Use requestVideoFrameCallback for precise frame capture if available.
+            // This waits for the actual decoded frame to be ready, preventing
+            // stale keyframe capture that causes image-caption misalignment.
+            if ('requestVideoFrameCallback' in video) {
+                (video as any).requestVideoFrameCallback(() => captureFrame());
+            } else {
+                // Fallback: wait a short time for the decode to complete
+                setTimeout(captureFrame, 150);
             }
         });
 
