@@ -45,9 +45,10 @@ export async function extractFrameAtTimestamp(
             return 0;
         };
 
-        // Add small forward offset (0.5s) to shift past exact second boundary
-        // This helps capture the correct frame when keyframes don't align with integer seconds
-        const targetTime = parseTimestamp(timestampStr) + 0.5;
+        // Add forward offset (2.0s) to shift past the exact reported second
+        // The AI is instructed to pick timestamps 2-3s after action completion,
+        // and this offset provides additional buffer for keyframe alignment
+        const targetTime = parseTimestamp(timestampStr) + 2.0;
 
         /** Capture the currently displayed video frame to canvas */
         const captureFrame = () => {
