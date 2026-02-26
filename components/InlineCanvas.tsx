@@ -469,8 +469,8 @@ export default function InlineCanvas({
             setTimeout(() => { isApplyingPropRef.current = false; }, 150);
         };
 
-        // Force save
-        const handleForceSave = () => exportToParent();
+        // Force save — placeholder, re-registered after exitAdjustMode is defined
+        let handleForceSave = () => exportToParent();
 
         // イベントバインド
         canvas.on('selection:created', handleSelection);
@@ -608,6 +608,17 @@ export default function InlineCanvas({
         // Expose for UI buttons
         (canvas as any).__enterAdjustMode = enterAdjustMode;
         (canvas as any).__exitAdjustMode = exitAdjustMode;
+
+        // Now that exitAdjustMode is defined, override force-save to bake if needed
+        window.removeEventListener('am:force-save', handleForceSave);
+        handleForceSave = async () => {
+            if (isAdjustModeRef.current) {
+                await exitAdjustMode(); // bake viewport into image, then export
+            } else {
+                exportToParent();
+            }
+        };
+        window.addEventListener('am:force-save', handleForceSave, { passive: true });
 
         // Double-click toggle
         canvas.on('mouse:dblclick', () => {

@@ -145,13 +145,18 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
 
     const handleSaveAndExit = () => {
         const scrollY = window.scrollY;
-        setIsEditMode(false);
-        setIsReorderMode(false);
-        setSelectedSwapIndex(null);
-        setBackupManual(null);
-        setIsTwoColumn(savedTwoColumnRef.current);
-        // Restore scroll position after layout re-render
-        requestAnimationFrame(() => window.scrollTo(0, scrollY));
+        // Force all canvases to save (bakes viewport if in adjust mode)
+        window.dispatchEvent(new CustomEvent('am:force-save'));
+        // Delay exit to let bake + export complete before unmounting canvases
+        setTimeout(() => {
+            setIsEditMode(false);
+            setIsReorderMode(false);
+            setSelectedSwapIndex(null);
+            setBackupManual(null);
+            setIsTwoColumn(savedTwoColumnRef.current);
+            // Restore scroll position after layout re-render
+            requestAnimationFrame(() => window.scrollTo(0, scrollY));
+        }, 300);
     };
 
     const handleSaveProgress = () => {
