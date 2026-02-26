@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Canvas, Rect, Ellipse, Path, Textbox, Circle, Group, FabricImage, FabricText } from 'fabric';
+import { Canvas, Rect, Ellipse, Path, Textbox, Circle, Group, FabricImage, FabricText, Point } from 'fabric';
 import { ToolType, StrokeStyle } from '@/components/EditorTypes';
 
 interface InlineCanvasProps {
@@ -57,6 +57,13 @@ export default function InlineCanvas({
     const [compactScale, setCompactScale] = useState(1);
     // Lazy initialization: Fabric.js Canvas is only created when this step enters the viewport
     const [isCanvasReady, setIsCanvasReady] = useState(false);
+
+    // Zoom & Pan state
+    const baseFitZoomRef = useRef(1);   // zoom set during loadContent to fit image
+    const [userZoom, setUserZoom] = useState(1);   // additional user zoom on top of baseFit
+    const isPanningRef = useRef(false);
+    const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
+    const spaceHeldRef = useRef(false);
 
     const activeToolRef = useRef(activeTool);
     const currentColorRef = useRef(currentColor);
@@ -161,17 +168,25 @@ export default function InlineCanvas({
         fabricCanvasRef.current = canvas;
         setTick(t => t + 1);
 
-        // エクスポート
+        // エクスポート — reset user zoom/pan before capturing for correct output
         const exportToParent = () => {
             if (!canvas) return;
             try {
-                const zoom = canvas.getZoom();
-                const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / zoom });
-                // Fabric 6.x: toObject → toJSON
-                // Ensure all style properties are saved
+                // Save current viewport transform
+                const savedVpt = [...canvas.viewportTransform!];
+                const savedZoom = canvas.getZoom();
+
+                // Reset to base fit zoom (no user zoom/pan) for clean export
+                const baseZoom = baseFitZoomRef.current;
+                canvas.setViewportTransform([baseZoom, 0, 0, baseZoom, 0, 0]);
+
+                const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
                 const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
                 lastSavedUrl.current = dataUrl;
                 onUpdateRef.current?.(dataUrl, json);
+
+                // Restore user viewport transform
+                canvas.setViewportTransform(savedVpt as any);
             } catch (e) {
                 console.warn('[InlineCanvas] Export skipped:', (e as Error).message);
             }
@@ -499,6 +514,113 @@ export default function InlineCanvas({
         window.addEventListener('am:fontsize', handleFontSizeEvent, { passive: true });
         window.addEventListener('am:force-save', handleForceSave, { passive: true });
 
+        // ────────── Zoom & Pan ──────────
+
+        /** Apply user zoom centered on a point (in canvas CSS pixels) */
+        const applyUserZoom = (newUserZoom: number, centerX?: number, centerY?: number) => {
+            const base = baseFitZoomRef.current;
+            const finalZoom = base * newUserZoom;
+            if (centerX !== undefined && centerY !== undefined) {
+                // Zoom toward cursor position
+                canvas.zoomToPoint(new Point(centerX, centerY), finalZoom);
+            } else {
+                // Zoom toward canvas center
+                const cx = (canvas.width ?? 600) / 2;
+                const cy = (canvas.height ?? 400) / 2;
+                canvas.zoomToPoint(new Point(cx, cy), finalZoom);
+            }
+            canvas.requestRenderAll();
+            setUserZoom(newUserZoom);
+        };
+
+        /** Reset zoom/pan back to original fit view */
+        const resetUserZoom = () => {
+            const base = baseFitZoomRef.current;
+            canvas.setViewportTransform([base, 0, 0, base, 0, 0]);
+            canvas.requestRenderAll();
+            setUserZoom(1);
+        };
+
+        // Expose zoom functions for UI buttons
+        (canvas as any).__applyUserZoom = applyUserZoom;
+        (canvas as any).__resetUserZoom = resetUserZoom;
+
+        // Ctrl + Scroll wheel → zoom
+        canvas.on('mouse:wheel', (opt: any) => {
+            const e = opt.e as WheelEvent;
+            // Only zoom when Ctrl is held
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const delta = e.deltaY;
+            const currentUserZoom = canvas.getZoom() / baseFitZoomRef.current;
+            let newUserZoom = currentUserZoom * (delta > 0 ? 0.9 : 1.1);
+            newUserZoom = Math.max(0.5, Math.min(5, newUserZoom)); // clamp 50% – 500%
+
+            const pointer = canvas.getPointer(e, true);
+            applyUserZoom(newUserZoom, pointer.x, pointer.y);
+        });
+
+        // Space + Drag → pan
+        canvas.on('mouse:down', (opt: any) => {
+            if (spaceHeldRef.current) {
+                isPanningRef.current = true;
+                lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
+                canvas.selection = false;
+                canvas.setCursor('grabbing');
+                opt.e.preventDefault();
+            }
+        });
+
+        canvas.on('mouse:move', (opt: any) => {
+            if (isPanningRef.current && lastPanPointRef.current) {
+                const dx = opt.e.clientX - lastPanPointRef.current.x;
+                const dy = opt.e.clientY - lastPanPointRef.current.y;
+                const vpt = [...canvas.viewportTransform!];
+                vpt[4] += dx;
+                vpt[5] += dy;
+                canvas.setViewportTransform(vpt as any);
+                lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
+                canvas.requestRenderAll();
+            }
+        });
+
+        canvas.on('mouse:up', () => {
+            if (isPanningRef.current) {
+                isPanningRef.current = false;
+                lastPanPointRef.current = null;
+                canvas.selection = activeToolRef.current === 'select';
+                canvas.setCursor('default');
+            }
+        });
+
+        // Space key hold for pan mode
+        const handleSpaceDown = (e: KeyboardEvent) => {
+            if (e.code === 'Space' && !spaceHeldRef.current) {
+                // Don't interfere with text editing
+                const active = canvas.getActiveObject();
+                if (active && (active as any).isEditing) return;
+                const tag = (document.activeElement?.tagName || '').toUpperCase();
+                if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+                e.preventDefault();
+                spaceHeldRef.current = true;
+                canvas.setCursor('grab');
+                canvas.forEachObject(obj => { obj.set({ evented: false }); });
+            }
+        };
+
+        const handleSpaceUp = (e: KeyboardEvent) => {
+            if (e.code === 'Space') {
+                spaceHeldRef.current = false;
+                canvas.setCursor('default');
+                canvas.forEachObject(obj => { obj.set({ evented: true }); });
+            }
+        };
+
+        window.addEventListener('keydown', handleSpaceDown);
+        window.addEventListener('keyup', handleSpaceUp);
+
         // コンテンツ読み込み
         const loadContent = async () => {
             if (!isMounted.current) return;
@@ -534,6 +656,7 @@ export default function InlineCanvas({
             canvas.setWidth(containerWidth);
             canvas.setHeight(originalHeight * zoomLevel);
             canvas.setZoom(zoomLevel);
+            baseFitZoomRef.current = zoomLevel; // Store base fit zoom for user-zoom calculations
 
             // For compact mode: calculate CSS scale to fit within 4:3 aspect ratio
             if (compact) {
@@ -586,6 +709,8 @@ export default function InlineCanvas({
         return () => {
             isMounted.current = false;
             window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keydown', handleSpaceDown);
+            window.removeEventListener('keyup', handleSpaceUp);
             window.removeEventListener('am:undo', handleUndo);
             window.removeEventListener('am:redo', handleRedo);
             window.removeEventListener('am:fontsize', handleFontSizeEvent);
@@ -728,6 +853,49 @@ export default function InlineCanvas({
             {!compact && (
                 <div className="absolute inset-0 pointer-events-none z-0 opacity-10 rounded-xl overflow-hidden">
                     <div className="w-full h-full" style={{ backgroundImage: 'radial-gradient(#4f46e5 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
+                </div>
+            )}
+
+            {/* Floating Zoom Controls — visible on hover (edit mode only) */}
+            {!compact && isCanvasReady && (
+                <div
+                    className="absolute bottom-3 right-3 z-30 flex items-center gap-1 bg-slate-800/80 backdrop-blur-sm rounded-lg px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                >
+                    <button
+                        className="w-7 h-7 flex items-center justify-center text-white hover:bg-slate-700 rounded text-sm font-bold"
+                        title="ズームアウト (Ctrl+スクロール↓)"
+                        onClick={() => {
+                            const c = fabricCanvasRef.current;
+                            if (!c) return;
+                            const cur = c.getZoom() / baseFitZoomRef.current;
+                            (c as any).__applyUserZoom?.(Math.max(0.5, cur * 0.8));
+                        }}
+                    >
+                        −
+                    </button>
+                    <button
+                        className="min-w-[40px] h-7 flex items-center justify-center text-white hover:bg-slate-700 rounded text-xs font-mono tabular-nums"
+                        title="ズームリセット"
+                        onClick={() => {
+                            const c = fabricCanvasRef.current;
+                            if (!c) return;
+                            (c as any).__resetUserZoom?.();
+                        }}
+                    >
+                        {Math.round(userZoom * 100)}%
+                    </button>
+                    <button
+                        className="w-7 h-7 flex items-center justify-center text-white hover:bg-slate-700 rounded text-sm font-bold"
+                        title="ズームイン (Ctrl+スクロール↑)"
+                        onClick={() => {
+                            const c = fabricCanvasRef.current;
+                            if (!c) return;
+                            const cur = c.getZoom() / baseFitZoomRef.current;
+                            (c as any).__applyUserZoom?.(Math.min(5, cur * 1.25));
+                        }}
+                    >
+                        +
+                    </button>
                 </div>
             )}
         </div>
