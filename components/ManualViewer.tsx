@@ -198,8 +198,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                 return prev;
             }
 
-            window.dispatchEvent(new CustomEvent('am:force-save'));
-
+            // Clean up localStorage canvas state for this step
             const deletedStep = prev.steps[index];
             if (deletedStep.uid) {
                 localStorage.removeItem(`am_canvas_state_step-${deletedStep.uid}`);
