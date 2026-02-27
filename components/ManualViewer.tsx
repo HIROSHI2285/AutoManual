@@ -22,6 +22,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     const [isEditMode, setIsEditMode] = useState(false);
     const [isReorderMode, setIsReorderMode] = useState(false);
     const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
+    const [checkedForDelete, setCheckedForDelete] = useState<Set<string>>(new Set()); // uid set
     const [activeTool, setActiveTool] = useState<ToolType>('select');
     const [currentColor, setCurrentColor] = useState(() => {
         if (typeof window === 'undefined') return '#ef4444';
@@ -317,7 +318,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                             className={`h-10 px-4 rounded-lg font-bold text-xs uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap flex items-center gap-2 ${isReorderMode ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}`}
                                         >
                                             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="3" r="1.5" /><circle cx="11" cy="3" r="1.5" /><circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" /><circle cx="5" cy="13" r="1.5" /><circle cx="11" cy="13" r="1.5" /></svg>
-                                            {isReorderMode ? '編集に戻る' : '並び替え'}
+                                            {isReorderMode ? '編集に戻る' : '並び替え・削除'}
                                         </button>
                                         <button
                                             onClick={handleCancelEdit}
@@ -399,21 +400,71 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
 
             {/* Steps Section */}
             {isEditMode && isReorderMode ? (
-                /* Reorder Mode: Click-to-swap thumbnail cards */
+                /* Reorder Mode: Click-to-swap thumbnail cards + multi-select delete */
                 <div className="mx-auto px-4 py-8 pb-32 max-w-5xl">
-                    {/* Instruction */}
-                    <div className="mb-6 text-center">
+                    {/* Instruction + Bulk Delete Controls */}
+                    <div className="mb-6 flex flex-col items-center gap-3">
                         <p className={`text-sm font-bold transition-colors ${selectedSwapIndex !== null ? 'text-purple-600' : 'text-slate-400'}`}>
                             {selectedSwapIndex !== null
                                 ? `ステップ ${manual.steps[selectedSwapIndex]?.stepNumber} を選択中 — 入れ替え先をクリック（もう一度クリックで解除）`
-                                : '入れ替えたいステップをクリックしてください'
+                                : '入れ替えたいステップをクリック / チェックを入れて一括削除'
                             }
                         </p>
+                        {/* Bulk action bar */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => {
+                                    if (checkedForDelete.size === manual.steps.length) {
+                                        setCheckedForDelete(new Set());
+                                    } else {
+                                        setCheckedForDelete(new Set(manual.steps.map(s => s.uid || '')));
+                                    }
+                                }}
+                                className="h-8 px-3 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100 border border-slate-200 transition-all"
+                            >
+                                {checkedForDelete.size === manual.steps.length ? '全選択解除' : '全選択'}
+                            </button>
+                            {checkedForDelete.size > 0 && (
+                                <button
+                                    onClick={() => {
+                                        if (!onUpdateManual) return;
+                                        const count = checkedForDelete.size;
+                                        const remaining = manual.steps.length - count;
+                                        if (remaining < 1) {
+                                            alert('すべてのステップを削除することはできません。最低1つは残してください。');
+                                            return;
+                                        }
+                                        if (!confirm(`${count}件のステップを削除しますか？\nこの操作は取り消せません。`)) return;
+                                        // Clean up localStorage for deleted steps
+                                        manual.steps.forEach((step, i) => {
+                                            const uid = step.uid || '';
+                                            if (checkedForDelete.has(uid)) {
+                                                if (step.uid) localStorage.removeItem(`am_canvas_state_step-${step.uid}`);
+                                                localStorage.removeItem(`am_canvas_state_step-${step.stepNumber}-${i}`);
+                                            }
+                                        });
+                                        onUpdateManual(prev => ({
+                                            ...prev,
+                                            steps: prev.steps
+                                                .filter(s => !checkedForDelete.has(s.uid || ''))
+                                                .map((s, i) => ({ ...s, stepNumber: i + 1 }))
+                                        }));
+                                        setCheckedForDelete(new Set());
+                                        setSelectedSwapIndex(null);
+                                    }}
+                                    className="h-8 px-4 rounded-lg bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95 flex items-center gap-1.5"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    {checkedForDelete.size}件を削除
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {manual.steps.map((step, index) => {
                             const isSelected = selectedSwapIndex === index;
                             const isTarget = selectedSwapIndex !== null && selectedSwapIndex !== index;
+                            const isChecked = checkedForDelete.has(step.uid || '');
                             return (
                                 <div
                                     key={step.uid || `step-${index}`}
@@ -461,19 +512,29 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                             </div>
                                         )}
                                     </div>
-                                    {/* Title + Delete */}
+                                    {/* Title + Checkbox */}
                                     <div className="p-3 flex items-start justify-between gap-2">
                                         <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug flex-1">{step.action}</p>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteStep(index);
-                                            }}
-                                            className="flex-shrink-0 w-7 h-7 rounded-lg bg-rose-50 text-rose-400 hover:bg-rose-600 hover:text-white border border-rose-200 hover:border-transparent transition-all active:scale-90 flex items-center justify-center"
-                                            title={`ステップ ${step.stepNumber} を削除`}
+                                        <label
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="flex-shrink-0 flex items-center cursor-pointer"
+                                            title={`ステップ ${step.stepNumber} を削除対象に追加`}
                                         >
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                                        </button>
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => {
+                                                    setCheckedForDelete(prev => {
+                                                        const next = new Set(prev);
+                                                        const uid = step.uid || '';
+                                                        if (next.has(uid)) next.delete(uid);
+                                                        else next.add(uid);
+                                                        return next;
+                                                    });
+                                                }}
+                                                className="w-5 h-5 rounded border-2 border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                                            />
+                                        </label>
                                     </div>
                                 </div>
                             );
