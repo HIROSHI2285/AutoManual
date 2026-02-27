@@ -310,15 +310,36 @@ export default function InlineCanvas({
             }
         };
 
-        // 状態保存
+        // 状態保存 — objects only (background image is excluded to save space)
+        const MAX_HISTORY = 30;
         const saveState = (c: Canvas) => {
-            const json = JSON.stringify((c as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']));
+            // Save only annotation objects, not the background image
+            const objects = c.getObjects().map((obj: any) => obj.toObject(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']));
+            const json = JSON.stringify({ objects });
             history.current.push(json);
+            // Cap history size
+            if (history.current.length > MAX_HISTORY) {
+                history.current = history.current.slice(-MAX_HISTORY);
+            }
             redoStack.current = [];
             try {
                 localStorage.setItem(`am_canvas_state_${canvasId}`, json);
             } catch (e) {
-                console.warn('[InlineCanvas] Failed to save state to localStorage (Quota Exceeded):', e);
+                // Quota exceeded — clear old am_ entries and retry once
+                try {
+                    const keysToRemove: string[] = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith('am_canvas_state_') && key !== `am_canvas_state_${canvasId}`) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    keysToRemove.forEach(k => localStorage.removeItem(k));
+                    localStorage.setItem(`am_canvas_state_${canvasId}`, json);
+                } catch {
+                    // Still failed — just skip localStorage
+                    console.warn('[InlineCanvas] localStorage full, skipping state persistence');
+                }
             }
         };
         saveStateRef.current = () => saveState(canvas);
@@ -357,7 +378,7 @@ export default function InlineCanvas({
             }
         };
 
-        // Undo
+        // Undo — restore objects only (background stays)
         const handleUndo = () => {
             if (history.current.length <= 1) return;
             isRedoing.current = true;
@@ -365,26 +386,33 @@ export default function InlineCanvas({
             if (cur) redoStack.current.push(cur);
             const prev = history.current[history.current.length - 1];
             if (prev) {
-                canvas.loadFromJSON(JSON.parse(prev)).then(() => {
+                const data = JSON.parse(prev);
+                // Build a full canvas JSON but preserve current background
+                const bgJson = canvas.backgroundImage ? (canvas.backgroundImage as any).toObject() : null;
+                const fullJson = { version: '6.0.0', objects: data.objects || [], backgroundImage: bgJson };
+                canvas.loadFromJSON(fullJson).then(() => {
                     canvas.renderAll();
                     isRedoing.current = false;
                     exportToParent();
-                });
+                }).catch(() => { isRedoing.current = false; });
             } else { isRedoing.current = false; }
         };
 
-        // Redo
+        // Redo — restore objects only (background stays)
         const handleRedo = () => {
             if (!redoStack.current.length) return;
             isRedoing.current = true;
             const next = redoStack.current.pop();
             if (next) {
                 history.current.push(next);
-                canvas.loadFromJSON(JSON.parse(next)).then(() => {
+                const data = JSON.parse(next);
+                const bgJson = canvas.backgroundImage ? (canvas.backgroundImage as any).toObject() : null;
+                const fullJson = { version: '6.0.0', objects: data.objects || [], backgroundImage: bgJson };
+                canvas.loadFromJSON(fullJson).then(() => {
                     canvas.renderAll();
                     isRedoing.current = false;
                     exportToParent();
-                });
+                }).catch(() => { isRedoing.current = false; });
             } else { isRedoing.current = false; }
         };
 
@@ -731,7 +759,9 @@ export default function InlineCanvas({
                 const saved = localStorage.getItem(`am_canvas_state_${canvasId}`);
                 if (saved && saved !== 'undefined') {
                     try {
-                        await canvas.loadFromJSON(JSON.parse(saved));
+                        const savedData = JSON.parse(saved);
+                        // Convert to full JSON so fabric 6.x parses objects correctly
+                        await canvas.loadFromJSON({ version: '6.0.0', objects: savedData.objects || [] });
                         canvas.getObjects().forEach(obj => { obj.setCoords(); });
                     } catch { }
                 }
@@ -743,7 +773,9 @@ export default function InlineCanvas({
             canvas.renderAll();
 
             canvas.renderAll();
-            const initialState = JSON.stringify((canvas as any).toJSON(['selectable', 'evented', 'id', 'strokeDashArray']));
+            // Store initial state (objects only, to prevent background image storage)
+            const objects = canvas.getObjects().map((obj: any) => obj.toObject(['selectable', 'evented', 'id', 'strokeDashArray']));
+            const initialState = JSON.stringify({ objects });
             history.current = [initialState];
             lastSavedUrl.current = imageUrl;
         };
