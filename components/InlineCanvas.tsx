@@ -787,25 +787,30 @@ export default function InlineCanvas({
         if (!isSelectMode && !isAdjust) canvas.discardActiveObject();
 
         const zoom = canvas.getZoom();
-        canvas.getObjects().forEach(obj => {
-            obj.set({
-                selectable: isSelectMode,
-                evented: isSelectMode,
-                lockMovementX: !isSelectMode,
-                lockMovementY: !isSelectMode,
-                lockRotation: !isSelectMode,
-                lockScalingX: !isSelectMode,
-                lockScalingY: !isSelectMode,
-                transparentCorners: false,
-                borderColor: '#9333ea',
-                cornerSize: 12 / zoom,
-                padding: 8 / zoom,
-                cornerStyle: 'circle',
-                cornerColor: '#ffffff',
-                cornerStrokeColor: '#9333ea',
+        // Objects should ALWAYS be selectable/evented so users can click, move, resize, delete them.
+        // Only canvas.selection (rubber-band multi-select) is disabled for drawing tools.
+        // In adjust mode, __enterAdjustMode handles setting objects to non-interactive.
+        if (!isAdjust) {
+            canvas.getObjects().forEach(obj => {
+                obj.set({
+                    selectable: true,
+                    evented: true,
+                    lockMovementX: false,
+                    lockMovementY: false,
+                    lockRotation: false,
+                    lockScalingX: false,
+                    lockScalingY: false,
+                    transparentCorners: false,
+                    borderColor: '#9333ea',
+                    cornerSize: 12 / zoom,
+                    padding: 8 / zoom,
+                    cornerStyle: 'circle',
+                    cornerColor: '#ffffff',
+                    cornerStrokeColor: '#9333ea',
+                });
+                obj.setCoords();
             });
-            obj.setCoords();
-        });
+        }
 
         // カラー・strokeWidth・strokeStyle を選択中オブジェクトに適用
         if (isSelectMode && !isUpdatingFromCanvas.current) {
