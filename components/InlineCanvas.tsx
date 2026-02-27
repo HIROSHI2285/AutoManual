@@ -328,9 +328,8 @@ export default function InlineCanvas({
             // Skip in adjust mode — pan handler takes over
             if (activeToolRef.current === 'adjust') return;
             if (activeToolRef.current === 'select') return;
-            const target = opt.target;
-            const activeObj = canvas.getActiveObject();
-            if (activeObj && target === activeObj) return;
+            // If clicking on an existing object, don't create a new one
+            if (opt.target) return;
             const pointer = canvas.getPointer(opt.e);
             handleAddObject(activeToolRef.current, pointer.x, pointer.y);
         };

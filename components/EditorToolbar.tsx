@@ -115,7 +115,7 @@ export default function EditorToolbar({
 
                 <ToolButton
                     active={activeTool === 'adjust'}
-                    onClick={() => onToolChange('adjust')}
+                    onClick={() => onToolChange(activeTool === 'adjust' ? 'select' : 'adjust')}
                     icon={<AdjustIcon />}
                     title="Zoom / Pan"
                     hotkey="Z"
@@ -363,9 +363,9 @@ const HighlighterIcon = () => (
 
 const AdjustIcon = () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 11V6a2 2 0 00-4 0v5" />
-        <path d="M14 10V4a2 2 0 00-4 0v6" />
-        <path d="M10 10.5V6a2 2 0 00-4 0v8a6 6 0 0012 0v-4a2 2 0 00-4 0" />
+        <circle cx="11" cy="11" r="7" />
+        <path d="M21 21l-4.35-4.35" />
+        <path d="M11 8v6M8 11h6" />
     </svg>
 );
 
