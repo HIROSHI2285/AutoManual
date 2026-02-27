@@ -85,7 +85,7 @@ export default function InlineCanvas({
 
     // Expose internal functions to other effects
     const saveStateRef = useRef<(c?: Canvas) => void>(() => { });
-    const exportToParentRef = useRef<() => void>(() => { });
+    const exportToParentRef = useRef<(options?: { isAdjustCrop?: boolean }) => void>(() => { });
 
     // Refs を常に最新に保つ
     useEffect(() => {
@@ -170,14 +170,17 @@ export default function InlineCanvas({
 
         // エクスポート — debounced to prevent heavy toDataURL generation during dragging/scaling
         let exportTimer: NodeJS.Timeout;
-        const exportToParent = () => {
+        const exportToParent = (options?: { isAdjustCrop?: boolean }) => {
             clearTimeout(exportTimer);
             exportTimer = setTimeout(() => {
                 if (!canvas) return;
                 try {
                     const baseZoom = baseFitZoomRef.current;
                     const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
-                    const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
+                    const json: any = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
+                    if (options?.isAdjustCrop) {
+                        json.isAdjustCrop = true;
+                    }
                     lastSavedUrl.current = dataUrl;
                     onUpdateRef.current?.(dataUrl, json);
                 } catch (e) {
@@ -592,7 +595,7 @@ export default function InlineCanvas({
 
             // Save state and export
             saveStateRef.current(canvas);
-            setTimeout(() => exportToParentRef.current(), 50);
+            setTimeout(() => exportToParentRef.current({ isAdjustCrop: true }), 50);
         };
 
         // Bake and reset viewport helpers (used by tool-switch effect)

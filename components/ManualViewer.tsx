@@ -182,11 +182,19 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         if (!onUpdateManual) return;
         onUpdateManual(prev => ({
             ...prev,
-            steps: prev.steps.map((step, i) =>
-                i === index
-                    ? { ...step, screenshot: newImageUrl, originalUrl: newImageUrl, canvasData: newData || step.canvasData }
-                    : step
-            )
+            steps: prev.steps.map((step, i) => {
+                if (i !== index) return step;
+
+                const update: any = { ...step, screenshot: newImageUrl, canvasData: newData || step.canvasData };
+
+                // Only overwrite originalUrl if the canvas explicitly indicates a cropped/baked image (Adjust mode)
+                // Otherwise, preserve the clean original background to prevent "ghosting" of annotations.
+                if (newData?.isAdjustCrop) {
+                    update.originalUrl = newImageUrl;
+                }
+
+                return update;
+            })
         }));
     }, [onUpdateManual]);
 
