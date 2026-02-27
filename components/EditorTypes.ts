@@ -1,4 +1,4 @@
-export type ToolType = 'select' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'stamp' | 'highlight' | 'blur';
+export type ToolType = 'select' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'stamp' | 'highlight' | 'blur' | 'adjust';
 export type StrokeStyle = 'solid' | 'dashed';
 
 export interface EditorState {

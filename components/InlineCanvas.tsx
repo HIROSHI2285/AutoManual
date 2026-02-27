@@ -61,10 +61,9 @@ export default function InlineCanvas({
     // Zoom & Pan state
     const baseFitZoomRef = useRef(1);   // zoom set during loadContent to fit image
     const [userZoom, setUserZoom] = useState(1);   // additional user zoom on top of baseFit
-    const [isAdjustMode, setIsAdjustMode] = useState(false); // double-click toggle
     const isPanningRef = useRef(false);
     const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
-    const isAdjustModeRef = useRef(false); // mirror of isAdjustMode for event handlers
+    // isAdjustMode is now derived from activeTool === 'adjust' (no internal state)
 
     const activeToolRef = useRef(activeTool);
     const currentColorRef = useRef(currentColor);
@@ -327,7 +326,7 @@ export default function InlineCanvas({
         // マウスダウン
         const handleMouseDown = (opt: any) => {
             // Skip in adjust mode — pan handler takes over
-            if (isAdjustModeRef.current) return;
+            if (activeToolRef.current === 'adjust') return;
             if (activeToolRef.current === 'select') return;
             const target = opt.target;
             const activeObj = canvas.getActiveObject();
@@ -471,7 +470,7 @@ export default function InlineCanvas({
             setTimeout(() => { isApplyingPropRef.current = false; }, 150);
         };
 
-        // Force save — placeholder, re-registered after exitAdjustMode is defined
+        // Force save — placeholder, re-registered after bakeViewportToImage is defined
         let handleForceSave = () => exportToParent();
 
         // イベントバインド
@@ -576,69 +575,44 @@ export default function InlineCanvas({
             setTimeout(() => exportToParentRef.current(), 50);
         };
 
-        /** Enter adjust mode */
-        const enterAdjustMode = () => {
-            isAdjustModeRef.current = true;
-            setIsAdjustMode(true);
+        // Bake and reset viewport helpers (used by tool-switch effect)
+        (canvas as any).__bakeViewportToImage = bakeViewportToImage;
+        (canvas as any).__enterAdjustMode = () => {
             canvas.discardActiveObject();
             canvas.forEachObject(obj => obj.set({ evented: false, selectable: false }));
             canvas.selection = false;
             canvas.defaultCursor = 'grab';
             canvas.renderAll();
         };
-
-        /** Exit adjust mode */
-        const exitAdjustMode = async () => {
+        (canvas as any).__exitAdjustMode = async () => {
             const currentZoom = canvas.getZoom();
             const baseZoom = baseFitZoomRef.current;
             const vpt = canvas.viewportTransform!;
             const isZoomed = Math.abs(currentZoom - baseZoom) > 0.01;
             const isPanned = Math.abs(vpt[4]) > 2 || Math.abs(vpt[5]) > 2;
-
             if (isZoomed || isPanned) {
                 await bakeViewportToImage();
             }
-
-            isAdjustModeRef.current = false;
-            setIsAdjustMode(false);
             canvas.forEachObject(obj => obj.set({ evented: true, selectable: true }));
-            canvas.selection = activeToolRef.current === 'select';
+            canvas.selection = true;
             canvas.defaultCursor = 'default';
             canvas.renderAll();
         };
 
-        // Expose for UI buttons
-        (canvas as any).__enterAdjustMode = enterAdjustMode;
-        (canvas as any).__exitAdjustMode = exitAdjustMode;
-
-        // Now that exitAdjustMode is defined, override force-save to bake if needed
+        // Now that bake is defined, override force-save to bake if needed
         window.removeEventListener('am:force-save', handleForceSave);
         handleForceSave = async () => {
-            if (isAdjustModeRef.current) {
-                await exitAdjustMode(); // bake viewport into image, then export
+            if (activeToolRef.current === 'adjust') {
+                await (canvas as any).__exitAdjustMode(); // bake viewport into image, then export
             } else {
                 exportToParent();
             }
         };
         window.addEventListener('am:force-save', handleForceSave, { passive: true });
 
-        // Double-click toggle — only on empty canvas area + select tool
-        canvas.on('mouse:dblclick', (opt: any) => {
-            // If clicking on an object (e.g. text for editing), don't toggle adjust mode
-            if (opt.target) return;
-            // Only toggle from select tool (don't interrupt drawing)
-            if (!isAdjustModeRef.current && activeToolRef.current !== 'select') return;
-
-            if (isAdjustModeRef.current) {
-                exitAdjustMode();
-            } else {
-                enterAdjustMode();
-            }
-        });
-
         // Scroll wheel → zoom (only in adjust mode)
         canvas.on('mouse:wheel', (opt: any) => {
-            if (!isAdjustModeRef.current) return;
+            if (activeToolRef.current !== 'adjust') return;
             const e = opt.e as WheelEvent;
             e.preventDefault();
             e.stopPropagation();
@@ -658,7 +632,7 @@ export default function InlineCanvas({
 
         // Left-click drag → pan (only in adjust mode)
         canvas.on('mouse:down', (opt: any) => {
-            if (!isAdjustModeRef.current) return;
+            if (activeToolRef.current !== 'adjust') return;
             isPanningRef.current = true;
             lastPanPointRef.current = { x: opt.e.clientX, y: opt.e.clientY };
             canvas.setCursor('grabbing');
@@ -680,7 +654,7 @@ export default function InlineCanvas({
             if (isPanningRef.current) {
                 isPanningRef.current = false;
                 lastPanPointRef.current = null;
-                if (isAdjustModeRef.current) {
+                if (activeToolRef.current === 'adjust') {
                     canvas.setCursor('grab');
                 }
             }
@@ -793,18 +767,25 @@ export default function InlineCanvas({
         const canvas = fabricCanvasRef.current;
         if (!canvas) return;
 
+        const isAdjust = activeTool === 'adjust';
         const isSelectMode = activeTool === 'select';
-        canvas.selection = isSelectMode && !isAdjustMode;
-        canvas.defaultCursor = isAdjustMode ? 'grab' : (isSelectMode ? 'default' : 'crosshair');
+        canvas.selection = isSelectMode;
+        canvas.defaultCursor = isAdjust ? 'grab' : (isSelectMode ? 'default' : 'crosshair');
 
-        // Auto-exit adjust mode when switching to a drawing tool
-        if (!isSelectMode && isAdjustMode) {
+        // Enter/exit adjust mode based on tool
+        if (isAdjust) {
+            const enter = (canvas as any).__enterAdjustMode;
+            if (enter) enter();
+        } else {
+            // Exit adjust mode if we were in it
             const exit = (canvas as any).__exitAdjustMode;
-            if (exit) exit();
-            return; // will re-run after adjust mode state change
+            if (exit && (canvas as any)._wasAdjust) {
+                exit();
+            }
         }
+        (canvas as any)._wasAdjust = isAdjust;
 
-        if (!isSelectMode) canvas.discardActiveObject();
+        if (!isSelectMode && !isAdjust) canvas.discardActiveObject();
 
         const zoom = canvas.getZoom();
         canvas.getObjects().forEach(obj => {
@@ -883,7 +864,7 @@ export default function InlineCanvas({
         } else {
             canvas.requestRenderAll();
         }
-    }, [activeTool, currentColor, strokeWidth, strokeStyle, fontSize, stampCount, isAdjustMode]);
+    }, [activeTool, currentColor, strokeWidth, strokeStyle, fontSize, stampCount]);
 
     return (
         <div
@@ -933,50 +914,21 @@ export default function InlineCanvas({
             )}
 
             {/* Adjust Mode indicator & controls */}
-            {!compact && isCanvasReady && isAdjustMode && (
+            {!compact && isCanvasReady && activeTool === 'adjust' && (
                 <div className="absolute inset-0 z-20 pointer-events-none rounded-xl" style={{ border: '3px solid #3b82f6', boxShadow: '0 0 0 1px rgba(59,130,246,.3)' }}>
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-auto bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-2">
                         <span>📐 画像調整モード</span>
-                        <span className="opacity-70">スクロール=ズーム / ドラッグ=移動 / ダブルクリック=確定</span>
+                        <span className="opacity-70">スクロール=ズーム / ドラッグ=移動 / 他のツールで確定</span>
                     </div>
                 </div>
             )}
 
-            {/* Floating Zoom Controls — visible on hover (edit mode only) */}
-            {!compact && isCanvasReady && (
-                <div
-                    className={`absolute bottom-3 right-3 z-30 flex items-center gap-1 bg-slate-800/80 backdrop-blur-sm rounded-lg px-1.5 py-1 shadow-lg transition-opacity ${isAdjustMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                >
-                    {!isAdjustMode ? (
-                        <button
-                            className="h-7 px-3 flex items-center justify-center text-white hover:bg-slate-700 rounded text-xs font-bold gap-1"
-                            title="画像調整モードに入る（ダブルクリックでも可）"
-                            onClick={() => {
-                                const c = fabricCanvasRef.current;
-                                if (!c) return;
-                                (c as any).__enterAdjustMode?.();
-                            }}
-                        >
-                            🔍 調整
-                        </button>
-                    ) : (
-                        <>
-                            <span className="text-white text-xs font-mono tabular-nums px-1">
-                                {Math.round(userZoom * 100)}%
-                            </span>
-                            <button
-                                className="h-7 px-3 flex items-center justify-center text-white bg-blue-600 hover:bg-blue-700 rounded text-xs font-bold"
-                                title="確定して保存"
-                                onClick={() => {
-                                    const c = fabricCanvasRef.current;
-                                    if (!c) return;
-                                    (c as any).__exitAdjustMode?.();
-                                }}
-                            >
-                                ✓ 確定
-                            </button>
-                        </>
-                    )}
+            {/* Floating Zoom Controls — visible in adjust mode */}
+            {!compact && isCanvasReady && activeTool === 'adjust' && (
+                <div className="absolute bottom-3 right-3 z-30 flex items-center gap-1 bg-slate-800/80 backdrop-blur-sm rounded-lg px-1.5 py-1 shadow-lg">
+                    <span className="text-white text-xs font-mono tabular-nums px-1">
+                        {Math.round(userZoom * 100)}%
+                    </span>
                 </div>
             )}
         </div>

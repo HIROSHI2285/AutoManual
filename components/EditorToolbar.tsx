@@ -113,6 +113,16 @@ export default function EditorToolbar({
 
                 <Separator />
 
+                <ToolButton
+                    active={activeTool === 'adjust'}
+                    onClick={() => onToolChange('adjust')}
+                    icon={<AdjustIcon />}
+                    title="Zoom / Pan"
+                    hotkey="Z"
+                />
+
+                <Separator />
+
                 {/* Immediate Actions */}
                 <button
                     onClick={() => {
@@ -348,6 +358,14 @@ const HighlighterIcon = () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 11l-6 6v3h9l3-3" />
         <path d="M22 12l-4.6 4.6a2 2 0 01-2.8 0l-5.2-5.2a2 2 0 010-2.8L14 4" />
+    </svg>
+);
+
+const AdjustIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 11V6a2 2 0 00-4 0v5" />
+        <path d="M14 10V4a2 2 0 00-4 0v6" />
+        <path d="M10 10.5V6a2 2 0 00-4 0v8a6 6 0 0012 0v-4a2 2 0 00-4 0" />
     </svg>
 );
 
