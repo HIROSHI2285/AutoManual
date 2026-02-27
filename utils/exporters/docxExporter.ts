@@ -55,6 +55,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
 
     const isTwoCol = layout === 'two-column';
     const numCellWidth = 600;
+    const spacingDXA = 200; // 80から200（+約半角分）に増加
 
     /**
      * ステップの各パーツ（表題、詳細、画像）を個別に生成するヘルパー
@@ -84,7 +85,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     new TableCell({
                         verticalAlign: VerticalAlign.TOP, // 上揃え
                         width: { size: 100, type: WidthType.PERCENTAGE },
-                        margins: { left: 80 },
+                        margins: { left: spacingDXA }, // 間隔を200に設定
                         children: [new Paragraph({
                             keepNext: true, // 泣き別れ防止
                             children: [new TextRun({ text: step.action, bold: true, size: actionSize, font: RF, color: BLACK })]
@@ -95,7 +96,7 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         });
 
         const detailPara = new Paragraph({
-            indent: { left: numCellWidth + 80 },
+            indent: { left: numCellWidth + spacingDXA }, // 表題の間隔と合わせて調整
             spacing: { before: 100, after: 200 },
             keepNext: true, // 泣き別れ防止
             children: [new TextRun({ text: step.detail || "", size: detailSize, font: RF, color: BLACK })]
