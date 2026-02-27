@@ -168,18 +168,22 @@ export default function InlineCanvas({
         fabricCanvasRef.current = canvas;
         setTick(t => t + 1);
 
-        // エクスポート — always export at base fit zoom (viewport is reset before export)
+        // エクスポート — debounced to prevent heavy toDataURL generation during dragging/scaling
+        let exportTimer: NodeJS.Timeout;
         const exportToParent = () => {
-            if (!canvas) return;
-            try {
-                const baseZoom = baseFitZoomRef.current;
-                const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
-                const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
-                lastSavedUrl.current = dataUrl;
-                onUpdateRef.current?.(dataUrl, json);
-            } catch (e) {
-                console.warn('[InlineCanvas] Export skipped:', (e as Error).message);
-            }
+            clearTimeout(exportTimer);
+            exportTimer = setTimeout(() => {
+                if (!canvas) return;
+                try {
+                    const baseZoom = baseFitZoomRef.current;
+                    const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
+                    const json = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
+                    lastSavedUrl.current = dataUrl;
+                    onUpdateRef.current?.(dataUrl, json);
+                } catch (e) {
+                    console.warn('[InlineCanvas] Export skipped:', (e as Error).message);
+                }
+            }, 300);
         };
         exportToParentRef.current = exportToParent;
 
@@ -358,10 +362,9 @@ export default function InlineCanvas({
         // キーダウン
         const handleKeyDown = (e: KeyboardEvent) => {
             const activeObj = canvas.getActiveObject();
-            if (activeObj && (activeObj as any).isEditing) {
-                if ((activeObj as any).hiddenTextarea) (activeObj as any).hiddenTextarea.focus();
-                return;
-            }
+            // テキスト入力中は完全にイベントをブロック（Delete誤動作防止）
+            if (activeObj && (activeObj as any).isEditing) return;
+
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 const tag = (document.activeElement?.tagName || '').toUpperCase();
                 const inside = containerRef.current?.contains(document.activeElement);
@@ -481,19 +484,9 @@ export default function InlineCanvas({
 
             console.log(`[InlineCanvas] am:fontsize — DONE: fontSize=${textObj.fontSize}`);
 
-            // 履歴保存
-            // 背景画像を含めないようにしてサイズを削減
-            const json = JSON.stringify(
-                (currentCanvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform'])
-            );
-            history.current.push(json);
-            redoStack.current = [];
-            try {
-                localStorage.setItem(`am_canvas_state_${canvasId}`, json);
-            } catch (e) {
-                console.warn('[InlineCanvas] Failed to save state (FontSize) to localStorage:', e);
-            }
-            setTimeout(() => exportToParent(), 10);
+            // 履歴保存 (quota-safe)
+            saveState(currentCanvas);
+            exportToParent();
             setTimeout(() => { isApplyingPropRef.current = false; }, 150);
         };
 
@@ -894,8 +887,7 @@ export default function InlineCanvas({
             if (changed) {
                 canvas.requestRenderAll();
                 saveStateRef.current(canvas);
-                if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-                saveTimeoutRef.current = setTimeout(() => exportToParentRef.current(), 500);
+                exportToParentRef.current();
             }
         } else {
             canvas.requestRenderAll();
