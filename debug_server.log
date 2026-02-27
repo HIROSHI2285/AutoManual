@@ -2392,3 +2392,20 @@ Stack: TypeError: fetch failed
     "box_2d": [370, 100, 400, 250...
 [2026-02-26T21:42:14.189Z] Successfully parsed 56 steps; after dedup: 56
 [2026-02-26T21:42:14.194Z] POST /api/analyze-video completed successfully
+[2026-02-27T01:53:36.301Z] POST /api/analyze-video started
+[2026-02-27T01:53:36.337Z] Received file: proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 4435615
+[2026-02-27T01:53:36.351Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1772157216347_proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-02-27T01:53:36.352Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-02-27T01:53:36.355Z] Starting Resumable Upload to Gemini...
+[2026-02-27T01:53:37.015Z] Upload session initiated. URL obtained.
+[2026-02-27T01:53:39.557Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/ry94zgihsbdv (files/ry94zgihsbdv)
+[2026-02-27T01:53:39.561Z] Processing video...
+[2026-02-27T01:53:41.876Z] Processing video...
+[2026-02-27T01:53:44.105Z] Video Ready. Generating content...
+[2026-02-27T01:54:01.363Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します。",
+    "box_2d": [65, 99, ...
+[2026-02-27T01:54:03.875Z] Successfully parsed 6 steps; after dedup: 6
+[2026-02-27T01:54:03.884Z] POST /api/analyze-video completed successfully

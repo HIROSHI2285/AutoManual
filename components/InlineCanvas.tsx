@@ -326,6 +326,8 @@ export default function InlineCanvas({
 
         // マウスダウン
         const handleMouseDown = (opt: any) => {
+            // Skip in adjust mode — pan handler takes over
+            if (isAdjustModeRef.current) return;
             if (activeToolRef.current === 'select') return;
             const target = opt.target;
             const activeObj = canvas.getActiveObject();
@@ -620,8 +622,13 @@ export default function InlineCanvas({
         };
         window.addEventListener('am:force-save', handleForceSave, { passive: true });
 
-        // Double-click toggle
-        canvas.on('mouse:dblclick', () => {
+        // Double-click toggle — only on empty canvas area + select tool
+        canvas.on('mouse:dblclick', (opt: any) => {
+            // If clicking on an object (e.g. text for editing), don't toggle adjust mode
+            if (opt.target) return;
+            // Only toggle from select tool (don't interrupt drawing)
+            if (!isAdjustModeRef.current && activeToolRef.current !== 'select') return;
+
             if (isAdjustModeRef.current) {
                 exitAdjustMode();
             } else {
@@ -787,8 +794,15 @@ export default function InlineCanvas({
         if (!canvas) return;
 
         const isSelectMode = activeTool === 'select';
-        canvas.selection = isSelectMode;
-        canvas.defaultCursor = isSelectMode ? 'default' : 'crosshair';
+        canvas.selection = isSelectMode && !isAdjustMode;
+        canvas.defaultCursor = isAdjustMode ? 'grab' : (isSelectMode ? 'default' : 'crosshair');
+
+        // Auto-exit adjust mode when switching to a drawing tool
+        if (!isSelectMode && isAdjustMode) {
+            const exit = (canvas as any).__exitAdjustMode;
+            if (exit) exit();
+            return; // will re-run after adjust mode state change
+        }
 
         if (!isSelectMode) canvas.discardActiveObject();
 
@@ -869,7 +883,7 @@ export default function InlineCanvas({
         } else {
             canvas.requestRenderAll();
         }
-    }, [activeTool, currentColor, strokeWidth, strokeStyle, fontSize, stampCount]);
+    }, [activeTool, currentColor, strokeWidth, strokeStyle, fontSize, stampCount, isAdjustMode]);
 
     return (
         <div
