@@ -21,6 +21,7 @@ export interface ManualStep {
     originalUrl?: string; // Original screenshot without annotations (for clean editing)
     canvasData?: any; // Fabric.js JSON data - For re-editability
     uid?: string; // Stable unique ID - survives deletion/renumbering
+    videoIndex?: number; // Tracks which video this step belongs to
 }
 
 export interface ManualData {
@@ -181,12 +182,12 @@ export default function Home() {
                             // The user requested that the full uncropped image (seen in Edit) is used everywhere
                             let displayFrame = frameData;
 
-                            // Calculate global step number based on original sorted array index
+                            // Calculate step number based on the current video's original sorted array index
                             const originalIndex = i + batchIndex;
-                            const globalStepNumber = finalSteps.length + originalIndex + 1;
+                            const videoStepNumber = originalIndex + 1;
 
                             step.processedData = {
-                                stepNumber: globalStepNumber,
+                                stepNumber: videoStepNumber,
                                 action: step.action,
                                 detail: step.reason || step.action,
                                 timestamp: step.timestamp,
@@ -194,7 +195,8 @@ export default function Home() {
                                 label: step.label,
                                 screenshot: displayFrame,
                                 originalUrl: frameData,
-                                uid: Math.random().toString(36).substring(2, 11)
+                                uid: Math.random().toString(36).substring(2, 11),
+                                videoIndex: videoIndex
                             };
 
                         } catch (err) {

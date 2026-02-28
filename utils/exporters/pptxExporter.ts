@@ -32,7 +32,7 @@ function createStepNumberImage(number: number): string {
     ctx.font = 'bold 72px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(number.toString(), size / 2, size / 2 + 4); 
+    ctx.fillText(number.toString(), size / 2, size / 2 + 4);
 
     return canvas.toDataURL('image/png');
 }
@@ -67,15 +67,31 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     overviewSlide.addText('■ DOCUMENT OVERVIEW', { x: 1.2, y: 1.5, w: 5, h: 0.4, fontSize: 11, color: NAVY, bold: true, fontFace: FONT_FACE });
     overviewSlide.addText(manual.overview, { x: 1.2, y: 2.0, w: 9.3, h: 4.2, fontSize: 11, color: SLATE_600, fontFace: FONT_FACE, valign: 'top', breakLine: true, lineSpacing: 22 });
 
-    for (let i = 0; i < steps.length; (isTwoCol ? i += 2 : i++)) {
-        const slide = pptx.addSlide();
-        const pageNum = (isTwoCol ? Math.floor(i / 2) + 2 : i + 2);
-        addHeaderFooter(slide, pptx, manual.title, pageNum);
-        
-        await addStepToSlide(slide, pptx, steps[i], (isTwoCol ? 0.7 : 1.2), isTwoCol);
-        if (isTwoCol && steps[i + 1]) {
-            await addStepToSlide(slide, pptx, steps[i + 1], 6.1, true);
+    let currentVideoIndex = 0;
+    let slide: any = null;
+    let itemsOnSlide = 0;
+    let pageNum = 1;
+
+    for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+
+        // 動画が変わるか、現在のスライドがいっぱいになったら新しいスライドを作成
+        const isNewVideo = i > 0 && step.videoIndex !== currentVideoIndex;
+        if (isNewVideo) {
+            currentVideoIndex = step.videoIndex || 0;
         }
+
+        const maxItems = isTwoCol ? 2 : 1;
+        if (!slide || itemsOnSlide >= maxItems || isNewVideo) {
+            slide = pptx.addSlide();
+            pageNum++;
+            addHeaderFooter(slide, pptx, manual.title, pageNum);
+            itemsOnSlide = 0;
+        }
+
+        const xPos = isTwoCol && itemsOnSlide === 1 ? 6.1 : 0.7;
+        await addStepToSlide(slide, pptx, step, xPos, isTwoCol);
+        itemsOnSlide++;
     }
 
     await pptx.writeFile({ fileName: `${safeTitle}.pptx` });
@@ -115,11 +131,11 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
         if (isTwoCol) {
             if (isLandscape) {
                 // ナンバリングと重ならないよう、最大幅を4.8に調整（5.1から微減）
-                finalW = 4.8; 
+                finalW = 4.8;
                 finalH = 3.3;
             } else {
                 // 縦画像：大きく表示しつつ「縦4:横3」を維持
-                finalH = 4.2; 
+                finalH = 4.2;
                 finalW = finalH * (3 / 4);
             }
             imgY = 3.1;
@@ -129,7 +145,7 @@ async function addStepToSlide(slide: any, pptx: any, step: any, xPos: number, is
                 finalW = 8.5;
                 finalH = 4.0;
             } else {
-                finalH = 4.8; 
+                finalH = 4.8;
                 finalW = finalH * (3 / 4);
             }
             imgY = 2.6;

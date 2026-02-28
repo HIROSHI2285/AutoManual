@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ManualData } from '@/app/page';
+import { ManualData, ManualStep } from '@/app/page';
 import CopyButton from './CopyButton';
 import ExportButton from './ExportButton';
 import EditorToolbar from './EditorToolbar';
@@ -9,6 +9,21 @@ import ManualStepItem from './ManualStepItem';
 import EditStepRow from './EditStepRow';
 import { ToolType, EditorState, StrokeStyle } from './EditorTypes';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+
+// 再ナンバリング用ヘルパー関数を追加
+const renumberStepsByVideo = (steps: ManualStep[]) => {
+    let currentVid = -1;
+    let currentNum = 0;
+    return steps.map(s => {
+        if (s.videoIndex !== currentVid) {
+            currentVid = s.videoIndex || 0; // Use 0 if undefined for older data compatibility
+            currentNum = 1;
+        } else {
+            currentNum++;
+        }
+        return { ...s, stepNumber: currentNum };
+    });
+};
 
 interface ManualViewerProps {
     manual: ManualData;
@@ -219,12 +234,10 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             }
             localStorage.removeItem(`am_canvas_state_step-${deletedStep.stepNumber}-${index}`);
 
-            const newSteps = prev.steps
-                .filter((_, i) => i !== index)
-                .map((step, i) => ({ ...step, stepNumber: i + 1 }));
+            const newSteps = prev.steps.filter((_, i) => i !== index);
 
             setStampCount(1);
-            return { ...prev, steps: newSteps };
+            return { ...prev, steps: renumberStepsByVideo(newSteps) };
         });
     }, [onUpdateManual]);
 
@@ -240,8 +253,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             const reordered = Array.from(prev.steps);
             const [removed] = reordered.splice(result.source.index, 1);
             reordered.splice(result.destination!.index, 0, removed);
-            const renumbered = reordered.map((step, i) => ({ ...step, stepNumber: i + 1 }));
-            return { ...prev, steps: renumbered };
+            return { ...prev, steps: renumberStepsByVideo(reordered) };
         });
     }, [onUpdateManual]);
 
@@ -262,8 +274,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     const temp = newSteps[prev];
                     newSteps[prev] = newSteps[clickedIndex];
                     newSteps[clickedIndex] = temp;
-                    const renumbered = newSteps.map((step, i) => ({ ...step, stepNumber: i + 1 }));
-                    return { ...cur, steps: renumbered };
+                    return { ...cur, steps: renumberStepsByVideo(newSteps) };
                 });
                 return null;
             }
@@ -451,12 +462,13 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                                 localStorage.removeItem(`am_canvas_state_step-${step.stepNumber}-${i}`);
                                             }
                                         });
-                                        onUpdateManual(prev => ({
-                                            ...prev,
-                                            steps: prev.steps
-                                                .filter(s => !checkedForDelete.has(s.uid || ''))
-                                                .map((s, i) => ({ ...s, stepNumber: i + 1 }))
-                                        }));
+                                        onUpdateManual(prev => {
+                                            const filtered = prev.steps.filter(s => !checkedForDelete.has(s.uid || ''));
+                                            return {
+                                                ...prev,
+                                                steps: renumberStepsByVideo(filtered)
+                                            }
+                                        });
                                         setCheckedForDelete(new Set());
                                         setSelectedSwapIndex(null);
                                     }}

@@ -52,8 +52,18 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
   const isTwoCol = layout === 'two-column';
 
   let stepsHtml = '';
+  let currentVideoIndex = 0; // 動画IDを追跡
+
   for (let i = 0; i < manual.steps.length; i++) {
     const step = manual.steps[i];
+
+    // 動画が切り替わったら改ページ用スタイルを適用
+    const needsPageBreak = i > 0 && step.videoIndex !== currentVideoIndex;
+    if (needsPageBreak) {
+      currentVideoIndex = step.videoIndex || 0;
+    }
+
+    const pageBreakStyle = needsPageBreak ? 'style="page-break-before: always; margin-top: 20mm;"' : '';
 
     let initialImgStyle = '';
     if (step.screenshot) {
@@ -105,7 +115,7 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
                           ${nextStep.screenshot ? `<div class="img-box"><img src="${nextStep.screenshot}" style="${nextImgStyle}" /></div>` : ''}
           `;
         }
-        stepsHtml += `<div class="step-row">
+        stepsHtml += `<div class="step-row" ${pageBreakStyle}>
                     <div class="step-card">${stepHtml}</div>
                     <div class="step-card" style="${nextStep ? '' : 'visibility:hidden'}">
                         ${nextStepHtmlContent}
@@ -113,7 +123,7 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
                 </div>`;
       }
     } else {
-      stepsHtml += `<div class="step-row" style="page-break-inside: avoid;"><div class="step-card">${stepHtml}</div></div>`;
+      stepsHtml += `<div class="step-row" ${pageBreakStyle} style="page-break-inside: avoid;"><div class="step-card">${stepHtml}</div></div>`;
     }
   }
 

@@ -158,10 +158,21 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
         }), new Paragraph({ spacing: { after: 600 } }));
     }
 
+    let currentVideoIndex = 0; // 現在処理中の動画IDを追跡
+
     if (isTwoCol) {
         for (let i = 0; i < manual.steps.length; i += 2) {
-            const stepL = await getStepParts(manual.steps[i]);
-            const stepR = manual.steps[i + 1] ? await getStepParts(manual.steps[i + 1]) : null;
+            const stepL = manual.steps[i];
+            const stepR = manual.steps[i + 1] || null;
+
+            // 動画が切り替わったら改ページを挿入 (左側のステップ基準)
+            if (i > 0 && stepL.videoIndex !== currentVideoIndex) {
+                contentChildren.push(new Paragraph({ children: [], pageBreakBefore: true }));
+                currentVideoIndex = stepL.videoIndex || 0;
+            }
+
+            const stepLParts = await getStepParts(stepL);
+            const stepRParts = stepR ? await getStepParts(stepR) : null;
 
             // 左右で高さを揃えるため、表題、詳細、画像を別々の行にする
             contentChildren.push(new Table({
@@ -172,31 +183,39 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     new TableRow({
                         cantSplit: true, // 行の分割防止
                         children: [
-                            new TableCell({ children: stepL.title, width: { size: 50, type: WidthType.PERCENTAGE } }),
-                            new TableCell({ children: stepR ? stepR.title : [], width: { size: 50, type: WidthType.PERCENTAGE } })
+                            new TableCell({ children: stepLParts.title, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                            new TableCell({ children: stepRParts ? stepRParts.title : [], width: { size: 50, type: WidthType.PERCENTAGE } })
                         ]
                     }),
                     // 行2: 詳細説明
                     new TableRow({
                         cantSplit: true, // 行の分割防止
                         children: [
-                            new TableCell({ children: stepL.detail, width: { size: 50, type: WidthType.PERCENTAGE } }),
-                            new TableCell({ children: stepR ? stepR.detail : [], width: { size: 50, type: WidthType.PERCENTAGE } })
+                            new TableCell({ children: stepLParts.detail, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                            new TableCell({ children: stepRParts ? stepRParts.detail : [], width: { size: 50, type: WidthType.PERCENTAGE } })
                         ]
                     }),
                     // 行3: 画像
                     new TableRow({
                         cantSplit: true, // 行の分割防止
                         children: [
-                            new TableCell({ children: stepL.image, width: { size: 50, type: WidthType.PERCENTAGE } }),
-                            new TableCell({ children: stepR ? stepR.image : [], width: { size: 50, type: WidthType.PERCENTAGE } })
+                            new TableCell({ children: stepLParts.image, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                            new TableCell({ children: stepRParts ? stepRParts.image : [], width: { size: 50, type: WidthType.PERCENTAGE } })
                         ]
                     })
                 ]
             }), new Paragraph({ spacing: { after: 400 } }));
         }
     } else {
-        for (const step of manual.steps) {
+        for (let i = 0; i < manual.steps.length; i++) {
+            const step = manual.steps[i];
+
+            // 動画が切り替わったら改ページ
+            if (i > 0 && step.videoIndex !== currentVideoIndex) {
+                contentChildren.push(new Paragraph({ children: [], pageBreakBefore: true }));
+                currentVideoIndex = step.videoIndex || 0;
+            }
+
             const parts = await getStepParts(step);
             contentChildren.push(new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
