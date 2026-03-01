@@ -85,7 +85,7 @@ export default function InlineCanvas({
 
     // Expose internal functions to other effects
     const saveStateRef = useRef<(c?: Canvas) => void>(() => { });
-    const exportToParentRef = useRef<(options?: { isAdjustCrop?: boolean }) => void>(() => { });
+    const exportToParentRef = useRef<(options?: { isAdjustCrop?: boolean, isBaking?: boolean }) => void>(() => { });
 
     // Refs を常に最新に保つ
     useEffect(() => {
@@ -170,17 +170,20 @@ export default function InlineCanvas({
 
         // エクスポート — debounced to prevent heavy toDataURL generation during dragging/scaling
         let exportTimer: NodeJS.Timeout;
-        const exportToParent = (options?: { isAdjustCrop?: boolean }) => {
+        const exportToParent = (options?: { isAdjustCrop?: boolean, isBaking?: boolean }) => {
             clearTimeout(exportTimer);
             exportTimer = setTimeout(() => {
                 if (!canvas) return;
                 try {
-                    const baseZoom = baseFitZoomRef.current;
-                    const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 / baseZoom });
+                    const currentZoom = canvas.getZoom();
+                    const multiplier = 1 / currentZoom;
+                    const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier });
                     const json: any = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
-                    if (options?.isAdjustCrop) {
+
+                    if (options?.isAdjustCrop || options?.isBaking || activeToolRef.current === 'adjust') {
                         json.isAdjustCrop = true;
                     }
+
                     lastSavedUrl.current = dataUrl;
                     onUpdateRef.current?.(dataUrl, json);
                 } catch (e) {
@@ -493,8 +496,10 @@ export default function InlineCanvas({
             setTimeout(() => { isApplyingPropRef.current = false; }, 150);
         };
 
-        // Force save — placeholder, re-registered after bakeViewportToImage is defined
-        let handleForceSave = () => exportToParent();
+        // Force save
+        const handleForceSave = () => {
+            exportToParentRef.current({ isBaking: activeToolRef.current === 'adjust' });
+        };
 
         // イベントバインド
         canvas.on('selection:created', handleSelection);
@@ -527,110 +532,6 @@ export default function InlineCanvas({
             }
         }, { passive: true });
         window.addEventListener('am:fontsize', handleFontSizeEvent, { passive: true });
-        window.addEventListener('am:force-save', handleForceSave, { passive: true });
-
-        // ────────── Double-Click Toggle Zoom/Pan Mode ──────────
-
-        /** Bake visible viewport into background image, reset viewport, then export */
-        const bakeViewportToImage = async () => {
-            const bgImg = canvas.backgroundImage;
-            if (!bgImg) return;
-
-            // Get current viewport transform
-            const vpt = canvas.viewportTransform!;
-            const currentZoom = canvas.getZoom();
-            const baseZoom = baseFitZoomRef.current;
-
-            // Calculate what portion of the original image is visible
-            // vpt = [scaleX, 0, 0, scaleY, translateX, translateY]
-            const panX = -vpt[4] / currentZoom; // in image coordinates
-            const panY = -vpt[5] / currentZoom;
-            const visibleW = (canvas.width ?? 600) / currentZoom;
-            const visibleH = (canvas.height ?? 400) / currentZoom;
-
-            // Create a new image from the visible portion
-            const origImg = (bgImg as any).getElement() as HTMLImageElement;
-            const srcW = origImg.naturalWidth;
-            const srcH = origImg.naturalHeight;
-
-            // Clamp source rect to image bounds
-            const sx = Math.max(0, Math.min(panX, srcW));
-            const sy = Math.max(0, Math.min(panY, srcH));
-            const sw = Math.min(visibleW, srcW - sx);
-            const sh = Math.min(visibleH, srcH - sy);
-
-            if (sw <= 0 || sh <= 0) return;
-
-            // Render visible portion to a new canvas at original resolution
-            const cropCanvas = document.createElement('canvas');
-            cropCanvas.width = sw;
-            cropCanvas.height = sh;
-            const cropCtx = cropCanvas.getContext('2d');
-            if (!cropCtx) return;
-            cropCtx.drawImage(origImg, sx, sy, sw, sh, 0, 0, sw, sh);
-
-            // Create new FabricImage from cropped canvas
-            const croppedDataUrl = cropCanvas.toDataURL('image/png');
-            const newBgImg = await FabricImage.fromURL(croppedDataUrl, { crossOrigin: 'anonymous' });
-            newBgImg.set({ originX: 'left', originY: 'top', left: 0, top: 0, scaleX: 1, scaleY: 1, selectable: false, evented: false });
-
-            // Remove all existing annotation objects (they don't make sense after crop)
-            canvas.getObjects().forEach(obj => canvas.remove(obj));
-
-            // Recalculate fit zoom for new image size
-            const newW = sw;
-            const newH = sh;
-            const containerWidth = containerRef.current?.getBoundingClientRect().width || 768;
-            const newZoom = Math.min(containerWidth, isPortrait ? 576 : 768) / newW;
-
-            canvas.setWidth(newW * newZoom);
-            canvas.setHeight(newH * newZoom);
-            canvas.setZoom(newZoom);
-            canvas.setViewportTransform([newZoom, 0, 0, newZoom, 0, 0]);
-            baseFitZoomRef.current = newZoom;
-            canvas.backgroundImage = newBgImg;
-            canvas.renderAll();
-
-            setUserZoom(1);
-
-            // Save state and export
-            saveStateRef.current(canvas);
-            setTimeout(() => exportToParentRef.current({ isAdjustCrop: true }), 50);
-        };
-
-        // Bake and reset viewport helpers (used by tool-switch effect)
-        (canvas as any).__bakeViewportToImage = bakeViewportToImage;
-        (canvas as any).__enterAdjustMode = () => {
-            canvas.discardActiveObject();
-            canvas.forEachObject(obj => obj.set({ evented: false, selectable: false }));
-            canvas.selection = false;
-            canvas.defaultCursor = 'grab';
-            canvas.renderAll();
-        };
-        (canvas as any).__exitAdjustMode = async () => {
-            const currentZoom = canvas.getZoom();
-            const baseZoom = baseFitZoomRef.current;
-            const vpt = canvas.viewportTransform!;
-            const isZoomed = Math.abs(currentZoom - baseZoom) > 0.01;
-            const isPanned = Math.abs(vpt[4]) > 2 || Math.abs(vpt[5]) > 2;
-            if (isZoomed || isPanned) {
-                await bakeViewportToImage();
-            }
-            canvas.forEachObject(obj => obj.set({ evented: true, selectable: true }));
-            canvas.selection = true;
-            canvas.defaultCursor = 'default';
-            canvas.renderAll();
-        };
-
-        // Now that bake is defined, override force-save to bake if needed
-        window.removeEventListener('am:force-save', handleForceSave);
-        handleForceSave = async () => {
-            if (activeToolRef.current === 'adjust') {
-                await (canvas as any).__exitAdjustMode(); // bake viewport into image, then export
-            } else {
-                exportToParent();
-            }
-        };
         window.addEventListener('am:force-save', handleForceSave, { passive: true });
 
         // Scroll wheel → zoom (only in adjust mode)
@@ -794,6 +695,10 @@ export default function InlineCanvas({
         const canvas = fabricCanvasRef.current;
         if (!canvas) return;
 
+        if (activeTool !== 'adjust') {
+            exportToParentRef.current({ isBaking: true });
+        }
+
         const isAdjust = activeTool === 'adjust';
         const isSelectMode = activeTool === 'select';
         canvas.selection = isSelectMode;
@@ -801,14 +706,10 @@ export default function InlineCanvas({
 
         // Enter/exit adjust mode based on tool
         if (isAdjust) {
-            const enter = (canvas as any).__enterAdjustMode;
-            if (enter) enter();
+            canvas.discardActiveObject();
+            canvas.forEachObject(obj => obj.set({ evented: false, selectable: false }));
         } else {
-            // Exit adjust mode if we were in it
-            const exit = (canvas as any).__exitAdjustMode;
-            if (exit && (canvas as any)._wasAdjust) {
-                exit();
-            }
+            canvas.forEachObject(obj => obj.set({ evented: true, selectable: true }));
         }
         (canvas as any)._wasAdjust = isAdjust;
 
