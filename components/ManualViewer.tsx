@@ -169,7 +169,9 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         setSelectedSwapIndex(null);
         setBackupManual(null);
         // Restore scroll position after layout re-render
-        requestAnimationFrame(() => window.scrollTo(0, scrollY));
+        requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollY, behavior: 'instant' });
+        });
     };
 
     const handleSaveAndExit = () => {
@@ -182,8 +184,12 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             setIsReorderMode(false);
             setSelectedSwapIndex(null);
             setBackupManual(null);
+            // setIsTwoColumn(savedTwoColumnRef.current); // isTwoColumn has been removed previously
+
             // Restore scroll position after layout re-render
-            requestAnimationFrame(() => window.scrollTo(0, scrollY));
+            requestAnimationFrame(() => {
+                window.scrollTo({ top: scrollY, behavior: 'instant' });
+            });
         }, 300);
     };
 
