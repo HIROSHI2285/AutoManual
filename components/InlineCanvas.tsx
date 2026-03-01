@@ -82,6 +82,7 @@ export default function InlineCanvas({
     const history = useRef<string[]>([]);
     const redoStack = useRef<string[]>([]);
     const isRedoing = useRef(false);
+    const prevToolRef = useRef(activeTool);
 
     // Expose internal functions to other effects
     const saveStateRef = useRef<(c?: Canvas) => void>(() => { });
@@ -177,10 +178,27 @@ export default function InlineCanvas({
                 try {
                     const currentZoom = canvas.getZoom();
                     const multiplier = 1 / currentZoom;
+                    const isBakingBackground = options?.isBaking || activeToolRef.current === 'adjust' || options?.isAdjustCrop;
+
+                    // 背景を確定（Bake）する場合、一時的に枠線やテキストを隠す
+                    if (isBakingBackground) {
+                        canvas.getObjects().forEach(obj => {
+                            if (obj !== canvas.backgroundImage) obj.set('visible', false);
+                        });
+                        canvas.renderAll();
+                    }
+
                     const dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier });
+
+                    // 非表示にしたオブジェクトを元に戻す
+                    if (isBakingBackground) {
+                        canvas.getObjects().forEach(obj => obj.set('visible', true));
+                        canvas.renderAll();
+                    }
+
                     const json: any = (canvas as any).toJSON(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
 
-                    if (options?.isAdjustCrop || options?.isBaking || activeToolRef.current === 'adjust') {
+                    if (isBakingBackground) {
                         json.isAdjustCrop = true;
                     }
 
@@ -695,9 +713,10 @@ export default function InlineCanvas({
         const canvas = fabricCanvasRef.current;
         if (!canvas) return;
 
-        if (activeTool !== 'adjust') {
+        if (prevToolRef.current === 'adjust' && activeTool !== 'adjust') {
             exportToParentRef.current({ isBaking: true });
         }
+        prevToolRef.current = activeTool;
 
         const isAdjust = activeTool === 'adjust';
         const isSelectMode = activeTool === 'select';
