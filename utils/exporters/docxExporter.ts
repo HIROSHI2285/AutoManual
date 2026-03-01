@@ -108,30 +108,42 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
                 const { data, type } = dataUrlToUint8Array(step.screenshot);
                 const isLandscape = (dims.width || 4) >= (dims.height || 3);
 
-                // カラム内での画像サイズ計算（左右の重なりを防止）
-                const maxW_DXA = isTwoCol ? (CONTENT_WIDTH_DXA * 0.46) : CONTENT_WIDTH_DXA;
-                const baseW = isTwoCol ? (4.2 * 96) : (8.5 * 96);
-                const baseH = isTwoCol ? (3.3 * 96) : (4.0 * 96);
+                // PDF/PPTに合わせた固定比率(3:4)の定義
+                const FIXED_RATIO = 0.75;
 
-                let finalW = baseW;
-                let finalH = baseH;
+                let finalW, finalH;
 
-                if (!isLandscape) {
-                    finalH = isTwoCol ? (4.2 * 96) : (4.8 * 96);
-                    finalW = finalH * (dims.width / (dims.height || 1));
-                    if (isTwoCol && finalW * 15 > maxW_DXA) {
-                        finalW = maxW_DXA / 15;
+                if (isTwoCol) {
+                    if (isLandscape) {
+                        // 横長画像：従来どおりカラム幅に合わせて調整
+                        const maxW_DXA = CONTENT_WIDTH_DXA * 0.46;
+                        finalW = Math.min(4.2 * 96, maxW_DXA / 15);
                         finalH = finalW / (dims.width / (dims.height || 1));
+                    } else {
+                        // 縦長画像：PDF(65mm)/PPT(4.2inch)に合わせ、3:4比率で固定
+                        finalH = 4.2 * 96;
+                        finalW = finalH * FIXED_RATIO;
                     }
                 } else {
-                    finalW = Math.min(baseW, maxW_DXA / 15);
-                    finalH = finalW / (dims.width / (dims.height || 1));
+                    if (isLandscape) {
+                        // 1列横長：最大幅を維持
+                        finalW = Math.min(8.5 * 96, CONTENT_WIDTH_DXA / 15);
+                        finalH = finalW / (dims.width / (dims.height || 1));
+                    } else {
+                        // 1列縦長：PDF(95mm)/PPT(4.8inch)に合わせ、3:4比率で固定
+                        finalH = 4.8 * 96;
+                        finalW = finalH * FIXED_RATIO;
+                    }
                 }
 
                 imagePara = new Paragraph({
                     alignment: AlignmentType.CENTER,
                     spacing: { before: 500, after: 400 },
-                    children: [new ImageRun({ data, transformation: { width: Math.round(finalW), height: Math.round(finalH) }, type })]
+                    children: [new ImageRun({
+                        data,
+                        transformation: { width: Math.round(finalW), height: Math.round(finalH) },
+                        type
+                    })]
                 });
             } catch (e) { console.error(e); }
         }
