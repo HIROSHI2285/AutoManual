@@ -22,6 +22,7 @@ export interface ManualStep {
     canvasData?: any; // Fabric.js JSON data - For re-editability
     uid?: string; // Stable unique ID - survives deletion/renumbering
     videoIndex?: number; // Tracks which video this step belongs to
+    layout?: 'single' | 'two-column'; // Video-specific layout preference
 }
 
 export interface ManualData {
@@ -196,7 +197,8 @@ export default function Home() {
                                 screenshot: displayFrame,
                                 originalUrl: frameData,
                                 uid: Math.random().toString(36).substring(2, 11),
-                                videoIndex: videoIndex
+                                videoIndex: videoIndex,
+                                layout: 'single'
                             };
 
                         } catch (err) {

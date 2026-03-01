@@ -1,0 +1,78 @@
+﻿
+> automanual@0.1.0 build
+> next build
+
+  笆ｲ Next.js 14.2.3
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+node.exe : 
+発生場所 行:1 文字:1
++ & "C:\Program Files\nodej
+s/node.exe" "C:\Program Fil
+es\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (:St  
+  ring) [], RemoteExcept   
+ ion
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+> Build error occurred
+Error: Page config in C:\Us
+ers\pc\Desktop\anitigravity
+\AutoManual\app/api/analyze
+-video/route.ts is deprecat
+ed. Replace `export const c
+onfig=窶ｦ` with the followin
+g:
+Visit https://nextjs.org/do
+cs/app/api-reference/file-c
+onventions/route-segment-co
+nfig for more information.
+    at getPageStaticInfo (C
+:\Users\pc\Desktop\anitigra
+vity\AutoManual\node_module
+s\next\dist\build\analysis\
+get-page-static-info.js:425
+:27)
+    at async getStaticInfoI
+ncludingLayouts (C:\Users\p
+c\Desktop\anitigravity\Auto
+Manual\node_modules\next\di
+st\build\entries.js:108:28)
+    at async C:\Users\pc\De
+sktop\anitigravity\AutoManu
+al\node_modules\next\dist\b
+uild\entries.js:411:32
+    at async Promise.all (i
+ndex 1)
+    at async Promise.all (i
+ndex 0)
+    at async createEntrypoi
+nts (C:\Users\pc\Desktop\an
+itigravity\AutoManual\node_
+modules\next\dist\build\ent
+ries.js:551:5)
+    at async Span.traceAsyn
+cFn (C:\Users\pc\Desktop\an
+itigravity\AutoManual\node_
+modules\next\dist\trace\tra
+ce.js:154:20)
+    at async webpackBuildIm
+pl (C:\Users\pc\Desktop\ani
+tigravity\AutoManual\node_m
+odules\next\dist\build\webp
+ack-build\impl.js:104:25)
+    at async C:\Users\pc\De
+sktop\anitigravity\AutoManu
+al\node_modules\next\dist\b
+uild\index.js:1003:111
+    at async Span.traceAsyn
+cFn (C:\Users\pc\Desktop\an
+itigravity\AutoManual\node_
+modules\next\dist\trace\tra
+ce.js:154:20)

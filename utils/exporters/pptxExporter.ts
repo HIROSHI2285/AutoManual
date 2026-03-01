@@ -37,7 +37,7 @@ function createStepNumberImage(number: number): string {
     return canvas.toDataURL('image/png');
 }
 
-export async function generateAndDownloadPptx(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
+export async function generateAndDownloadPptx(manual: ManualData, safeTitle: string): Promise<void> {
     const pptxgen = (await import('pptxgenjs')).default;
     const pptx = new pptxgen();
 
@@ -58,7 +58,6 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
     coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 7.97, w: '100%', h: 0.30, fill: { color: NAVY } });
 
     // 2. 概要・手順
-    const isTwoCol = layout === 'two-column';
     const steps = manual.steps;
 
     const overviewSlide = pptx.addSlide();
@@ -74,6 +73,7 @@ export async function generateAndDownloadPptx(manual: ManualData, layout: 'singl
 
     for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
+        const isTwoCol = step.layout === 'two-column';
 
         // 動画が変わるか、現在のスライドがいっぱいになったら新しいスライドを作成
         const isNewVideo = i > 0 && step.videoIndex !== currentVideoIndex;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { ManualData, ManualStep } from '@/app/page';
 import CopyButton from './CopyButton';
 import ExportButton from './ExportButton';
@@ -54,8 +54,6 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         return saved ? parseInt(saved) : 24;
     });
     const [stampCount, setStampCount] = useState(1);
-    const [isTwoColumn, setIsTwoColumn] = useState(false);
-    const savedTwoColumnRef = useRef(false); // Remember column state before editing
     const [strokeStyle, setStrokeStyle] = useState<StrokeStyle>(() => {
         if (typeof window === 'undefined') return 'solid';
         const saved = localStorage.getItem('am_editor_strokeStyle_v2');
@@ -69,6 +67,25 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     useEffect(() => { setDraftTitle(manual.title); }, [manual.title]);
     useEffect(() => { setDraftOverview(manual.overview); }, [manual.overview]);
 
+    // 動画ごとにステップをグループ化
+    const videoGroups = useMemo(() => {
+        const groups: Record<number, ManualStep[]> = {};
+        manual.steps.forEach(step => {
+            const idx = step.videoIndex ?? 0;
+            if (!groups[idx]) groups[idx] = [];
+            groups[idx].push(step);
+        });
+        return groups;
+    }, [manual.steps]);
+
+    // 動画単位でレイアウトを更新する関数
+    const updateLayoutForVideo = useCallback((vIdx: number, layout: 'single' | 'two-column') => {
+        if (!onUpdateManual) return;
+        onUpdateManual(prev => ({
+            ...prev,
+            steps: prev.steps.map(s => ((s.videoIndex ?? 0) === vIdx ? { ...s, layout } : s))
+        }));
+    }, [onUpdateManual]);
 
     // Backup for cancellation & Original reference for InlineCanvas
     const [backupManual, setBackupManual] = useState<ManualData | null>(null);
@@ -140,9 +157,6 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
 
         setIsEditMode(true);
         setStampCount(1); // Reset stamp count on entry
-        // Auto-switch to single-column for editing
-        savedTwoColumnRef.current = isTwoColumn;
-        setIsTwoColumn(false);
     };
 
     const handleCancelEdit = () => {
@@ -154,7 +168,6 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         setIsReorderMode(false);
         setSelectedSwapIndex(null);
         setBackupManual(null);
-        setIsTwoColumn(savedTwoColumnRef.current);
         // Restore scroll position after layout re-render
         requestAnimationFrame(() => window.scrollTo(0, scrollY));
     };
@@ -169,7 +182,6 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
             setIsReorderMode(false);
             setSelectedSwapIndex(null);
             setBackupManual(null);
-            setIsTwoColumn(savedTwoColumnRef.current);
             // Restore scroll position after layout re-render
             requestAnimationFrame(() => window.scrollTo(0, scrollY));
         }, 300);
@@ -382,22 +394,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     {/* Right side actions */}
                     {!isEditMode && (
                         <div className="manual__actions flex items-center gap-3 shrink-0 ml-4">
-                            {/* View Toggle */}
-                            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
-                                <button
-                                    onClick={() => setIsTwoColumn(false)}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!isTwoColumn ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
-                                >
-                                    1列
-                                </button>
-                                <button
-                                    onClick={() => setIsTwoColumn(true)}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isTwoColumn ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
-                                >
-                                    2列
-                                </button>
-                            </div>
-                            <div className="h-8 w-px bg-slate-200 mx-2" />
+
 
                             {onUpdateManual && (
                                 <button
@@ -409,7 +406,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 </button>
                             )}
                             <div className="h-8 w-px bg-slate-200 mx-2" />
-                            <CopyButton manual={manual} isTwoColumn={isTwoColumn} />
+                            <CopyButton manual={manual} isTwoColumn={false} />
                             <ExportButton manual={manual} />
                         </div>
                     )}
@@ -589,19 +586,58 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                     ))}
                 </div>
             ) : (
-                /* View Mode: No drag & drop - Uses React.memo'd ManualStepItem for perf */
-                <div className={`mx-auto px-4 py-12 pb-32 ${isTwoColumn
-                    ? 'w-full max-w-[1400px] grid grid-cols-2 gap-8'
-                    : 'steps max-w-4xl space-y-20'
-                    }`}>
-                    {manual.steps.map((step, index) => (
-                        <ManualStepItem
-                            key={step.uid || index}
-                            step={step}
-                            isPortrait={orientations[step.uid || index] ?? false}
-                            isTwoColumn={isTwoColumn}
-                        />
-                    ))}
+                /* View Mode: No drag & drop - Grouped by Video with individual Layout Toggles */
+                <div className="mx-auto px-4 py-8 pb-32 max-w-[1400px]">
+                    {Object.keys(videoGroups).map(vIdxKey => {
+                        const vIdx = parseInt(vIdxKey);
+                        const steps = videoGroups[vIdx];
+                        const firstStep = steps[0];
+                        const currentLayout = firstStep?.layout || 'single';
+                        const isTwoCol = currentLayout === 'two-column';
+
+                        return (
+                            <section key={vIdx} className={`video-section pt-10 pb-16 ${vIdx > 0 ? 'border-t border-slate-200 mt-4' : ''}`}>
+                                {/* Per-Video Header Options */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10 px-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex bg-indigo-50 border border-indigo-100 items-center justify-center w-8 h-8 rounded-lg shadow-sm">
+                                            <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-sm font-black text-slate-500 tracking-wider">
+                                            動画セクション {vIdx + 1}
+                                        </h3>
+                                    </div>
+                                    <div className="flex bg-slate-100/80 backdrop-blur-sm p-1 rounded-xl border border-slate-200 shadow-inner max-w-fit">
+                                        <button
+                                            onClick={() => updateLayoutForVideo(vIdx, 'single')}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${!isTwoCol ? 'bg-white text-indigo-900 shadow-md ring-1 ring-slate-900/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
+                                        >
+                                            1列（縦並び）
+                                        </button>
+                                        <button
+                                            onClick={() => updateLayoutForVideo(vIdx, 'two-column')}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${isTwoCol ? 'bg-white text-indigo-900 shadow-md ring-1 ring-slate-900/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
+                                        >
+                                            2列（左右並び）
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className={isTwoCol ? 'grid grid-cols-2 gap-8' : 'space-y-20 max-w-4xl mx-auto'}>
+                                    {steps.map((step, index) => (
+                                        <ManualStepItem
+                                            key={step.uid || index}
+                                            step={step}
+                                            isPortrait={orientations[step.uid || index] ?? false}
+                                            isTwoColumn={isTwoCol}
+                                        />
+                                    ))}
+                                </div>
+                            </section>
+                        );
+                    })}
                 </div>
             )}
 

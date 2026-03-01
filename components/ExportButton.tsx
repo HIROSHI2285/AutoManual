@@ -38,26 +38,26 @@ function downloadFile(content: string, filename: string, mimeType: string) {
 export default function ExportButton({ manual }: ExportButtonProps) {
     const [showModal, setShowModal] = useState(false);
 
-    const handleExport = async (format: string, layout: 'single' | 'two-column' = 'single') => {
+    const handleExport = async (format: string) => {
         const safeTitle = manual.title.replace(RE_SAFE_TITLE, '_');
 
         switch (format) {
             case 'docx': {
                 const { generateAndDownloadDocx } = await import('@/utils/exporters/docxExporter');
-                await generateAndDownloadDocx(manual, layout);
+                await generateAndDownloadDocx(manual);
                 break;
             }
             case 'pptx': {
                 try {
                     const { generateAndDownloadPptx } = await import('@/utils/exporters/pptxExporter');
-                    await generateAndDownloadPptx(manual, layout, safeTitle);
+                    await generateAndDownloadPptx(manual, safeTitle);
                 } catch (e) { console.error(e); }
                 break;
             }
             case 'pdf': {
                 try {
                     const { generateAndDownloadPdf } = await import('@/utils/exporters/pdfExporter');
-                    await generateAndDownloadPdf(manual, layout, safeTitle);
+                    await generateAndDownloadPdf(manual, safeTitle);
                 } catch (e) { console.error(e); }
                 break;
             }
@@ -66,7 +66,7 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 break;
             case 'html': {
                 const { generateHTML } = await import('@/utils/exporters/pdfExporter');
-                downloadFile(await generateHTML(manual, layout), `${safeTitle}.html`, 'text/html;charset=utf-8');
+                downloadFile(await generateHTML(manual), `${safeTitle}.html`, 'text/html;charset=utf-8');
                 break;
             }
         }
@@ -81,23 +81,16 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                     <div className="export-modal__content" onClick={(e) => e.stopPropagation()}>
                         <h3 className="export-modal__title">形式を選択</h3>
                         <div className="export-modal__options">
-                            {/* 各ボタンの配置 */}
                             <div className="flex gap-2 w-full">
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('docx', 'single')}><span className="export-modal__label">Word (標準)</span></button>
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('docx', 'two-column')}><span className="export-modal__label">Word (2列)</span></button>
+                                <button className="export-modal__option flex-1 py-3" onClick={() => handleExport('docx')}><span className="export-modal__label">Word</span></button>
+                                <button className="export-modal__option flex-1 py-3" onClick={() => handleExport('pptx')}><span className="export-modal__label">PowerPoint</span></button>
                             </div>
                             <div className="flex gap-2 w-full">
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('pptx', 'single')}><span className="export-modal__label">PPT (標準)</span></button>
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('pptx', 'two-column')}><span className="export-modal__label">PPT (2列)</span></button>
+                                <button className="export-modal__option flex-1 py-3" onClick={() => handleExport('pdf')}><span className="export-modal__label">PDF</span></button>
+                                <button className="export-modal__option flex-1 py-3" onClick={() => handleExport('html')}><span className="export-modal__label">HTML</span></button>
                             </div>
-                            <div className="flex gap-2 w-full">
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('pdf', 'single')}><span className="export-modal__label">PDF (標準)</span></button>
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('pdf', 'two-column')}><span className="export-modal__label">PDF (2列)</span></button>
-                            </div>
-                            {/* Markdown/HTML */}
-                            <div className="flex gap-2 w-full">
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('markdown')}><span className="export-modal__label">Markdown</span></button>
-                                <button className="export-modal__option flex-1" onClick={() => handleExport('html')}><span className="export-modal__label">HTML</span></button>
+                            <div className="flex gap-2 w-full mt-2">
+                                <button className="export-modal__option flex-1 py-2 bg-slate-50" onClick={() => handleExport('markdown')}><span className="export-modal__label text-xs">Markdown (テキストのみ)</span></button>
                             </div>
                         </div>
                         <button className="btn btn--secondary mt-4 w-full" onClick={() => setShowModal(false)}>キャンセル</button>

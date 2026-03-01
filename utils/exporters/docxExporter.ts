@@ -1,4 +1,4 @@
-import { ManualData } from '@/app/page';
+import { ManualData, ManualStep } from '@/app/page';
 
 /**
  * 画像サイズ取得（アスペクト比計算用）
@@ -40,7 +40,7 @@ function dataUrlToUint8Array(dataUrl: string): { data: Uint8Array; type: 'png' |
     return { data: arr, type };
 }
 
-export async function generateAndDownloadDocx(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<void> {
+export async function generateAndDownloadDocx(manual: ManualData): Promise<void> {
     const { Document, Packer, Paragraph, TextRun, ImageRun, BorderStyle, WidthType, Table, TableRow, TableCell, Footer, PageNumber, AlignmentType, Header, VerticalAlign, HeightRule } = await import('docx');
 
     const FONT = 'Meiryo UI';
@@ -53,14 +53,13 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
     const CONTENT_WIDTH_DXA = PAGE_WIDTH_DXA - (MARGIN_DXA * 2);
     const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 
-    const isTwoCol = layout === 'two-column';
     const numCellWidth = 600;
     const spacingDXA = 200; // 80から200（+約半角分）に増加
 
     /**
      * ステップの各パーツ（表題、詳細、画像）を個別に生成するヘルパー
      */
-    const getStepParts = async (step: any | null) => {
+    const getStepParts = async (step: any | null, isTwoCol: boolean) => {
         if (!step) return { title: [], detail: [], image: [] };
 
         const numDataUrl = createStepNumberImage(step.stepNumber);
@@ -160,19 +159,28 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
 
     let currentVideoIndex = 0; // 現在処理中の動画IDを追跡
 
-    if (isTwoCol) {
-        for (let i = 0; i < manual.steps.length; i += 2) {
-            const stepL = manual.steps[i];
-            const stepR = manual.steps[i + 1] || null;
+    for (let i = 0; i < manual.steps.length;) {
+        const stepL = manual.steps[i];
+        const isTwoCol = stepL.layout === 'two-column';
 
-            // 動画が切り替わったら改ページを挿入 (左側のステップ基準)
-            if (i > 0 && stepL.videoIndex !== currentVideoIndex) {
-                contentChildren.push(new Paragraph({ children: [], pageBreakBefore: true }));
-                currentVideoIndex = stepL.videoIndex || 0;
+        // 動画が切り替わったら改ページを挿入 (左側のステップ基準)
+        if (i > 0 && stepL.videoIndex !== currentVideoIndex) {
+            contentChildren.push(new Paragraph({ children: [], pageBreakBefore: true }));
+            currentVideoIndex = stepL.videoIndex || 0;
+        }
+
+        if (isTwoCol) {
+            let stepR: ManualStep | null = manual.steps[i + 1] || null;
+            let increment = 2;
+
+            // もし右側のステップが別の動画だった場合、この行には配置せず次回に回す
+            if (stepR && stepR.videoIndex !== stepL.videoIndex) {
+                stepR = null;
+                increment = 1;
             }
 
-            const stepLParts = await getStepParts(stepL);
-            const stepRParts = stepR ? await getStepParts(stepR) : null;
+            const stepLParts = await getStepParts(stepL, true);
+            const stepRParts = stepR ? await getStepParts(stepR, true) : null;
 
             // 左右で高さを揃えるため、表題、詳細、画像を別々の行にする
             contentChildren.push(new Table({
@@ -205,18 +213,10 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     })
                 ]
             }), new Paragraph({ spacing: { after: 400 } }));
-        }
-    } else {
-        for (let i = 0; i < manual.steps.length; i++) {
-            const step = manual.steps[i];
 
-            // 動画が切り替わったら改ページ
-            if (i > 0 && step.videoIndex !== currentVideoIndex) {
-                contentChildren.push(new Paragraph({ children: [], pageBreakBefore: true }));
-                currentVideoIndex = step.videoIndex || 0;
-            }
-
-            const parts = await getStepParts(step);
+            i += increment;
+        } else {
+            const parts = await getStepParts(stepL, false);
             contentChildren.push(new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
@@ -225,6 +225,8 @@ export async function generateAndDownloadDocx(manual: ManualData, layout: 'singl
                     children: [new TableCell({ children: [...parts.title, ...parts.detail, ...parts.image], width: { size: 100, type: WidthType.PERCENTAGE } })]
                 })]
             }));
+
+            i++;
         }
     }
 

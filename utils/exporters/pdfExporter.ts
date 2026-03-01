@@ -1,4 +1,4 @@
-import { ManualData } from '@/app/page';
+import { ManualData, ManualStep } from '@/app/page';
 
 /**
  * 紺色の円形ナンバリング（中心ズレを完璧に抑え、広大な余白で削れを防止）
@@ -48,14 +48,13 @@ function getImageDimensions(base64: string): Promise<{ width: number; height: nu
   });
 }
 
-export async function generateHTML(manual: ManualData, layout: 'single' | 'two-column' = 'single'): Promise<string> {
-  const isTwoCol = layout === 'two-column';
-
+export async function generateHTML(manual: ManualData): Promise<string> {
   let stepsHtml = '';
   let currentVideoIndex = 0; // 動画IDを追跡
 
-  for (let i = 0; i < manual.steps.length; i++) {
+  for (let i = 0; i < manual.steps.length;) {
     const step = manual.steps[i];
+    const isTwoCol = step.layout === 'two-column';
 
     // 動画が切り替わったら改ページ用スタイルを適用
     const needsPageBreak = i > 0 && step.videoIndex !== currentVideoIndex;
@@ -80,50 +79,60 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
       }
     }
 
+    const colClass = isTwoCol ? 'two-col' : 'single-col';
     const stepHtml = `
-      <div class="step-header">
+      <div class="step-header ${colClass}">
           <div class="num-icon-wrapper"><img src="${createStepNumberSvg(step.stepNumber)}" class="num-icon" /></div>
-          <div class="action-text">${step.action}</div>
+          <div class="action-text ${colClass}">${step.action}</div>
       </div>
-      <div class="text-container">
-          <div class="detail-text">${step.detail}</div>
+      <div class="text-container ${colClass}">
+          <div class="detail-text ${colClass}">${step.detail}</div>
       </div>
-      ${step.screenshot ? `<div class="img-box"><img src="${step.screenshot}" style="${initialImgStyle}" /></div>` : ''}
+      ${step.screenshot ? `<div class="img-box ${colClass}"><img src="${step.screenshot}" style="${initialImgStyle}" /></div>` : ''}
     `;
 
     if (isTwoCol) {
-      if (i % 2 === 0) {
-        const nextStep = manual.steps[i + 1];
-        let nextStepHtmlContent = '';
-        if (nextStep) {
-          let nextImgStyle = `max-width: 100%; max-height: 100%; object-fit: contain;`;
-          if (nextStep.screenshot) {
-            const dims = await getImageDimensions(nextStep.screenshot);
-            const isLandscape = dims.width >= dims.height;
-            if (!isLandscape) {
-              nextImgStyle = `width: 48.75mm; height: 65mm; object-fit: contain;`;
-            }
-          }
-          nextStepHtmlContent = `
-                          <div class="step-header">
-                              <div class="num-icon-wrapper"><img src="${createStepNumberSvg(nextStep.stepNumber)}" class="num-icon" /></div>
-                              <div class="action-text">${nextStep.action}</div>
-                          </div>
-                          <div class="text-container">
-                              <div class="detail-text">${nextStep.detail}</div>
-                          </div>
-                          ${nextStep.screenshot ? `<div class="img-box"><img src="${nextStep.screenshot}" style="${nextImgStyle}" /></div>` : ''}
-          `;
-        }
-        stepsHtml += `<div class="step-row" ${pageBreakStyle}>
-                    <div class="step-card">${stepHtml}</div>
-                    <div class="step-card" style="${nextStep ? '' : 'visibility:hidden'}">
-                        ${nextStepHtmlContent}
-                    </div>
-                </div>`;
+      let nextStep: ManualStep | null = manual.steps[i + 1] || null;
+      let increment = 2;
+
+      // もし右側のステップが別の動画だった場合、この行には配置せず次回に回す
+      if (nextStep && nextStep.videoIndex !== step.videoIndex) {
+        nextStep = null;
+        increment = 1;
       }
+
+      let nextStepHtmlContent = '';
+      if (nextStep) {
+        let nextImgStyle = `max-width: 100%; max-height: 100%; object-fit: contain;`;
+        if (nextStep.screenshot) {
+          const dims = await getImageDimensions(nextStep.screenshot);
+          const isLandscape = dims.width >= dims.height;
+          if (!isLandscape) {
+            nextImgStyle = `width: 48.75mm; height: 65mm; object-fit: contain;`;
+          }
+        }
+        nextStepHtmlContent = `
+                        <div class="step-header ${colClass}">
+                            <div class="num-icon-wrapper"><img src="${createStepNumberSvg(nextStep.stepNumber)}" class="num-icon" /></div>
+                            <div class="action-text ${colClass}">${nextStep.action}</div>
+                        </div>
+                        <div class="text-container ${colClass}">
+                            <div class="detail-text ${colClass}">${nextStep.detail}</div>
+                        </div>
+                        ${nextStep.screenshot ? `<div class="img-box ${colClass}"><img src="${nextStep.screenshot}" style="${nextImgStyle}" /></div>` : ''}
+        `;
+      }
+      stepsHtml += `<div class="step-row ${colClass}" ${pageBreakStyle}>
+                  <div class="step-card ${colClass}">${stepHtml}</div>
+                  <div class="step-card ${colClass}" style="${nextStep ? '' : 'visibility:hidden'}">
+                      ${nextStepHtmlContent}
+                  </div>
+              </div>`;
+
+      i += increment;
     } else {
-      stepsHtml += `<div class="step-row" ${pageBreakStyle} style="page-break-inside: avoid;"><div class="step-card">${stepHtml}</div></div>`;
+      stepsHtml += `<div class="step-row ${colClass}" ${pageBreakStyle} style="page-break-inside: avoid;"><div class="step-card ${colClass}">${stepHtml}</div></div>`;
+      i++;
     }
   }
 
@@ -158,22 +167,22 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
     .step-row {
         display: flex; gap: 8mm; margin-bottom: 12mm; /* 15mmから短縮 */
         page-break-inside: avoid; break-inside: avoid;
-        /* 2カラム時は行の高さを統一 */
-        ${isTwoCol ? 'align-items: stretch;' : ''}
     }
+    .step-row.two-col { align-items: stretch; }
+
     .step-card { 
         flex: 1; min-width: 0; display: flex; flex-direction: column; 
-        /* 2カラム時は高さを100%に統一して左右を揃える */
-        ${isTwoCol ? 'height: 100%;' : ''}
     }
+    .step-card.two-col { height: 100%; }
     
     /* 1. ActionとDetailの間を極限まで詰める (0.5mm) */
     .step-header { 
         display: flex; gap: 1mm; 
-        /* 2カラムは元のcenter、1カラムはテキストの1行目に合わせるため flex-start */
-        align-items: ${isTwoCol ? 'center' : 'flex-start'}; 
         margin-bottom: 0.25mm !important; 
     }
+    .step-header.two-col { align-items: center; }
+    .step-header.single-col { align-items: flex-start; }
+
     .num-icon-wrapper { 
         width: 14mm; height: 14mm; flex-shrink: 0; 
         display: flex; align-items: center; justify-content: center;
@@ -185,25 +194,24 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
         font-size: 13pt; 
         font-weight: 800; 
         color: #1e1b4b; 
-        line-height: ${isTwoCol ? '1.1' : '1.4'}; 
-        ${!isTwoCol ? 'padding-top: 1.5mm;' : ''}
     }
+    .action-text.two-col { line-height: 1.1; }
+    .action-text.single-col { line-height: 1.4; padding-top: 1.5mm; }
     
     /* 画像の高さを揃えるためのテキストコンテナ */
     .text-container {
-        /* テキストコンテナの高さを固定して画像の開始位置を揃える */
-        ${isTwoCol ? 'min-height: 30mm; flex-shrink: 0;' : ''}
         display: flex; flex-direction: column;
     }
+    .text-container.two-col { min-height: 30mm; flex-shrink: 0; }
 
     .detail-text { 
         margin-left: 15mm; 
         font-size: 10.5pt; 
         margin-top: 0mm !important; 
-        /* ご要望通り 15mm の余白を維持します */
-        margin-bottom: ${isTwoCol ? '2.5mm' : '15mm'} !important; 
         white-space: pre-wrap; color: #000; 
     }
+    .detail-text.two-col { margin-bottom: 2.5mm !important; }
+    .detail-text.single-col { margin-bottom: 15mm !important; }
     
     /* 【絶対見切れない対策】画像ボックスの高さを固定から可変に変更 */
     .img-box { 
@@ -211,19 +219,19 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
         background: #fcfcfc; 
         border: 0.3mm solid #eee; 
         border-radius: 2mm;
-        /* 1カラムは height: auto にすることで、ページ末尾で画像がカットされるのを防ぎます */
-        height: ${isTwoCol ? '65mm' : 'auto'};
-        max-height: ${isTwoCol ? '65mm' : '95mm'};
-        /* 2カラム時は最小高さも固定し、絶対に縮まないようにする */
-        ${isTwoCol ? 'min-height: 65mm;' : ''}
         width: 100%;
         display: flex; 
-        /* 2カラム時は flex-start で上寄せに、シングルは元の center を維持 */
-        align-items: ${isTwoCol ? 'flex-start' : 'center'}; 
         justify-content: center; 
         overflow: hidden;
         flex-shrink: 0;
-        ${isTwoCol ? 'padding-top: 2mm; margin-top: auto;' : ''} /* margin-top: auto で下部に固定 */
+    }
+    .img-box.two-col {
+        height: 65mm; max-height: 65mm; min-height: 65mm;
+        align-items: flex-start;
+        padding-top: 2mm; margin-top: auto;
+    }
+    .img-box.single-col {
+        height: auto; max-height: 95mm; align-items: center;
     }
     img { max-width: 100%; max-height: 100%; object-fit: contain; }
   </style>
@@ -246,10 +254,10 @@ export async function generateHTML(manual: ManualData, layout: 'single' | 'two-c
 </html>`;
 }
 
-export async function generateAndDownloadPdf(manual: ManualData, layout: 'single' | 'two-column' = 'single', safeTitle: string): Promise<void> {
+export async function generateAndDownloadPdf(manual: ManualData, safeTitle: string): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
   const container = document.createElement('div');
-  container.innerHTML = await generateHTML(manual, layout);
+  container.innerHTML = await generateHTML(manual);
   document.body.appendChild(container);
 
   const titleImageData = createTextAsImage(manual.title, 32, '#1e1b4b');

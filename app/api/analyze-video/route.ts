@@ -6,12 +6,7 @@ import os from 'os';
 import * as https from 'https';
 import { URL } from 'url';
 
-export const config = {
-    api: {
-        bodyParser: false,
-    },
-    maxDuration: 600, // 10 minutes timeout
-};
+export const maxDuration = 600; // 10 minutes timeout
 
 const API_KEY = process.env.GEMINI_API_KEY || '';
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
