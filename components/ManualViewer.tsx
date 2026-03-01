@@ -175,16 +175,20 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     };
 
     const handleSaveAndExit = () => {
-        // 1. 現在最も近くに表示されているステップのUIDを特定
+        // 1. 現在の画面中央に最も近いステップのUIDを特定する
         const stepElements = document.querySelectorAll('[data-step-id]');
         let targetUid: string | null = null;
-        for (const el of Array.from(stepElements)) {
+        const viewportCenter = window.innerHeight / 2;
+        let closestDist = Infinity;
+
+        stepElements.forEach((el) => {
             const rect = el.getBoundingClientRect();
-            if (rect.top >= 0) {
+            const dist = Math.abs(rect.top + rect.height / 2 - viewportCenter);
+            if (dist < closestDist) {
+                closestDist = dist;
                 targetUid = el.getAttribute('data-step-id');
-                break;
             }
-        }
+        });
 
         // キャンバスの保存を強制
         window.dispatchEvent(new CustomEvent('am:force-save'));
@@ -200,12 +204,10 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                 if (targetUid) {
                     const targetEl = document.querySelector(`[data-step-id="${targetUid}"]`);
                     if (targetEl) {
-                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    } else {
-                        window.scrollTo({ top: 0, behavior: 'instant' });
+                        targetEl.scrollIntoView({ behavior: 'auto', block: 'center' });
                     }
                 }
-            }, 150);
+            }, 100); // レイアウト確定のための微小なバッファ
         }, 300);
     };
 
