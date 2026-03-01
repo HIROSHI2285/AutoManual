@@ -175,21 +175,37 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     };
 
     const handleSaveAndExit = () => {
-        const scrollY = window.scrollY;
-        // Force all canvases to save (bakes viewport if in adjust mode)
+        // 1. 現在最も近くに表示されているステップのUIDを特定
+        const stepElements = document.querySelectorAll('[data-step-id]');
+        let targetUid: string | null = null;
+        for (const el of Array.from(stepElements)) {
+            const rect = el.getBoundingClientRect();
+            if (rect.top >= 0) {
+                targetUid = el.getAttribute('data-step-id');
+                break;
+            }
+        }
+
+        // キャンバスの保存を強制
         window.dispatchEvent(new CustomEvent('am:force-save'));
-        // Delay exit to let bake + export complete before unmounting canvases
+
         setTimeout(() => {
             setIsEditMode(false);
             setIsReorderMode(false);
             setSelectedSwapIndex(null);
             setBackupManual(null);
-            // setIsTwoColumn(savedTwoColumnRef.current); // isTwoColumn has been removed previously
 
-            // Restore scroll position after layout re-render
-            requestAnimationFrame(() => {
-                window.scrollTo({ top: scrollY, behavior: 'instant' });
-            });
+            // 2. レイアウト変更後にその要素までスクロール
+            setTimeout(() => {
+                if (targetUid) {
+                    const targetEl = document.querySelector(`[data-step-id="${targetUid}"]`);
+                    if (targetEl) {
+                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        window.scrollTo({ top: 0, behavior: 'instant' });
+                    }
+                }
+            }, 150);
         }, 300);
     };
 
@@ -568,27 +584,28 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                 /* Normal Edit Mode: Uses EditStepRow (local draft state, blur-flush) */
                 <div className="mx-auto px-4 pb-32 max-w-5xl divide-y divide-slate-100">
                     {manual.steps.map((step, index) => (
-                        <EditStepRow
-                            key={step.uid || `step-${index}`}
-                            step={step}
-                            index={index}
-                            isPortrait={orientations[step.uid || index] ?? false}
-                            activeTool={activeTool}
-                            currentColor={currentColor}
-                            strokeWidth={strokeWidth}
-                            strokeStyle={strokeStyle}
-                            fontSize={fontSize}
-                            stampCount={stampCount}
-                            onColorChange={setCurrentColor}
-                            onStrokeWidthChange={setStrokeWidth}
-                            onStrokeStyleChange={setStrokeStyle}
-                            onFontSizeChange={setFontSize}
-                            onStampUsed={() => setStampCount(prev => prev + 1)}
-                            onToolReset={() => setActiveTool('select')}
-                            onCanvasUpdate={handleCanvasUpdate}
-                            onDeleteStep={handleDeleteStep}
-                            onTextBlur={handleTextBlur}
-                        />
+                        <div key={step.uid || `step-${index}`} data-step-id={step.uid}>
+                            <EditStepRow
+                                step={step}
+                                index={index}
+                                isPortrait={orientations[step.uid || index] ?? false}
+                                activeTool={activeTool}
+                                currentColor={currentColor}
+                                strokeWidth={strokeWidth}
+                                strokeStyle={strokeStyle}
+                                fontSize={fontSize}
+                                stampCount={stampCount}
+                                onColorChange={setCurrentColor}
+                                onStrokeWidthChange={setStrokeWidth}
+                                onStrokeStyleChange={setStrokeStyle}
+                                onFontSizeChange={setFontSize}
+                                onStampUsed={() => setStampCount(prev => prev + 1)}
+                                onToolReset={() => setActiveTool('select')}
+                                onCanvasUpdate={handleCanvasUpdate}
+                                onDeleteStep={handleDeleteStep}
+                                onTextBlur={handleTextBlur}
+                            />
+                        </div>
                     ))}
                 </div>
             ) : (
@@ -633,12 +650,13 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
 
                                 <div className={isTwoCol ? 'grid grid-cols-2 gap-8' : 'space-y-20 max-w-4xl mx-auto'}>
                                     {steps.map((step, index) => (
-                                        <ManualStepItem
-                                            key={step.uid || index}
-                                            step={step}
-                                            isPortrait={orientations[step.uid || index] ?? false}
-                                            isTwoColumn={isTwoCol}
-                                        />
+                                        <div key={step.uid || index} data-step-id={step.uid}>
+                                            <ManualStepItem
+                                                step={step}
+                                                isPortrait={orientations[step.uid || index] ?? false}
+                                                isTwoColumn={isTwoCol}
+                                            />
+                                        </div>
                                     ))}
                                 </div>
                             </section>
