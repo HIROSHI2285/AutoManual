@@ -249,6 +249,62 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
         }));
     }, [onUpdateManual]);
 
+    const handleDownloadCheckedImages = useCallback(async () => {
+        if (checkedForDelete.size === 0) return;
+
+        const targetSteps = manual.steps.filter(s => checkedForDelete.has(s.uid || ''));
+        
+        if (targetSteps.length === 0) {
+            alert("ダウンロード対象の画像がありません。");
+            return;
+        }
+
+        const { sanitizeFileName } = await import('@/utils/imageUtils');
+
+        if (targetSteps.length === 1) {
+            // 単一画像の場合は直接ダウンロード
+            const step = targetSteps[0];
+            let imageData = step.screenshot || step.originalUrl;
+            if (!imageData) return;
+            
+            const cleanAction = sanitizeFileName(step.action || 'step');
+            const fileName = `${step.stepNumber.toString().padStart(2, '0')}_${cleanAction}.png`;
+            
+            const link = document.createElement('a');
+            link.href = imageData;
+            link.download = fileName;
+            link.click();
+            return;
+        }
+
+        // 複数画像の場合はZIPにまとめる
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        const folder = zip.folder("manual_images");
+
+        const downloadPromises = targetSteps.map(async (step) => {
+            let imageData = step.screenshot || step.originalUrl;
+            if (!imageData) return;
+
+            const cleanAction = sanitizeFileName(step.action || 'step');
+            const fileName = `${step.stepNumber.toString().padStart(2, '0')}_${cleanAction}.png`;
+
+            // Base64からデータ部分のみを抽出してZIPに追加
+            const base64Data = imageData.split(',')[1];
+            folder?.file(fileName, base64Data, { base64: true });
+        });
+
+        await Promise.all(downloadPromises);
+
+        const content = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(content);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${sanitizeFileName(manual.title)}_images.zip`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }, [manual, checkedForDelete]);
+
     const handleDeleteStep = useCallback((index: number) => {
         if (!onUpdateManual) return;
         // Read current manual via functional update to avoid stale closure
@@ -465,39 +521,49 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                 {checkedForDelete.size === manual.steps.length ? '全選択解除' : '全選択'}
                             </button>
                             {checkedForDelete.size > 0 && (
-                                <button
-                                    onClick={() => {
-                                        if (!onUpdateManual) return;
-                                        const count = checkedForDelete.size;
-                                        const remaining = manual.steps.length - count;
-                                        if (remaining < 1) {
-                                            alert('すべてのステップを削除することはできません。最低1つは残してください。');
-                                            return;
-                                        }
-                                        if (!confirm(`${count}件のステップを削除しますか？\nこの操作は取り消せません。`)) return;
-                                        // Clean up localStorage for deleted steps
-                                        manual.steps.forEach((step, i) => {
-                                            const uid = step.uid || '';
-                                            if (checkedForDelete.has(uid)) {
-                                                if (step.uid) localStorage.removeItem(`am_canvas_state_step-${step.uid}`);
-                                                localStorage.removeItem(`am_canvas_state_step-${step.stepNumber}-${i}`);
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            if (!onUpdateManual) return;
+                                            const count = checkedForDelete.size;
+                                            const remaining = manual.steps.length - count;
+                                            if (remaining < 1) {
+                                                alert('すべてのステップを削除することはできません。最低1つは残してください。');
+                                                return;
                                             }
-                                        });
-                                        onUpdateManual(prev => {
-                                            const filtered = prev.steps.filter(s => !checkedForDelete.has(s.uid || ''));
-                                            return {
-                                                ...prev,
-                                                steps: renumberStepsByVideo(filtered)
-                                            }
-                                        });
-                                        setCheckedForDelete(new Set());
-                                        setSelectedSwapIndex(null);
-                                    }}
-                                    className="h-8 px-4 rounded-lg bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95 flex items-center gap-1.5"
-                                >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    {checkedForDelete.size}件を削除
-                                </button>
+                                            if (!confirm(`${count}件のステップを削除しますか？\nこの操作は取り消せません。`)) return;
+                                            // Clean up localStorage for deleted steps
+                                            manual.steps.forEach((step, i) => {
+                                                const uid = step.uid || '';
+                                                if (checkedForDelete.has(uid)) {
+                                                    if (step.uid) localStorage.removeItem(`am_canvas_state_step-${step.uid}`);
+                                                    localStorage.removeItem(`am_canvas_state_step-${step.stepNumber}-${i}`);
+                                                }
+                                            });
+                                            onUpdateManual(prev => {
+                                                const filtered = prev.steps.filter(s => !checkedForDelete.has(s.uid || ''));
+                                                return {
+                                                    ...prev,
+                                                    steps: renumberStepsByVideo(filtered)
+                                                }
+                                            });
+                                            setCheckedForDelete(new Set());
+                                            setSelectedSwapIndex(null);
+                                        }}
+                                        className="h-8 px-4 rounded-lg bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95 flex items-center gap-1.5"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        {checkedForDelete.size}件を削除
+                                    </button>
+                                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                                    <button
+                                        onClick={() => handleDownloadCheckedImages()}
+                                        className="h-8 px-4 rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-1.5"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                        選択した画像を保存
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
