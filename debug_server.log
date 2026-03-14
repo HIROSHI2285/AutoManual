@@ -2630,3 +2630,23 @@ Stack: TypeError: fetch failed
     "box_2d": [68, 178, ...
 [2026-03-14T10:48:37.999Z] Successfully parsed 6 steps; after dedup: 6
 [2026-03-14T10:48:38.002Z] POST /api/analyze-video completed successfully
+[2026-03-14T11:59:00.652Z] POST /api/analyze-video started
+[2026-03-14T11:59:00.738Z] Received file: proxy_オフライン起動手順.mp4, size: 12696151
+[2026-03-14T11:59:00.760Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1773489540751_proxy_オフライン起動手順.mp4
+[2026-03-14T11:59:00.762Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-03-14T11:59:00.764Z] Starting Resumable Upload to Gemini...
+[2026-03-14T11:59:01.296Z] Upload session initiated. URL obtained.
+[2026-03-14T11:59:05.936Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/b0ur364qobxv (files/b0ur364qobxv)
+[2026-03-14T11:59:05.940Z] Processing video...
+[2026-03-14T11:59:08.257Z] Processing video...
+[2026-03-14T11:59:10.562Z] Processing video...
+[2026-03-14T11:59:12.846Z] Video Ready. Generating content...
+[2026-03-14T11:59:36.035Z] Response received: [
+  {
+    "timestamp": "00:01",
+    "action": "電源スイッチを押します",
+    "box_2d": [280, 460, 320, 500],
+   ...
+[2026-03-14T11:59:39.268Z] [dedup] Dropping duplicate timestamp step: 01:37 — "「はい」ボタンをタップします"
+[2026-03-14T11:59:39.269Z] Successfully parsed 15 steps; after dedup: 14
+[2026-03-14T11:59:39.278Z] POST /api/analyze-video completed successfully
