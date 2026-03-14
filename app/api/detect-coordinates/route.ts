@@ -117,7 +117,7 @@ Output as JSON:
 
                 // Send image to Gemini for coordinate detection
                 const apiResponse = await genAI.models.generateContent({
-                    model: 'gemini-2.0-flash',
+                    model: 'gemini-2.5-flash',
                     contents: [{
                         role: 'user',
                         parts: [
