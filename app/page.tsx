@@ -22,7 +22,7 @@ export interface ManualStep {
     canvasData?: any; // Fabric.js JSON data - For re-editability
     uid?: string; // Stable unique ID - survives deletion/renumbering
     videoIndex?: number; // Tracks which video this step belongs to
-    layout?: 'single' | 'two-column'; // Video-specific layout preference
+    layout?: 'single' | 'two-column' | 'two-row-vertical'; // Video-specific layout preference
 }
 
 export interface ManualData {

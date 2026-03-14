@@ -2559,3 +2559,74 @@ Stack: TypeError: fetch failed
     "box_2d": [60, 83, ...
 [2026-02-28T14:54:42.345Z] Successfully parsed 8 steps; after dedup: 8
 [2026-02-28T14:54:42.350Z] POST /api/analyze-video completed successfully
+[2026-03-02T03:23:40.452Z] POST /api/analyze-video started
+[2026-03-02T03:23:40.525Z] Received file: proxy_オフライン起動手順.mp4, size: 12696151
+[2026-03-02T03:23:40.548Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1772421820537_proxy_オフライン起動手順.mp4
+[2026-03-02T03:23:40.558Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-03-02T03:23:40.560Z] Starting Resumable Upload to Gemini...
+[2026-03-02T03:23:41.226Z] Upload session initiated. URL obtained.
+[2026-03-02T03:23:47.793Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/eozzjrjch9ys (files/eozzjrjch9ys)
+[2026-03-02T03:23:47.797Z] Processing video...
+[2026-03-02T03:23:50.128Z] Processing video...
+[2026-03-02T03:23:52.363Z] Processing video...
+[2026-03-02T03:23:54.640Z] Video Ready. Generating content...
+[2026-03-02T03:24:24.871Z] Response received: [
+  {
+    "timestamp": "00:01",
+    "action": "電源スイッチを押します",
+    "box_2d": [288, 460, 328, 500],
+   ...
+[2026-03-02T03:24:27.468Z] Successfully parsed 15 steps; after dedup: 15
+[2026-03-02T03:24:27.472Z] POST /api/analyze-video completed successfully
+[2026-03-02T03:24:53.454Z] POST /api/analyze-video started
+[2026-03-02T03:24:53.480Z] Received file: proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 4782245
+[2026-03-02T03:24:53.491Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1772421893487_proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-03-02T03:24:53.496Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-03-02T03:24:53.497Z] Starting Resumable Upload to Gemini...
+[2026-03-02T03:24:54.083Z] Upload session initiated. URL obtained.
+[2026-03-02T03:24:57.472Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/w76e3toxesha (files/w76e3toxesha)
+[2026-03-02T03:24:57.476Z] Processing video...
+[2026-03-02T03:24:59.797Z] Processing video...
+[2026-03-02T03:25:02.064Z] Video Ready. Generating content...
+[2026-03-02T03:25:24.706Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [
+      70...
+[2026-03-02T03:25:26.567Z] Successfully parsed 7 steps; after dedup: 7
+[2026-03-02T03:25:26.573Z] POST /api/analyze-video completed successfully
+[2026-03-12T23:24:22.348Z] POST /api/analyze-video started
+[2026-03-12T23:24:22.380Z] Received file: proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 4481616
+[2026-03-12T23:24:22.393Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1773357862387_proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-03-12T23:24:22.450Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-03-12T23:24:22.452Z] Starting Resumable Upload to Gemini...
+[2026-03-12T23:24:23.273Z] Upload session initiated. URL obtained.
+[2026-03-12T23:24:26.767Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/cts2ihspxzru (files/cts2ihspxzru)
+[2026-03-12T23:24:26.769Z] Processing video...
+[2026-03-12T23:24:29.075Z] Processing video...
+[2026-03-12T23:24:31.322Z] Video Ready. Generating content...
+[2026-03-12T23:24:50.908Z] Response received: [
+  {
+    "timestamp": "00:11",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します。",
+    "box_2d": [70, 100,...
+[2026-03-12T23:24:52.532Z] Successfully parsed 8 steps; after dedup: 8
+[2026-03-12T23:24:52.534Z] POST /api/analyze-video completed successfully
+[2026-03-14T10:48:06.763Z] POST /api/analyze-video started
+[2026-03-14T10:48:06.793Z] Received file: proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4, size: 4459619
+[2026-03-14T10:48:06.805Z] Saved temp file to: C:\Users\pc\AppData\Local\Temp\upload_1773485286800_proxy_新しいタブ - Google Chrome 2026-02-05 21-15-55.mp4
+[2026-03-14T10:48:06.810Z] Normalized MIME type: video/mp4 -> video/mp4
+[2026-03-14T10:48:06.813Z] Starting Resumable Upload to Gemini...
+[2026-03-14T10:48:07.463Z] Upload session initiated. URL obtained.
+[2026-03-14T10:48:10.476Z] Uploaded: https://generativelanguage.googleapis.com/v1beta/files/pe4lr8g4j7l6 (files/pe4lr8g4j7l6)
+[2026-03-14T10:48:10.479Z] Processing video...
+[2026-03-14T10:48:12.781Z] Processing video...
+[2026-03-14T10:48:15.101Z] Video Ready. Generating content...
+[2026-03-14T10:48:34.987Z] Response received: [
+  {
+    "timestamp": "00:12",
+    "action": "アドレスバーに「yahoo.co.jp」と入力します",
+    "box_2d": [68, 178, ...
+[2026-03-14T10:48:37.999Z] Successfully parsed 6 steps; after dedup: 6
+[2026-03-14T10:48:38.002Z] POST /api/analyze-video completed successfully

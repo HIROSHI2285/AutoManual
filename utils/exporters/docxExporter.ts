@@ -124,6 +124,21 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
                         finalH = 4.2 * 96;
                         finalW = finalH * FIXED_RATIO;
                     }
+                } else if (step.layout === 'two-row-vertical') {
+                    if (isLandscape) {
+                        // 少しだけ縮小して1ページに確実に収める
+                        finalW = Math.min(6.8 * 96, CONTENT_WIDTH_DXA / 15);
+                        finalH = finalW / (dims.width / (dims.height || 1));
+                        // 高さが多すぎる場合は制限 (3.3 -> 3.0に変更)
+                        if (finalH > 3.0 * 96) {
+                            finalH = 3.0 * 96;
+                            finalW = finalH * (dims.width / (dims.height || 1));
+                        }
+                    } else {
+                        // 縦長画像：大きく固定 (3.3 -> 3.0に変更)
+                        finalH = 3.0 * 96;
+                        finalW = finalH * FIXED_RATIO;
+                    }
                 } else {
                     if (isLandscape) {
                         // 1列横長：最大幅を維持
@@ -138,7 +153,7 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
 
                 imagePara = new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    spacing: { before: 500, after: 400 },
+                    spacing: { before: step.layout === 'two-row-vertical' ? 200 : 500, after: step.layout === 'two-row-vertical' ? 100 : 400 },
                     children: [new ImageRun({
                         data,
                         transformation: { width: Math.round(finalW), height: Math.round(finalH) },
@@ -174,6 +189,7 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
     for (let i = 0; i < manual.steps.length;) {
         const stepL = manual.steps[i];
         const isTwoCol = stepL.layout === 'two-column';
+        const isTwoRowV = stepL.layout === 'two-row-vertical';
 
         // 動画が切り替わったら改ページを挿入 (左側のステップ基準)
         if (i > 0 && stepL.videoIndex !== currentVideoIndex) {
@@ -201,7 +217,7 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
                 rows: [
                     // 行1: 表題
                     new TableRow({
-                        cantSplit: true, // 行の分割防止
+                        cantSplit: true,
                         children: [
                             new TableCell({ children: stepLParts.title, width: { size: 50, type: WidthType.PERCENTAGE } }),
                             new TableCell({ children: stepRParts ? stepRParts.title : [], width: { size: 50, type: WidthType.PERCENTAGE } })
@@ -209,7 +225,7 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
                     }),
                     // 行2: 詳細説明
                     new TableRow({
-                        cantSplit: true, // 行の分割防止
+                        cantSplit: true,
                         children: [
                             new TableCell({ children: stepLParts.detail, width: { size: 50, type: WidthType.PERCENTAGE } }),
                             new TableCell({ children: stepRParts ? stepRParts.detail : [], width: { size: 50, type: WidthType.PERCENTAGE } })
@@ -217,12 +233,55 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
                     }),
                     // 行3: 画像
                     new TableRow({
-                        cantSplit: true, // 行の分割防止
+                        cantSplit: true,
                         children: [
                             new TableCell({ children: stepLParts.image, width: { size: 50, type: WidthType.PERCENTAGE } }),
                             new TableCell({ children: stepRParts ? stepRParts.image : [], width: { size: 50, type: WidthType.PERCENTAGE } })
                         ]
                     })
+                ]
+            }), new Paragraph({ spacing: { after: 400 } }));
+
+            i += increment;
+        } else if (isTwoRowV) {
+            // 縦2行レイウアウト: 2ステップのペアを上下に並べ、固定高さのテーブル行でA4縦収め
+            let stepB: ManualStep | null = manual.steps[i + 1] || null;
+            let increment = 2;
+
+            if (stepB && (stepB.videoIndex !== stepL.videoIndex || stepB.layout !== 'two-row-vertical')) {
+                stepB = null;
+                increment = 1;
+            }
+
+            const stepAParts = await getStepParts(stepL, false);
+            const stepBParts = stepB ? await getStepParts(stepB, false) : null;
+
+            // 各ステップを固定高さのセルに封じ込め、2セットでA4縦一ページに収める
+            contentChildren.push(new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
+                rows: [
+                    new TableRow({
+                        cantSplit: true,
+                        height: { value: 4800, rule: HeightRule.ATLEAST },
+                        children: [new TableCell({
+                            children: [...stepAParts.title, ...stepAParts.detail, ...stepAParts.image],
+                            width: { size: 100, type: WidthType.PERCENTAGE }
+                        })]
+                    }),
+                    ...(stepBParts ? [
+                        new TableRow({
+                            height: { value: 400, rule: HeightRule.EXACT },
+                            children: [new TableCell({ children: [], width: { size: 100, type: WidthType.PERCENTAGE } })]
+                        }),
+                        new TableRow({
+                        cantSplit: true,
+                        height: { value: 4800, rule: HeightRule.ATLEAST },
+                        children: [new TableCell({
+                            children: [...stepBParts.title, ...stepBParts.detail, ...stepBParts.image],
+                            width: { size: 100, type: WidthType.PERCENTAGE }
+                        })]
+                    })] : [])
                 ]
             }), new Paragraph({ spacing: { after: 400 } }));
 

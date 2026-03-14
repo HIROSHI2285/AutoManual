@@ -55,6 +55,7 @@ export async function generateHTML(manual: ManualData): Promise<string> {
   for (let i = 0; i < manual.steps.length;) {
     const step = manual.steps[i];
     const isTwoCol = step.layout === 'two-column';
+    const isTwoRowV = step.layout === 'two-row-vertical';
 
     // 動画が切り替わったら改ページ用スタイルを適用
     const needsPageBreak = i > 0 && step.videoIndex !== currentVideoIndex;
@@ -63,6 +64,49 @@ export async function generateHTML(manual: ManualData): Promise<string> {
     }
 
     const pageBreakStyle = needsPageBreak ? 'style="page-break-before: always; margin-top: 20mm;"' : '';
+
+    // 縦2行レイアウト: 2ステップを上下に並べて1ページに収める
+    if (isTwoRowV) {
+      let nextStep: ManualStep | null = manual.steps[i + 1] || null;
+      let increment = 2;
+
+      if (nextStep && (nextStep.videoIndex !== step.videoIndex || nextStep.layout !== 'two-row-vertical')) {
+        nextStep = null;
+        increment = 1;
+      }
+
+      const renderTwoRowStep = async (s: ManualStep) => {
+        let imgStyle = 'max-width: 100%; max-height: 100%; object-fit: contain;';
+        if (s.screenshot) {
+          const dims = await getImageDimensions(s.screenshot);
+          const isLandscape = dims.width >= dims.height;
+          if (!isLandscape) {
+            imgStyle = 'width: 71.25mm; height: 95mm; object-fit: contain;';
+          }
+        }
+        return `
+          <div class="step-header single-col">
+            <div class="num-icon-wrapper"><img src="${createStepNumberSvg(s.stepNumber)}" class="num-icon" /></div>
+            <div class="action-text single-col">${s.action}</div>
+          </div>
+          <div class="text-container single-col">
+            <div class="detail-text single-col two-row-detail">${s.detail}</div>
+          </div>
+          ${s.screenshot ? `<div class="img-box two-row-v"><img src="${s.screenshot}" style="${imgStyle}" /></div>` : ''}
+        `;
+      };
+
+      const stepHtml1 = await renderTwoRowStep(step);
+      const stepHtml2 = nextStep ? await renderTwoRowStep(nextStep) : '';
+
+      stepsHtml += `<div class="step-row two-row-v" ${pageBreakStyle}>
+        <div class="step-card two-row-v">${stepHtml1}</div>
+        ${nextStep ? `<div class="step-card two-row-v">${stepHtml2}</div>` : ''}
+      </div>`;
+
+      i += increment;
+      continue;
+    }
 
     let initialImgStyle = '';
     if (step.screenshot) {
@@ -234,6 +278,25 @@ export async function generateHTML(manual: ManualData): Promise<string> {
         height: auto; max-height: 95mm; align-items: center;
     }
     img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+    /* 縦2行レイアウト */
+    .step-row.two-row-v {
+        flex-direction: column; gap: 8mm;
+        page-break-inside: avoid; break-inside: avoid;
+    }
+    .step-card.two-row-v {
+        height: 118mm; max-height: 118mm; overflow: hidden;
+        display: flex; flex-direction: column;
+        page-break-inside: avoid; break-inside: avoid;
+    }
+    .detail-text.two-row-detail {
+        margin-bottom: 2mm !important;
+    }
+    .img-box.two-row-v {
+        height: 85mm; max-height: 85mm; min-height: 85mm;
+        align-items: center;
+        padding: 2mm; margin-top: auto;
+    }
   </style>
 </head>
 <body>

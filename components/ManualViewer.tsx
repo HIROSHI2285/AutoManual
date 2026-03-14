@@ -79,7 +79,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
     }, [manual.steps]);
 
     // 動画単位でレイアウトを更新する関数
-    const updateLayoutForVideo = useCallback((vIdx: number, layout: 'single' | 'two-column') => {
+    const updateLayoutForVideo = useCallback((vIdx: number, layout: 'single' | 'two-column' | 'two-row-vertical') => {
         if (!onUpdateManual) return;
         onUpdateManual(prev => ({
             ...prev,
@@ -685,6 +685,7 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                         const firstStep = steps[0];
                         const currentLayout = firstStep?.layout || 'single';
                         const isTwoCol = currentLayout === 'two-column';
+                        const isTwoRowV = currentLayout === 'two-row-vertical';
 
                         return (
                             <section key={vIdx} className={`video-section pt-10 pb-16 ${vIdx > 0 ? 'border-t border-slate-200 mt-4' : ''}`}>
@@ -703,15 +704,21 @@ export default function ManualViewer({ manual, videoFile, onUpdateManual }: Manu
                                     <div className="flex bg-slate-100/80 backdrop-blur-sm p-1 rounded-xl border border-slate-200 shadow-inner max-w-fit">
                                         <button
                                             onClick={() => updateLayoutForVideo(vIdx, 'single')}
-                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${!isTwoCol ? 'bg-white text-indigo-900 shadow-md ring-1 ring-slate-900/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${currentLayout === 'single' ? 'bg-white text-indigo-900 shadow-md ring-1 ring-slate-900/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
                                         >
                                             1列（縦並び）
                                         </button>
                                         <button
                                             onClick={() => updateLayoutForVideo(vIdx, 'two-column')}
-                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${isTwoCol ? 'bg-white text-indigo-900 shadow-md ring-1 ring-slate-900/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${currentLayout === 'two-column' ? 'bg-white text-indigo-900 shadow-md ring-1 ring-slate-900/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
                                         >
                                             2列（左右並び）
+                                        </button>
+                                        <button
+                                            onClick={() => updateLayoutForVideo(vIdx, 'two-row-vertical')}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${currentLayout === 'two-row-vertical' ? 'bg-white text-indigo-900 shadow-md ring-1 ring-slate-900/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200'}`}
+                                        >
+                                            縦2行（A4縦）
                                         </button>
                                     </div>
                                 </div>
