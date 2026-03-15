@@ -21,9 +21,19 @@ export async function POST(req: Request) {
         worksheet.columns = [
             { header: 'No.', key: 'no', width: 6 },
             { header: '完了', key: 'check', width: 8 },
-            { header: '操作内容 (キャプション)', key: 'action', width: 45 },
-            { header: '詳細説明 / 作業メモ', key: 'detail', width: 65 },
+            { header: '操作内容 (キャプション)', key: 'action', width: 35 },
+            { header: '詳細説明 / 作業メモ', key: 'detail', width: 45 },
         ];
+
+        // A4印刷設定
+        worksheet.pageSetup = {
+            paperSize: 9, // A4
+            orientation: 'portrait',
+            fitToPage: true,
+            fitToWidth: 1,
+            fitToHeight: 0, // 自動
+            margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 }
+        };
 
         // ヘッダーのスタイル設定
         const headerRow = worksheet.getRow(1);
