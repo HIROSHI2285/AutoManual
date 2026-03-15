@@ -32,6 +32,9 @@ const nextConfig = {
         }
         return config;
     },
+    experimental: {
+        serverComponentsExternalPackages: ['exceljs'],
+    },
 };
 
 export default nextConfig;

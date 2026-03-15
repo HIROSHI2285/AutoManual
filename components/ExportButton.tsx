@@ -61,6 +61,15 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                 } catch (e) { console.error(e); }
                 break;
             }
+            case 'excel': {
+                try {
+                    const { generateAndDownloadExcel } = await import('@/utils/exporters/excelExporter');
+                    // Sanitization for safeTitle as requested: Remove / \ : * ? " < > |
+                    const excelSafeTitle = manual.title.replace(/[\\/:*?"<>|]/g, '_').substring(0, 50);
+                    await generateAndDownloadExcel(manual, excelSafeTitle);
+                } catch (e) { console.error(e); }
+                break;
+            }
             case 'markdown':
                 downloadFile(generateMarkdown(manual), `${safeTitle}.md`, 'text/markdown;charset=utf-8');
                 break;
@@ -87,10 +96,13 @@ export default function ExportButton({ manual }: ExportButtonProps) {
                             </div>
                             <div className="flex gap-2 w-full">
                                 <button className="export-modal__option flex-1 py-3" onClick={() => handleExport('pdf')}><span className="export-modal__label">PDF</span></button>
-                                <button className="export-modal__option flex-1 py-3" onClick={() => handleExport('html')}><span className="export-modal__label">HTML</span></button>
+                                <button className="export-modal__option flex-1 py-3" onClick={() => handleExport('excel')}>
+                                    <span className="export-modal__label">Excel（ﾁｪｯｸﾘｽﾄ）</span>
+                                </button>
                             </div>
-                            <div className="flex gap-2 w-full mt-2">
-                                <button className="export-modal__option flex-1 py-2 bg-slate-50" onClick={() => handleExport('markdown')}><span className="export-modal__label text-xs">Markdown (テキストのみ)</span></button>
+                            <div className="flex gap-2 w-full">
+                                <button className="export-modal__option flex-1 py-3" onClick={() => handleExport('html')}><span className="export-modal__label">HTML</span></button>
+                                <button className="export-modal__option flex-1 py-2 bg-slate-50" onClick={() => handleExport('markdown')}><span className="export-modal__label text-xs">Markdown</span></button>
                             </div>
                         </div>
                         <button className="btn btn--secondary mt-4 w-full" onClick={() => setShowModal(false)}>キャンセル</button>
