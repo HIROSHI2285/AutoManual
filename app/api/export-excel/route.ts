@@ -14,8 +14,8 @@ export async function POST(req: Request) {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('チェックリスト');
 
-        // フォント設定 (Meiryo UI, 10pt)
-        const baseStyle: Partial<ExcelJS.Font> = { name: 'Meiryo UI', size: 10 };
+        // フォント設定 (Meiryo UI, 9pt)
+        const baseStyle: Partial<ExcelJS.Font> = { name: 'Meiryo UI', size: 9 };
 
         // 列の定義
         worksheet.columns = [
