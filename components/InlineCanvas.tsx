@@ -57,6 +57,8 @@ export default function InlineCanvas({
     const [compactScale, setCompactScale] = useState(1);
     // Lazy initialization: Fabric.js Canvas is only created when this step enters the viewport
     const [isCanvasReady, setIsCanvasReady] = useState(false);
+    // Clipboard for copy/paste
+    const clipboardRef = useRef<any[]>([]);
 
     // Zoom & Pan state
     const baseFitZoomRef = useRef(1);   // zoom set during loadContent to fit image
@@ -389,6 +391,31 @@ export default function InlineCanvas({
             // テキスト入力中は完全にイベントをブロック（Delete誤動作防止）
             if (activeObj && (activeObj as any).isEditing) return;
 
+            // Ctrl+C / Cmd+C (Copy)
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+                // 選択中のテキストがある場合はブラウザのデフォルトコピーを優先させるため、
+                // キャンバスにフォーカスがある場合のみ実行
+                const activeElement = document.activeElement;
+                if (activeElement === canvas.getElement().parentElement || activeElement?.tagName === 'BODY') {
+                    e.preventDefault();
+                    handleCopy();
+                }
+                return;
+            }
+
+            // Ctrl+V / Cmd+V (Paste)
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+                const activeElement = document.activeElement;
+                if (activeElement === canvas.getElement().parentElement || activeElement?.tagName === 'BODY') {
+                    // input/textarea内でのペーストは邪魔しない
+                    if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        handlePaste();
+                    }
+                }
+                return;
+            }
+
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 const tag = (document.activeElement?.tagName || '').toUpperCase();
                 const inside = containerRef.current?.contains(document.activeElement);
@@ -403,6 +430,49 @@ export default function InlineCanvas({
                     setTimeout(() => exportToParent(), 10);
                 }
             }
+        };
+
+        // コピーロジック
+        const handleCopy = async () => {
+            const activeObjects = canvas.getActiveObjects();
+            if (activeObjects.length > 0) {
+                // オブジェクトをシリアライズしてクローン
+                const clones = await Promise.all(activeObjects.map(obj => obj.clone(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform'])));
+                clipboardRef.current = clones;
+            }
+        };
+
+        // ペーストロジック
+        const handlePaste = async () => {
+            if (clipboardRef.current.length === 0) return;
+
+            canvas.discardActiveObject();
+            const newObjects: any[] = [];
+
+            for (const obj of clipboardRef.current) {
+                // クリップボードのオブジェクトをさらにクローンして配置
+                const clone = await obj.clone(['selectable', 'evented', 'id', 'lockScalingY', 'hasControls', 'strokeDashArray', 'stroke', 'strokeWidth', 'strokeUniform']);
+                clone.set({
+                    left: clone.left + 20,
+                    top: clone.top + 20,
+                    evented: true,
+                    selectable: true,
+                });
+                canvas.add(clone);
+                newObjects.push(clone);
+            }
+
+            // ペーストしたオブジェクトを選択状態にする
+            if (newObjects.length === 1) {
+                canvas.setActiveObject(newObjects[0]);
+            } else if (newObjects.length > 1) {
+                const sel = new Group(newObjects, { canvas } as any);
+                canvas.setActiveObject(sel);
+            }
+
+            canvas.requestRenderAll();
+            saveState(canvas);
+            exportToParent();
         };
 
         // Undo — restore objects only (background stays)
