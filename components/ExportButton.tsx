@@ -17,7 +17,14 @@ function generateMarkdown(manual: ManualData): string {
     manual.steps.forEach(step => {
         md += `## 手順${step.stepNumber}: ${step.action}\n\n`;
         if (step.detail && step.detail !== step.action) md += `${step.detail}\n\n`;
-        if (step.screenshot) md += `![Step ${step.stepNumber}](${step.screenshot})\n\n`;
+        if (step.screenshot) {
+            // base64 データURL はそのまま埋め込まない（ファイルが巨大になるため）
+            if (step.screenshot.startsWith('data:')) {
+                md += `*(画像あり: 手順 ${step.stepNumber})*\n\n`;
+            } else {
+                md += `![Step ${step.stepNumber}](${step.screenshot})\n\n`;
+            }
+        }
     });
     if (manual.notes && manual.notes.length > 0) {
         md += `---\n\n## 注意事項\n\n`;
@@ -27,7 +34,9 @@ function generateMarkdown(manual: ManualData): string {
 }
 
 function downloadFile(content: string, filename: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
+    // UTF-8 BOM を付与してWindowsのテキストエディタでの文字化けを防ぐ
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + content], { type: mimeType });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = filename;
