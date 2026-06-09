@@ -173,7 +173,7 @@ async function addStepToSlide(
     const baseY = isTwoRowV ? (0.85 + yOffset) : 1.25;
 
     // 1. ナンバリング
-    const numSize = isTwoRowV ? 0.35 : 0.45;
+    const numSize = isTwoRowV ? 0.30 : 0.38;
     // 縦2行の場合、数字が少し小さくなるので、テキストとのバランスを取るためにY座標を少し下げる
     const numY = isTwoRowV ? baseY + 0.05 : baseY;
     slide.addImage({ data: createStepNumberImage(step.stepNumber), x: xPos, y: numY, w: numSize, h: numSize });
@@ -186,15 +186,15 @@ async function addStepToSlide(
 
     if (isTwoRowV) {
         textW = slideW - xPos - 0.65 - 1.0; // 左右に十分な余白を設定
-        actionFontSize = 18;
+        actionFontSize = 14;
         detailFontSize = 12;
     } else if (isTwoCol) {
         textW = cardWidth - 0.7;
-        actionFontSize = 18;
+        actionFontSize = 14;
         detailFontSize = 11;
     } else {
         textW = 9.3 - 0.7;
-        actionFontSize = 24;
+        actionFontSize = 20;
         detailFontSize = 14;
     }
 

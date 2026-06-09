@@ -64,8 +64,8 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
 
         const numDataUrl = createStepNumberImage(step.stepNumber);
         const { data: numData, type: numType } = dataUrlToUint8Array(numDataUrl);
-        const actionSize = isTwoCol ? 28 : 32; // 14pt / 16pt
-        const detailSize = isTwoCol ? 22 : 24; // 11pt / 12pt
+        const actionSize = isTwoCol ? 24 : 26; // 12pt / 13pt
+        const detailSize = isTwoCol ? 20 : 22; // 10pt / 11pt
 
         // 1. 表題 (VerticalAlign.TOP に変更して上揃えを強制)
         const titleTable = new Table({
@@ -78,7 +78,7 @@ export async function generateAndDownloadDocx(manual: ManualData): Promise<void>
                         verticalAlign: VerticalAlign.TOP, // 上揃え
                         children: [new Paragraph({
                             keepNext: true, // 泣き別れ防止
-                            children: [new ImageRun({ data: numData, transformation: { width: 32, height: 32 }, type: numType })]
+                            children: [new ImageRun({ data: numData, transformation: { width: 26, height: 26 }, type: numType })]
                         })]
                     }),
                     new TableCell({

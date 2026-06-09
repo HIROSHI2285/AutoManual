@@ -227,15 +227,15 @@ export async function generateHTML(manual: ManualData): Promise<string> {
     .step-header.two-col { align-items: center; }
     .step-header.single-col { align-items: flex-start; }
 
-    .num-icon-wrapper { 
-        width: 14mm; height: 14mm; flex-shrink: 0; 
+    .num-icon-wrapper {
+        width: 11mm; height: 11mm; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
         overflow: visible !important;
     }
     .num-icon { width: 100%; height: 100%; display: block; object-fit: contain; }
     
-    .action-text { 
-        font-size: 13pt; 
+    .action-text {
+        font-size: 11pt;
         font-weight: 800; 
         color: #1e1b4b; 
     }
@@ -248,9 +248,9 @@ export async function generateHTML(manual: ManualData): Promise<string> {
     }
     .text-container.two-col { min-height: 30mm; flex-shrink: 0; }
 
-    .detail-text { 
-        margin-left: 15mm; 
-        font-size: 10.5pt; 
+    .detail-text {
+        margin-left: 15mm;
+        font-size: 9.5pt;
         margin-top: 0mm !important; 
         white-space: pre-wrap; color: #000; 
     }
